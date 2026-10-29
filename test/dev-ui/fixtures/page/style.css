@@ -1,0 +1,36 @@
+html,
+body {
+  margin: 0;
+  background: transparent;
+  color: #e8eef4;
+  font:
+    18px/1.5 'Segoe UI',
+    sans-serif;
+}
+
+#app {
+  position: absolute;
+  top: 48px;
+  left: 48px;
+  padding: 16px 24px;
+  border-radius: 8px;
+  background: rgba(16, 20, 24, 0.85);
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+
+ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.ok {
+  color: #7ee787;
+}
+
+.off {
+  color: #ff7b72;
+}

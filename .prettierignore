@@ -1,0 +1,7 @@
+# Generated from the engine
+types/
+
+# Placeholders like __TITLE__ must survive formatting
+templates/**/*.md
+
+package-lock.json

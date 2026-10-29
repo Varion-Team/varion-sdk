@@ -1,0 +1,7 @@
+.varion/
+node_modules/
+
+# secrets stay on this machine
+.env
+.env.*
+!.env.example

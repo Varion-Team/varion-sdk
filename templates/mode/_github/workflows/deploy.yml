@@ -1,0 +1,75 @@
+# main -> test, tags v* -> prod, any other branch -> its own preview server.
+# Secrets: VARION_SDK_TOKEN, VARION_DEPLOY_TOKEN, VARION_DEPLOY_KEY (see README.md).
+name: Deploy
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment
+        type: choice
+        options: [test, prod]
+        default: test
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Access the Varion SDK
+        shell: bash
+        env:
+          SDK_TOKEN: ${{ secrets.VARION_SDK_TOKEN }}
+        run: |
+          git config --global url."https://x-access-token:${SDK_TOKEN}@github.com/Varion-Team/".insteadOf "https://github.com/Varion-Team/"
+          git config --global --add url."https://x-access-token:${SDK_TOKEN}@github.com/Varion-Team/".insteadOf "ssh://git@github.com/Varion-Team/"
+
+      - run: npm ci
+
+      - uses: actions/cache@v6
+        with:
+          path: .varion/engine
+          key: varion-engine-${{ hashFiles('varion.toml') }}
+
+      - name: Pick the environment
+        id: target
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT: ${{ inputs.environment }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            env="$INPUT"
+          elif [[ "$REF" == refs/tags/v* ]]; then
+            env=prod
+          elif [ "$REF_NAME" = "main" ]; then
+            env=test
+          else
+            slug=$(printf '%s' "$REF_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g; s/^[^a-z0-9]+//' | cut -c1-63 | sed -E 's/[._-]+$//')
+            env="preview-$slug"
+          fi
+          echo "env=$env" >> "$GITHUB_OUTPUT"
+
+      - run: npx varion deploy ${{ steps.target.outputs.env }}
+        env:
+          VARION_DEPLOY_TOKEN: ${{ secrets.VARION_DEPLOY_TOKEN }}
+          VARION_DEPLOY_KEY: ${{ secrets.VARION_DEPLOY_KEY }}

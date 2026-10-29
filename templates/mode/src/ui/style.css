@@ -1,0 +1,66 @@
+/* The page lies over the game on a transparent background; sizes follow a 1920x1080 screen. */
+html,
+body {
+  margin: 0;
+  background: transparent;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  color: #f4f6fb;
+  user-select: none;
+}
+
+.panel {
+  position: fixed;
+  top: 32px;
+  right: 32px;
+  width: 300px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  /* Varion blurs the game under elements with backdrop-filter: blur() (up to 32 per screen). */
+  background: rgba(12, 14, 20, 0.55);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  transition: outline-color 0.2s;
+  outline: 2px solid transparent;
+}
+
+.panel.is-active {
+  outline-color: rgba(120, 170, 255, 0.8);
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.greeting {
+  margin: 0 0 12px;
+  opacity: 0.85;
+}
+
+.stats {
+  margin: 0 0 14px;
+  font-size: 14px;
+}
+
+button {
+  width: 100%;
+  padding: 10px 0;
+  border: 0;
+  border-radius: 10px;
+  background: #3d7bfd;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:active {
+  transform: translateY(1px);
+}
+
+.hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  opacity: 0.6;
+}

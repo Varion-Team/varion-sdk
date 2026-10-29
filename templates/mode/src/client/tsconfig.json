@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "include": [
+    "./**/*.ts",
+    "../shared/**/*.ts",
+    "../../types/varion-client.d.ts",
+    "../../types/varion-natives.d.ts"
+  ]
+}
