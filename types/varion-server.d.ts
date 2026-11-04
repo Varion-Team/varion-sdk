@@ -1,17 +1,25 @@
-// Generated from the Varion engine. Do not edit by hand.
+// GENERATED FILE -- do not edit by hand.
+// Varion server API, reflected out of the running runtime by tools/extract-varion-server-api.cjs.
+// Regenerate with: node tools/generate-varion-types.cjs
+//
+// Reflection recovers names, ownership and kind, not signatures: parameters and
+// return types are permissive, except the documented API (DEVELOPER-KIT.md section 5),
+// typed from tools/sdk-signatures.cjs and checked against the runtime on every run.
+// `readonly` marks what the runtime does not let a script assign (a getter without
+// a setter, a non-writable property) and the constants of classes and namespaces.
 
 /** Anything with numeric x, y, z: a Vector3 or a plain object. */
 export interface Vector3Like { x: number; y: number; z: number; }
 /** RGBA colour; `a` defaults to 255. */
 export interface RGBALike { r: number; g: number; b: number; a?: number; }
-/** Options of createBlip. Unlisted alt:V blip properties are passed to the core as given. */
+/** Options of createBlip. Other properties are passed to the core as given. */
 export interface BlipOptions {
     pos?: Vector3Like; x?: number; y?: number; z?: number;
     sprite?: number; color?: number; scale?: number; shortRange?: boolean; name?: string;
     dimension?: number;
     [option: string]: any;
 }
-/** Options of createMarker. Unlisted alt:V marker properties are passed to the core as given. */
+/** Options of createMarker. Other properties are passed to the core as given. */
 export interface MarkerOptions {
     pos?: Vector3Like; x?: number; y?: number; z?: number;
     type?: number; scale?: Vector3Like; color?: RGBALike;
@@ -26,7 +34,7 @@ export interface MarkerOptions {
  * the owner has it -- and a property (colours, plate, mods, extras, livery, tint, dirt, locks, engine,
  * doors) whose owner did not run it: it left, did not answer, did not control the car yet; the server
  * sends it to the car's owner again until its GTA ran it), "gone", "invalid", "no-answer" (none in
- * 3 s: a busy client -- then the change may still happen),
+ * 3 s: an older client, or a busy one -- then the change may still happen),
  * "owner-left", "not-sent", "full" (64 changes for the car already wait or travel), "sent". A
  * property hears "queued" for "not-found", "not-owner", "busy", "no-answer", "owner-left" and
  * "not-sent"; an action (setPosition, a NativePed's task) hears them: it never goes twice.
@@ -42,14 +50,14 @@ export type NativeVehicleCommandOutcome = "done" | "not-found" | "not-owner" | "
  */
 export type NativeEntityControlOutcome = "done" | "gone" | "waiting" | "not-native" | "refused" | "invalid" | "no-answer";
 /**
- * Which cars, NPCs and objects a client may create (FiveM sv_entityLockdown): "inactive" all,
+ * Which cars, NPCs and objects a client may create: "inactive" all,
  * "no_dummy" all but map objects GTA networked, "relaxed" only GTA's own population (its random
  * ambient, parked, patrol, permanent and scenario vehicles and peds), "strict" none. Exploded map
  * objects pass every lockdown, parachutes too.
  */
 export type EntityLockdownMode = "inactive" | "no_dummy" | "relaxed" | "strict";
 /**
- * A train carriage's place in its train and the train's state (NativeVehicle.train), as FiveM's server
+ * A train carriage's place in its train and the train's state (NativeVehicle.train), as the server
  * natives read its owner's CTrainGameStateDataNode. Carriages are NativeVehicles of vehicleType "train".
  */
 export interface NativeTrainState {
@@ -120,72 +128,148 @@ export const AmmoSpecialType: {
 };
 
 export class AreaBlip {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    addTarget(...args: any[]): any;
-    alpha: any;
-    asMissionCreator: any;
-    attachedTo: any;
-    blipType: any;
-    bright: any;
-    category: any;
-    color: any;
-    crewIndicatorVisible: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    display: any;
-    fade(...args: any[]): any;
-    flashes: any;
-    flashesAlternate: any;
-    flashInterval: any;
-    flashTimer: any;
-    friendIndicatorVisible: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    gxtName: any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    heading: any;
-    headingIndicatorVisible: any;
-    height: any;
-    highDetail: any;
-    id: any;
-    readonly isAttached: any;
-    isFriendly: any;
-    isGlobal: any;
-    readonly kind: any;
-    name: any;
-    number: any;
-    outlineIndicatorVisible: any;
-    pos: any;
-    priority: any;
-    pulse: any;
-    radius: any;
-    removeTarget(...args: any[]): any;
-    route: any;
-    routeColor: any;
-    scale: any;
-    secondaryColor: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    shortRange: any;
-    showCone: any;
-    shrinked: any;
-    size: any;
-    sprite: any;
-    readonly targets: any;
-    tickVisible: any;
-    readonly type: any;
-    readonly valid: any;
-    visible: any;
-    width: any;
+    /** Creates an area blip, a rectangle of `width` × `height` metres around x, y, z, in dimension 0. Every player there sees it; with `global` false (default true) only the players added with `addTarget` do. */
+    constructor(x: number, y: number, z: number, width: number, height: number, global?: boolean);
+    /** Every valid area blip of every resource; a new array on each read. A blip whose kind blipType changes moves to that class's list. */
+    static readonly all: AreaBlip[];
+    /** How many valid area blips there are now. */
+    static readonly count: number;
+    /** The valid area blip with that id; null for none or for a blip of another kind. */
+    static getByID(id: number): AreaBlip | null;
+    /** Adds a player to its targets (they get it while isGlobal is false) and re-sends the blip; nothing happens for one already there. Throws a TypeError for a player who is not connected. */
+    addTarget(player: Player): void;
+    /** Opacity 0..255, 255 by default; truncated to an integer, and clients clamp it to 0..255. After fade it reads the opacity faded to. */
+    alpha: number;
+    /** SET_BLIP_AS_MISSION_CREATOR_BLIP; false by default. */
+    asMissionCreator: boolean;
+    /** The player, vehicle, ped or object it was given, while that one exists; null for none or once it is gone. Clients do not attach a area blip (GTA makes an area only at a position): assigning moves the blip to where the entity is now. Anything else, an invalid entity or a native vehicle or NPC throws a TypeError. */
+    attachedTo: Player | Vehicle | Ped | Object | VirtualEntity | null;
+    /** BlipType.Area (11). Assigning Destination (4) makes it a point blip (detached) and Radius (7) a radius blip (100 m where it has no radius); the object becomes a PointBlip or RadiusBlip. Any other type throws a RangeError. Its size follows the new kind: scale for a point or radius blip, width and height for an area. */
+    blipType: number;
+    /** SET_BLIP_BRIGHT; false by default. */
+    bright: boolean;
+    /** SET_BLIP_CATEGORY, 0 by default. Truncated to an integer. */
+    category: number;
+    /** Colour index, as BlipColor; 0 by default. The cone (showCone) uses it too, and so does the route while routeColor is black. Truncated to an integer. */
+    color: number;
+    /** SHOW_CREW_INDICATOR_ON_BLIP; false by default. */
+    crewIndicatorVisible: boolean;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the blip from every client and from Blip.all; valid turns false and baseObjectRemove fires. After it its setters and methods change and send nothing (an update would make it anew); later calls do nothing, and a resource's blips go when it stops. */
+    destroy(): void;
+    /** Clients show it to players whose dimension sees it: in this dimension, 0 by default; in every one at -2147483648; and at 0 also to players in a negative dimension. The blip still reaches its players in other dimensions, hidden. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** Display mode (SET_BLIP_DISPLAY), 4 by default; clients use 0 while visible is false. Truncated to an integer. */
+    display: number;
+    /** Fades it on clients to opacity 0..255 (truncated and clamped) over duration milliseconds (SET_BLIP_FADE); a negative duration is 0. The fade runs once: alpha then reads that opacity, and a later change shows the blip at it (a change during the fade ends it there). */
+    fade(opacity: number, duration: number): void;
+    /** SET_BLIP_FLASHES; false by default. */
+    flashes: boolean;
+    /** SET_BLIP_FLASHES_ALTERNATE; false by default. */
+    flashesAlternate: boolean;
+    /** SET_BLIP_FLASH_INTERVAL in milliseconds, 0 by default. Truncated to an integer. */
+    flashInterval: number;
+    /** SET_BLIP_FLASH_TIMER in milliseconds, 0 by default. Truncated to an integer. */
+    flashTimer: number;
+    /** SHOW_FRIEND_INDICATOR_ON_BLIP; false by default. */
+    friendIndicatorVisible: boolean;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** GXT label of the name (SET_BLIP_NAME_FROM_TEXT_FILE), used while name is empty; '' by default. Assigning converts to text, null gives ''. */
+    gxtName: string;
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Rotation of the icon in degrees, 0 by default; NaN is 0. */
+    heading: number;
+    /** SHOW_HEADING_INDICATOR_ON_BLIP; false by default. */
+    headingIndicatorVisible: boolean;
+    /** Height of the area (along y) in metres (ADD_BLIP_FOR_AREA), 100 when not given at creation. It sets size too, so clients draw the area at the new height; NaN is 0. */
+    get height(): number | undefined;
+    set height(value: number);
+    /** SET_BLIP_HIGH_DETAIL; false by default. */
+    highDetail: boolean;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether attachedTo names an entity: false once that entity is gone. Clients do not attach an area blip. */
+    readonly isAttached: boolean;
+    /** SET_BLIP_AS_FRIENDLY; false by default. */
+    isFriendly: boolean;
+    /** True (the default): every player gets it; false: only its targets. Assigning re-sends it, and players who no longer get it lose it. */
+    isGlobal: boolean;
+    /** Always "blip". */
+    readonly kind: "blip";
+    /** Name shown for it on the map; undefined until set. It wins over gxtName. Assigning converts to text, null or '' clears it; quotes, backslashes and line breaks reach the clients as they are. */
+    get name(): string | undefined;
+    set name(value: string);
+    /** Number shown on it (SHOW_NUMBER_ON_BLIP), at most 99; a negative one hides it, -1 by default. Truncated to an integer. */
+    number: number;
+    /** SHOW_OUTLINE_INDICATOR_ON_BLIP; false by default. */
+    outlineIndicatorVisible: boolean;
+    /** Centre of the area. Assigning moves it for every player who gets the blip; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** SET_BLIP_PRIORITY, 0 by default. Truncated to an integer. */
+    priority: number;
+    /** PULSE_BLIP each time a client creates the blip: when it arrives and after every change to it; false by default. */
+    pulse: boolean;
+    /** Not used by an area blip: kept to read only, undefined until given, and assigning sends nothing; it becomes the radius when blipType makes the blip a radius blip. */
+    get radius(): number | undefined;
+    set radius(value: number);
+    /** Removes a player from its targets and re-sends the blip; anything not among them is ignored. A player who leaves is removed from every blip. */
+    removeTarget(player: Player): void;
+    /** GPS route to it (SET_BLIP_ROUTE); false by default. */
+    route: boolean;
+    /** Colour of its route: clients take the HUD colour nearest to r, g, b (black, the default: the blip's colour; alpha is not used). Assigning takes an RGBA or a number 0xRRGGBB; components are clamped to 0..255. */
+    get routeColor(): RGBA;
+    set routeColor(value: RGBALike | number);
+    /** SET_BLIP_SCALE, 1 by default; NaN is 0. Not used by an area blip, which clients draw at its width and height: assigning only keeps it and sends nothing; it sets size when blipType makes the blip a point or radius blip. */
+    scale: number;
+    /** SET_BLIP_SECONDARY_COLOUR with r, g, b (alpha is not used); black by default. Assigning takes an RGBA or a number 0xRRGGBB; components are clamped to 0..255. */
+    get secondaryColor(): RGBA;
+    set secondaryColor(value: RGBALike | number);
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every player who gets the blip (everyone, or only its targets when it is not global), later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the blip changes later (they make it anew and the server does not send it again) and keep none for a blip they do not show (another dimension). Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Short-range blip (SET_BLIP_AS_SHORT_RANGE); true by default. */
+    shortRange: boolean;
+    /** A cone in the blip's colour (SET_BLIP_SHOW_CONE); false by default. */
+    showCone: boolean;
+    /** Drawn small at the edge of the minimap (SET_BLIP_AS_MINIMAL_ON_EDGE); false by default. */
+    shrinked: boolean;
+    /** The area's width and height as clients draw it (SET_BLIP_SCALE_2D, applied after the area is made): width and height set it, and assigning sets them. Takes { x, y }; a missing or non-numeric component is 0. */
+    get size(): Vector2;
+    set size(value: { x: number; y: number });
+    /** Icon, as BlipSprite; 1 by default. Truncated to an integer. */
+    sprite: number;
+    /** The connected players among its targets: while isGlobal is false only they get it. A new array on each read. */
+    readonly targets: Player[];
+    /** A tick on the blip (SHOW_TICK_ON_BLIP); false by default. */
+    tickVisible: boolean;
+    /** BaseObjectType.Blip (4); the GTA blip type is blipType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
+    /** False hides it on clients (SET_BLIP_DISPLAY 0) without removing it; true by default. */
+    visible: boolean;
+    /** Width of the area (along x) in metres (ADD_BLIP_FOR_AREA), 100 when not given at creation. It sets size too, so clients draw the area at the new width; NaN is 0. */
+    get width(): number | undefined;
+    set width(value: number);
 }
 
 export const AudioCategories: {
@@ -418,219 +502,47 @@ export const AudioCategories: {
 };
 
 export class BaseObject {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly accelerationLevel: any;
-    activeRadioStation: any;
-    readonly attached: any;
-    readonly attachedTo: any;
-    attachTo(...args: any[]): any;
-    boatAnchorActive: any;
-    bodyAdditionalHealth: any;
-    bodyHealth: any;
-    readonly brakeLevel: any;
-    collision: any;
-    counterMeasureCount: any;
-    customPrimaryColor: any;
-    customSecondaryColor: any;
-    customTires: any;
-    darkness: any;
-    dashboardColor: any;
-    daylightOn: any;
-    deleteMeta(...args: any[]): any;
-    deleteStreamSyncedMeta(...args: any[]): any;
-    deleteStreamSyncedMetaData(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    deleteSyncedMetaData(...args: any[]): any;
-    destroy(...args: any[]): any;
-    readonly destroyed: any;
-    detach(...args: any[]): any;
-    dimension: any;
-    dirtLevel: any;
-    doesWheelHasTire(...args: any[]): any;
-    driftModeEnabled: any;
-    readonly driver: any;
-    engineHealth: any;
-    engineOn: any;
-    readonly flamethrowerActive: any;
-    readonly frontWheels: any;
-    frozen: any;
-    readonly gear: any;
-    getAppearanceDataBase64(...args: any[]): any;
-    getArmoredWindowHealth(...args: any[]): any;
-    getArmoredWindowShootCount(...args: any[]): any;
-    getBumperDamageLevel(...args: any[]): any;
-    getDamageStatusBase64(...args: any[]): any;
-    getDoorState(...args: any[]): any;
-    getExtra(...args: any[]): any;
-    getGamestateDataBase64(...args: any[]): any;
-    getHealthDataBase64(...args: any[]): any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getMod(...args: any[]): any;
-    getModsCount(...args: any[]): any;
-    getPartBulletHoles(...args: any[]): any;
-    getPartDamageLevel(...args: any[]): any;
-    getScriptDataBase64(...args: any[]): any;
-    getStreamSyncedMeta(...args: any[]): any;
-    getStreamSyncedMetaData(...args: any[]): any;
-    getStreamSyncedMetaDataKeys(...args: any[]): any;
-    getStreamSyncedMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaData(...args: any[]): any;
-    getSyncedMetaDataKeys(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    getWeaponCapacity(...args: any[]): any;
-    getWheelCamber(...args: any[]): any;
-    getWheelHealth(...args: any[]): any;
-    getWheelHeight(...args: any[]): any;
-    getWheelRimRadius(...args: any[]): any;
-    getWheelTrackWidth(...args: any[]): any;
-    getWheelTyreRadius(...args: any[]): any;
-    getWheelTyreWidth(...args: any[]): any;
-    handbrakeActive: any;
-    readonly hasArmoredWindows: any;
-    hasMeta(...args: any[]): any;
-    hasStreamSyncedMeta(...args: any[]): any;
-    hasStreamSyncedMetaData(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    hasSyncedMetaData(...args: any[]): any;
-    readonly hasTimedExplosion: any;
-    headlightColor: any;
-    readonly heliMainRotorHealth: any;
-    readonly heliTailRotorHealth: any;
-    hornActive: any;
-    hybridExtraActive: any;
-    hybridExtraState: any;
-    id: any;
-    indicatorLights: any;
-    interiorColor: any;
-    isLightDamaged(...args: any[]): any;
-    isMissionTrain: any;
-    isSpecialLightDamaged(...args: any[]): any;
-    isStaticEntity: any;
-    isToggleModOn(...args: any[]): any;
-    isTrainCaboose: any;
-    isTrainEngine: any;
-    isWheelBurst(...args: any[]): any;
-    isWheelDetached(...args: any[]): any;
-    isWheelOnFire(...args: any[]): any;
-    isWindowDamaged(...args: any[]): any;
-    isWindowOpened(...args: any[]): any;
-    readonly kind: any;
-    readonly landingGearState: any;
-    lightsMultiplier: any;
-    lightState: any;
-    livery: any;
-    lockState: any;
-    manualEngineControl: any;
-    model: any;
-    modKit: any;
-    readonly modKitsCount: any;
-    neon: any;
-    neonColor: any;
-    readonly netOwner: any;
-    readonly netOwnershipDisabled: any;
-    nightlightOn: any;
-    numberPlateIndex: any;
-    numberPlateText: any;
-    readonly passengers: any;
-    pearlColor: any;
-    petrolTankHealth: any;
-    pos: any;
-    primaryColor: any;
-    quaternion: any;
-    readonly rearWheels: any;
-    repair(...args: any[]): any;
-    readonly repairsCount: any;
-    resetNetOwner(...args: any[]): any;
-    rocketRefuelSpeed: any;
-    roofClosed: any;
-    roofLivery: any;
-    roofState: any;
-    rot: any;
-    rotation: any;
-    readonly rpm: any;
-    scriptMaxSpeed: any;
-    secondaryColor: any;
-    setAppearanceDataBase64(...args: any[]): any;
-    setArmoredWindowHealth(...args: any[]): any;
-    setArmoredWindowShootCount(...args: any[]): any;
-    setBumperDamageLevel(...args: any[]): any;
-    setDamageStatusBase64(...args: any[]): any;
-    setDoorState(...args: any[]): any;
-    setExtra(...args: any[]): any;
-    setGamestateDataBase64(...args: any[]): any;
-    setHealthDataBase64(...args: any[]): any;
-    setLightDamaged(...args: any[]): any;
-    setMeta(...args: any[]): any;
-    setMod(...args: any[]): any;
-    setNetOwner(...args: any[]): any;
-    setPartBulletHoles(...args: any[]): any;
-    setPartDamageLevel(...args: any[]): any;
-    setRearWheels(...args: any[]): any;
-    setScriptDataBase64(...args: any[]): any;
-    setSearchLightTo(...args: any[]): any;
-    setSpecialLightDamaged(...args: any[]): any;
-    setStreamSyncedMeta(...args: any[]): any;
-    setStreamSyncedMetaData(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    setSyncedMetaData(...args: any[]): any;
-    setTimedExplosion(...args: any[]): any;
-    setTrainEngineId(...args: any[]): any;
-    setTrainLinkedToBackwardId(...args: any[]): any;
-    setTrainLinkedToForwardId(...args: any[]): any;
-    setWeaponCapacity(...args: any[]): any;
-    setWheelBurst(...args: any[]): any;
-    setWheelCamber(...args: any[]): any;
-    setWheelDetached(...args: any[]): any;
-    setWheelFixed(...args: any[]): any;
-    setWheelHasTire(...args: any[]): any;
-    setWheelHealth(...args: any[]): any;
-    setWheelHeight(...args: any[]): any;
-    setWheelOnFire(...args: any[]): any;
-    setWheelRimRadius(...args: any[]): any;
-    setWheels(...args: any[]): any;
-    setWheelTrackWidth(...args: any[]): any;
-    setWheelTyreRadius(...args: any[]): any;
-    setWheelTyreWidth(...args: any[]): any;
-    setWindowDamaged(...args: any[]): any;
-    setWindowOpened(...args: any[]): any;
-    sirenActive: any;
-    steeringAngle: any;
-    streamed: any;
-    streamingDistance: any;
-    readonly timedExplosionCulprit: any;
-    readonly timedExplosionTime: any;
-    readonly timestamp: any;
-    tireSmokeColor: any;
-    toggleMod(...args: any[]): any;
-    trainCarriageConfigIndex: any;
-    trainConfigIndex: any;
-    trainCruiseSpeed: any;
-    trainDirection: any;
-    trainDistanceFromEngine: any;
-    readonly trainEngineId: any;
-    trainForceDoorsOpen: any;
-    readonly trainLinkedToBackwardId: any;
-    readonly trainLinkedToForwardId: any;
-    trainPassengerCarriages: any;
-    trainRenderDerailed: any;
-    trainTrackId: any;
-    trainUnk1: any;
-    trainUnk2: any;
-    trainUnk3: any;
-    readonly type: any;
-    readonly valid: any;
-    velocity: any;
-    visible: any;
-    wheelColor: any;
-    readonly wheelsCount: any;
-    wheelType: any;
-    windowTint: any;
+    /** Instances are created by the VARION runtime and cannot be constructed directly. */
+    private constructor();
+    /** Every valid object of the API: players, old-path vehicles, peds, objects and virtual entities, blips, markers, colshapes, checkpoints, text labels, voice channels, virtual entity groups, then native vehicles and NPCs. A new array on each read. */
+    static readonly all: BaseObject[];
+    /** How many objects BaseObject.all holds now. */
+    static readonly count: number;
+    /** With a BaseObjectType and an id, that object of that type; with an id alone, the player, old-path entity or native vehicle or NPC of that id (blips, markers, colshapes and the rest need the type). Null for none or a non-integer id. */
+    static getByID(type: number, id: number): BaseObject | null;
+    static getByID(id: number): BaseObject | null;
+    /** Removes the key from this host's own metadata: true, and metaChange fires with the value undefined; false when the key was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the synced key: clients lose it and syncedMetaChange fires with undefined; false when the key was not there. Once the object is gone only this host's copy goes. */
+    deleteSyncedMeta(key: string): boolean;
+    /** The value setMeta stored under the key, undefined for none: this host's own metadata, which no client sees. */
+    getMeta(key: string): any;
+    /** The keys of this host's own metadata (setMeta); getMetaKeys returns the same. */
+    getMetaDataKeys(): string[];
+    /** The keys of this host's own metadata (setMeta), as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script set it (an entity stays that entity); undefined for none. On a player or old-path entity a change a C# resource made arrives through the server, its entity references turned into this host's objects. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored, as this host keeps them. */
+    getSyncedMetaKeys(): string[];
+    /** Whether this host's own metadata (setMeta) holds the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key, as this host keeps them. */
+    hasSyncedMeta(key: string): boolean;
+    /** Its id within its kind: the network id of a player or old-path entity (a removed one's id is reused), the script id of a native vehicle or NPC (from 65536); blips, markers, colshapes, checkpoints and text labels share one counter, voice channels have their own. Ids of different kinds can be equal. */
+    readonly id: number;
+    /** Its kind by name; native vehicles and NPCs read "vehicle" and "ped". "entity" only while the server has not named an entity's kind yet. */
+    readonly kind: "player" | "vehicle" | "ped" | "object" | "virtualEntity" | "blip" | "marker" | "colshape" | "checkpoint" | "textlabel" | "voiceChannel" | "virtualEntityGroup" | "entity";
+    /** Stores a value under the key in this host's own metadata, which no client sees; an object alone sets each of its keys. metaChange fires unless the value is the same (Object.is); the key is turned into a string. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Synced metadata the clients get with it (getSyncedMeta there); syncedMetaChange fires here unless the value is the same. The key must be 1..1024 UTF-8 bytes (RangeError) and the value serializable within 512 KiB (TypeError, RangeError); once the object is gone only this host's copy changes. A voice channel's or virtual entity group's stays on this host. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Its BaseObjectType: Player 0, Vehicle 1, Ped 2, Object 3, Blip 4, VoiceChannel 6, Colshape 7, Checkpoint 8, VirtualEntity 20, VirtualEntityGroup 21, Marker 22, TextLabel 23; -1 while the server has not named an entity's kind. */
+    readonly type: number;
+    /** False once it is gone: a player left, an old-path entity from its destroy() on (true again if the server refused the removal), a blip, marker, colshape, voice channel or group once destroyed or its resource stopped, a native vehicle or NPC once the server removed it. */
+    readonly valid: boolean;
 }
 
 export const BaseObjectFilterType: {
@@ -714,73 +626,148 @@ export const Benefit: {
 };
 
 export class Blip {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    addTarget(...args: any[]): any;
-    alpha: any;
-    asMissionCreator: any;
-    attachedTo: any;
-    /** GTA's blip type, as alt:V's BlipType: Radius (7) and Area (11) by the kind, Vehicle (1), Ped (2) and Object (3) by what it is attached to, else Destination (4). Assigning Destination, Radius or Area makes it that kind where it is (the class follows; a radius or area without a size gets 100 m; a destination is detached); any other type throws a RangeError unless the blip already has it. */
+    /** Instances are created by the VARION runtime and cannot be constructed directly. */
+    private constructor();
+    /** Every valid blip of every resource, point, radius and area alike; a new array on each read. */
+    static readonly all: Blip[];
+    /** How many blips Blip.all holds now. */
+    static readonly count: number;
+    /** The valid blip with that id, of any kind; null for none. */
+    static getByID(id: number): Blip | null;
+    /** Adds a player to its targets (they get it while isGlobal is false) and re-sends the blip; nothing happens for one already there. Throws a TypeError for a player who is not connected. */
+    addTarget(player: Player): void;
+    /** Opacity 0..255, 255 by default; truncated to an integer, and clients clamp it to 0..255. After fade it reads the opacity faded to. */
+    alpha: number;
+    /** SET_BLIP_AS_MISSION_CREATOR_BLIP; false by default. */
+    asMissionCreator: boolean;
+    /** For a point blip: the player, vehicle, ped or object it follows, while that one exists; a client that has it shows the blip on it (ADD_BLIP_FOR_ENTITY), others at the position it had when attached; null for none. Once the entity is gone it reads null and the blip stays where the entity was last seen. Assigning copies the entity's position, null detaches; anything else, an invalid entity or a native vehicle or NPC throws a TypeError. */
+    attachedTo: Player | Vehicle | Ped | Object | VirtualEntity | null;
+    /** GTA's blip type, as BlipType: Radius (7) and Area (11) by the kind, Vehicle (1), Ped (2) and Object (3) by what it is attached to, else Destination (4). Assigning Destination, Radius or Area makes it that kind where it is (the class follows; a radius or area without a size gets 100 m; a destination is detached); any other type throws a RangeError unless the blip already has it. */
     blipType: number;
-    bright: any;
-    category: any;
-    color: any;
-    crewIndicatorVisible: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    display: any;
-    fade(...args: any[]): any;
-    flashes: any;
-    flashesAlternate: any;
-    flashInterval: any;
-    flashTimer: any;
-    friendIndicatorVisible: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    gxtName: any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    heading: any;
-    headingIndicatorVisible: any;
-    height: any;
-    highDetail: any;
-    id: any;
-    readonly isAttached: any;
-    isFriendly: any;
-    isGlobal: any;
-    readonly kind: any;
-    name: any;
-    number: any;
-    outlineIndicatorVisible: any;
-    pos: any;
-    priority: any;
-    pulse: any;
-    radius: any;
-    removeTarget(...args: any[]): any;
-    route: any;
-    routeColor: any;
-    scale: any;
-    secondaryColor: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    shortRange: any;
-    showCone: any;
-    shrinked: any;
-    size: any;
-    sprite: any;
-    readonly targets: any;
-    tickVisible: any;
-    readonly type: any;
-    readonly valid: any;
-    visible: any;
-    width: any;
+    /** SET_BLIP_BRIGHT; false by default. */
+    bright: boolean;
+    /** SET_BLIP_CATEGORY, 0 by default. Truncated to an integer. */
+    category: number;
+    /** Colour index, as BlipColor; 0 by default. The cone (showCone) uses it too, and so does the route while routeColor is black. Truncated to an integer. */
+    color: number;
+    /** SHOW_CREW_INDICATOR_ON_BLIP; false by default. */
+    crewIndicatorVisible: boolean;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the blip from every client and from Blip.all; valid turns false and baseObjectRemove fires. After it its setters and methods change and send nothing (an update would make it anew); later calls do nothing, and a resource's blips go when it stops. */
+    destroy(): void;
+    /** Clients show it to players whose dimension sees it: in this dimension, 0 by default; in every one at -2147483648; and at 0 also to players in a negative dimension. The blip still reaches its players in other dimensions, hidden. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** Display mode (SET_BLIP_DISPLAY), 4 by default; clients use 0 while visible is false. Truncated to an integer. */
+    display: number;
+    /** Fades it on clients to opacity 0..255 (truncated and clamped) over duration milliseconds (SET_BLIP_FADE); a negative duration is 0. The fade runs once: alpha then reads that opacity, and a later change shows the blip at it (a change during the fade ends it there). */
+    fade(opacity: number, duration: number): void;
+    /** SET_BLIP_FLASHES; false by default. */
+    flashes: boolean;
+    /** SET_BLIP_FLASHES_ALTERNATE; false by default. */
+    flashesAlternate: boolean;
+    /** SET_BLIP_FLASH_INTERVAL in milliseconds, 0 by default. Truncated to an integer. */
+    flashInterval: number;
+    /** SET_BLIP_FLASH_TIMER in milliseconds, 0 by default. Truncated to an integer. */
+    flashTimer: number;
+    /** SHOW_FRIEND_INDICATOR_ON_BLIP; false by default. */
+    friendIndicatorVisible: boolean;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** GXT label of the name (SET_BLIP_NAME_FROM_TEXT_FILE), used while name is empty; '' by default. Assigning converts to text, null gives ''. */
+    gxtName: string;
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Rotation of the icon in degrees, 0 by default; NaN is 0. */
+    heading: number;
+    /** SHOW_HEADING_INDICATOR_ON_BLIP; false by default. */
+    headingIndicatorVisible: boolean;
+    /** Height (along y) in metres of an area blip (ADD_BLIP_FOR_AREA), 100 for an area made without one; it sets the area's size. Point and radius blips do not use it: undefined until given there, and assigning sends nothing. */
+    get height(): number | undefined;
+    set height(value: number);
+    /** SET_BLIP_HIGH_DETAIL; false by default. */
+    highDetail: boolean;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether attachedTo names an entity: false once that entity is gone. */
+    readonly isAttached: boolean;
+    /** SET_BLIP_AS_FRIENDLY; false by default. */
+    isFriendly: boolean;
+    /** True (the default): every player gets it; false: only its targets. Assigning re-sends it, and players who no longer get it lose it. */
+    isGlobal: boolean;
+    /** Always "blip". */
+    readonly kind: "blip";
+    /** Name shown for it on the map; undefined until set. It wins over gxtName. Assigning converts to text, null or '' clears it; quotes, backslashes and line breaks reach the clients as they are. */
+    get name(): string | undefined;
+    set name(value: string);
+    /** Number shown on it (SHOW_NUMBER_ON_BLIP), at most 99; a negative one hides it, -1 by default. Truncated to an integer. */
+    number: number;
+    /** SHOW_OUTLINE_INDICATOR_ON_BLIP; false by default. */
+    outlineIndicatorVisible: boolean;
+    /** Where it is (for an attached point blip, where its entity was when attached, and once that entity is gone where it was last seen). Assigning moves it for every player who gets the blip; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** SET_BLIP_PRIORITY, 0 by default. Truncated to an integer. */
+    priority: number;
+    /** PULSE_BLIP each time a client creates the blip: when it arrives and after every change to it; false by default. */
+    pulse: boolean;
+    /** Radius in metres of a radius blip (ADD_BLIP_FOR_RADIUS); clients use 50 for a radius blip made without one (it reads undefined then). Point and area blips do not use it: there assigning sends nothing. */
+    get radius(): number | undefined;
+    set radius(value: number);
+    /** Removes a player from its targets and re-sends the blip; anything not among them is ignored. A player who leaves is removed from every blip. */
+    removeTarget(player: Player): void;
+    /** GPS route to it (SET_BLIP_ROUTE); false by default. */
+    route: boolean;
+    /** Colour of its route: clients take the HUD colour nearest to r, g, b (black, the default: the blip's colour; alpha is not used). Assigning takes an RGBA or a number 0xRRGGBB; components are clamped to 0..255. */
+    get routeColor(): RGBA;
+    set routeColor(value: RGBALike | number);
+    /** SET_BLIP_SCALE, 1 by default; NaN is 0. On a point or radius blip it sets size too (clients apply SET_BLIP_SCALE_2D after it), so the blip is drawn at the new scale; an area is drawn at its width and height, so there it is only kept and assigning sends nothing. */
+    scale: number;
+    /** SET_BLIP_SECONDARY_COLOUR with r, g, b (alpha is not used); black by default. Assigning takes an RGBA or a number 0xRRGGBB; components are clamped to 0..255. */
+    get secondaryColor(): RGBA;
+    set secondaryColor(value: RGBALike | number);
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every player who gets the blip (everyone, or only its targets when it is not global), later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the blip changes later (they make it anew and the server does not send it again) and keep none for a blip they do not show (another dimension). Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Short-range blip (SET_BLIP_AS_SHORT_RANGE); true by default. */
+    shortRange: boolean;
+    /** A cone in the blip's colour (SET_BLIP_SHOW_CONE); false by default. */
+    showCone: boolean;
+    /** Drawn small at the edge of the minimap (SET_BLIP_AS_MINIMAL_ON_EDGE); false by default. */
+    shrinked: boolean;
+    /** SET_BLIP_SCALE_2D, which clients apply last: on a point or radius blip scale sets it on both axes; on an area it is the width and height, which set it and which assigning sets. Assigning takes { x, y }; a missing or non-numeric component is 0. */
+    get size(): Vector2;
+    set size(value: { x: number; y: number });
+    /** Icon, as BlipSprite; 1 by default. Truncated to an integer. */
+    sprite: number;
+    /** The connected players among its targets: while isGlobal is false only they get it. A new array on each read. */
+    readonly targets: Player[];
+    /** A tick on the blip (SHOW_TICK_ON_BLIP); false by default. */
+    tickVisible: boolean;
+    /** BaseObjectType.Blip (4); the GTA blip type is blipType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
+    /** False hides it on clients (SET_BLIP_DISPLAY 0) without removing it; true by default. */
+    visible: boolean;
+    /** Width (along x) in metres of an area blip (ADD_BLIP_FOR_AREA), 100 for an area made without one; it sets the area's size. Point and radius blips do not use it: undefined until given there, and assigning sends nothing. */
+    get width(): number | undefined;
+    set width(value: number);
 }
 
 export const BlipColor: {
@@ -2452,49 +2439,98 @@ export const BodyPart: {
 };
 
 export class Checkpoint {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    checkpointType: any;
-    color: any;
-    readonly colshapeType: any;
-    deleteMeta(...args: any[]): any;
-    deleteStreamSyncedMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getStreamSyncedMeta(...args: any[]): any;
-    getStreamSyncedMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasStreamSyncedMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    height: any;
-    id: any;
-    isEntityIn(...args: any[]): any;
-    isGlobal: any;
-    isPointIn(...args: any[]): any;
-    readonly kind: any;
-    readonly max: any;
-    readonly maxZ: any;
-    readonly min: any;
-    readonly minZ: any;
-    readonly playersOnly: any;
-    readonly points: any;
-    pos: any;
-    radius: any;
-    setMeta(...args: any[]): any;
-    setStreamSyncedMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly streamingDistance: any;
-    readonly type: any;
-    readonly valid: any;
-    visible: any;
+    /** Creates a checkpoint in dimension 0 that clients draw as GTA's own checkpoint of its type (CREATE_CHECKPOINT); a player entering or leaving it raises `entityEnterColshape`/`entityLeaveColshape`. Defaults: radius 2, height 1, colour 255, 200, 0, 180 (also when the numbers form leaves out r, g, b and a; alpha 255 for a colour without `a`), streaming distance 0, which means any distance. */
+    constructor(type: number, pos: Vector3Like, radius?: number, height?: number, color?: RGBALike, streamingDistance?: number);
+    constructor(type: number, x: number, y: number, z: number, radius?: number, height?: number, r?: number, g?: number, b?: number, a?: number, streamingDistance?: number);
+    /** Every valid checkpoint of every resource; a new array on each read. */
+    static readonly all: Checkpoint[];
+    /** How many checkpoints Checkpoint.all holds now. */
+    static readonly count: number;
+    /** The valid checkpoint with that id; null for none. */
+    static getByID(id: number): Checkpoint | null;
+    /** GTA's checkpoint type, as CheckpointType; 0 by default; truncated to an integer. Clients draw the checkpoint as GTA's own of this type (CREATE_CHECKPOINT); a change makes it again. */
+    checkpointType: number;
+    /** Colour clients draw it in, RGBA(255, 200, 0, 180) by default. Assigning takes { r, g, b, a }; each component is rounded and kept to 0..255, as clients take it, and a missing alpha is 255. */
+    get color(): RGBA;
+    set color(value: RGBALike);
+    /** ColShapeType.CheckpointCylinder (5). */
+    readonly colshapeType: number;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on every client: true; false when it was not there. No event fires here. */
+    deleteStreamSyncedMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the checkpoint on the server and every client: no more enter or leave events, and players inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's checkpoints go when it stops. */
+    destroy(): void;
+    /** Players in this dimension enter it and see it, 0 by default (one in a negative dimension also enters a checkpoint in dimension 0); -2147483648 works in every dimension. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setStreamSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getStreamSyncedMeta(key: string): any;
+    /** The keys setStreamSyncedMeta stored. */
+    getStreamSyncedMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setStreamSyncedMeta stored a value under the key. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Height in metres above pos.z, 1 by default; NaN is 0. */
+    height: number;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether the entity is valid, in a dimension that sees the checkpoint's as the server's test has it (the same one; a negative dimension sees 0 too; -2147483648 is seen from every dimension), and its pos, as this host mirrors it, isPointIn; false for null. Any entity, though only players enter a checkpoint. */
+    isEntityIn(entity: Player | Vehicle | Ped | Object | NativeVehicle | NativePed | VirtualEntity | null): boolean;
+    /** Whether its dimension is -2147483648 (every dimension). Assigning true sets that dimension, false sets dimension 0. */
+    isGlobal: boolean;
+    /** Whether the point is within radius of pos on x and y and between pos.z and pos.z + height; no dimension check, and a non-finite component counts as 0. */
+    isPointIn(point: Vector3Like): boolean;
+    /** Always "checkpoint", though a checkpoint is a Colshape too. */
+    readonly kind: "checkpoint";
+    /** Highest corner of its bounds: pos plus radius on x and y, at pos.z + height. */
+    readonly max: Vector3;
+    /** Its top, pos.z + height. Assigning moves the top and keeps the bottom: height follows, at least 0; NaN is 0. */
+    maxZ: number;
+    /** Lowest corner of its bounds: pos minus radius on x and y, at pos.z. */
+    readonly min: Vector3;
+    /** Its bottom, pos.z. Assigning moves the bottom and keeps the top: height follows (0 when the bottom goes above the top); NaN is 0. */
+    minZ: number;
+    /** Always true: only players enter a checkpoint (the server tests no other entity). Assigning true does nothing, false throws a RangeError. */
+    playersOnly: boolean;
+    /** Always []: a checkpoint is a cylinder. */
+    readonly points: Vector2[];
+    /** Centre of its base. Assigning moves it; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Radius in metres, 2 by default: a player within it on x and y, between pos.z and pos.z + height, is inside; clients draw it 2 × radius wide. NaN is 0. */
+    radius: number;
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata every connected player's client gets (checkpointStreamSyncedMeta and streamSyncedMetaChange there), later ones included, whatever their distance or dimension: the server streams no checkpoints. No event fires here. Throws a TypeError for a key outside 1..256 UTF-8 bytes or a value that cannot be sent. */
+    setStreamSyncedMeta(key: string, value: any): void;
+    setStreamSyncedMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected player, later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Distance in metres within which clients draw it; 0 (the default) draws it at any distance. Set at creation only; entering does not depend on it. */
+    readonly streamingDistance: number;
+    /** BaseObjectType.Checkpoint (8); the GTA checkpoint type is checkpointType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
+    /** Whether clients draw it, true by default; a hidden checkpoint still reports players entering and leaving. */
+    visible: boolean;
 }
 
 export const CheckpointType: {
@@ -2587,299 +2623,596 @@ export const ColShapeType: {
 };
 
 export class Colshape {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly colshapeType: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    height: any;
-    id: any;
-    isEntityIn(...args: any[]): any;
-    isGlobal: any;
-    isPointIn(...args: any[]): any;
-    readonly kind: any;
-    readonly max: any;
-    maxZ: any;
-    readonly min: any;
-    minZ: any;
-    playersOnly: any;
-    readonly points: any;
-    pos: any;
-    radius: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly type: any;
-    readonly valid: any;
+    /** Instances are created by the VARION runtime and cannot be constructed directly. */
+    private constructor();
+    /** Every valid colshape of every resource and kind (checkpoints are not in it); a new array on each read. */
+    static readonly all: Colshape[];
+    /** How many colshapes Colshape.all holds now. */
+    static readonly count: number;
+    /** The valid colshape with that id, of any kind; null for none (a checkpoint's id gives null). */
+    static getByID(id: number): Colshape | null;
+    /** The shape, as ColShapeType: Sphere 0, Cylinder 1, Circle 2, Cuboid 3 (boxes and cuboids), Rectangle 4, Polygon 6. */
+    readonly colshapeType: number;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    destroy(): void;
+    /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Height in metres of a cylinder above its pos.z, 2 by default; other kinds do not use it, and on them assigning sends nothing. Assigning re-sends a colshape that uses it; NaN is 0. */
+    height: number;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether the entity is valid, in a dimension that sees the colshape's as the server's test has it (the same one; a negative dimension sees 0 too; -2147483648 is seen from every dimension), and its pos, as this host mirrors it, isPointIn; false for null. */
+    isEntityIn(entity: Player | Vehicle | Ped | Object | NativeVehicle | NativePed | VirtualEntity | null): boolean;
+    /** Whether its dimension is -2147483648 (every dimension). Assigning true sets that dimension, false sets dimension 0. */
+    isGlobal: boolean;
+    /** Whether the point is inside the shape, as this host computes it; no dimension check, and a non-finite component counts as 0. */
+    isPointIn(point: Vector3Like): boolean;
+    /** "colshape"; "checkpoint" on a checkpoint, which is a Colshape too (entityEnterColshape and entityLeaveColshape name it). */
+    readonly kind: "colshape" | "checkpoint";
+    /** The highest corner of the box the shape fits in: pos plus the radius of a sphere, plus the half-extents of a box, plus the radius on x and y and the height on z of a cylinder; a polygon's largest point x and y with maxZ. A circle and a rectangle are tested on x and y only: their z is pos.z. A new Vector3 on each read. */
+    readonly max: Vector3;
+    /** Highest z of a polygon, 2 by default; other kinds do not use it, and on them assigning sends nothing. Assigning re-sends a colshape that uses it; NaN is 0. */
+    maxZ: number;
+    /** The lowest corner of the box the shape fits in: pos minus the radius of a sphere, minus the half-extents of a box, minus the radius on x and y of a cylinder (z its base, pos.z); a polygon's smallest point x and y with minZ. A circle and a rectangle are tested on x and y only: their z is pos.z. A new Vector3 on each read. */
+    readonly min: Vector3;
+    /** Lowest z of a polygon, 0 by default; other kinds do not use it, and on them assigning sends nothing. Assigning re-sends a colshape that uses it; NaN is 0. */
+    minZ: number;
+    /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
+    playersOnly: boolean;
+    /** A polygon's points as Vector2 (x, y) in world coordinates; [] for other kinds. A new array on each read. */
+    readonly points: Vector2[];
+    /** Centre of the shape (the base of a cylinder; z does not count for circles and rectangles; polygons do not use it). Assigning moves it; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Radius in metres of a sphere, cylinder or circle, 2 by default; boxes, rectangles and polygons do not use it, and on them assigning sends nothing. Assigning re-sends a colshape that uses it; NaN is 0. */
+    radius: number;
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected player, later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the colshape changes later: they make it anew and the server does not send it again. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** BaseObjectType.Colshape (7); the shape is colshapeType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
 }
 
 export class ColshapeBox {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly colshapeType: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    height: any;
-    id: any;
-    isEntityIn(...args: any[]): any;
-    isGlobal: any;
-    isPointIn(...args: any[]): any;
-    readonly kind: any;
-    readonly max: any;
-    maxZ: any;
-    readonly min: any;
-    minZ: any;
-    playersOnly: any;
-    readonly points: any;
-    pos: any;
-    radius: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly type: any;
-    readonly valid: any;
+    /** Creates a box colshape centred at x, y, z with half-sizes `halfX`, `halfY`, `halfZ` (1 by default), in dimension 0. The server checks players, vehicles, peds and objects in it and raises `entityEnterColshape`/`entityLeaveColshape`. */
+    constructor(x: number, y: number, z: number, halfX?: number, halfY?: number, halfZ?: number);
+    /** Every valid box colshape of every resource; a new array on each read. ColshapeBox and ColshapeCuboid are one kind: both list the colshapes either made, and createColshape's with kind 'box'. */
+    static readonly all: ColshapeBox[];
+    /** How many valid box colshapes there are now (ColshapeBox and ColshapeCuboid alike). */
+    static readonly count: number;
+    /** The valid box colshape with that id; null for none or for a colshape of another kind. */
+    static getByID(id: number): ColshapeBox | null;
+    /** ColShapeType.Cuboid (3), as for every box and cuboid. */
+    readonly colshapeType: number;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    destroy(): void;
+    /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Not used by a box: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    height: number;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether the entity is valid, in a dimension that sees the colshape's as the server's test has it (the same one; a negative dimension sees 0 too; -2147483648 is seen from every dimension), and its pos, as this host mirrors it, isPointIn; false for null. */
+    isEntityIn(entity: Player | Vehicle | Ped | Object | NativeVehicle | NativePed | VirtualEntity | null): boolean;
+    /** Whether its dimension is -2147483648 (every dimension). Assigning true sets that dimension, false sets dimension 0. */
+    isGlobal: boolean;
+    /** Whether the point is within the half-extents of pos on every axis, as this host computes it; no dimension check, and a non-finite component counts as 0. */
+    isPointIn(point: Vector3Like): boolean;
+    /** Always "colshape", for every kind. */
+    readonly kind: "colshape";
+    /** The box's highest corner: pos plus its half-extents. */
+    readonly max: Vector3;
+    /** Not used by a box: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    maxZ: number;
+    /** The box's lowest corner: pos minus its half-extents. */
+    readonly min: Vector3;
+    /** Not used by a box: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
+    minZ: number;
+    /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
+    playersOnly: boolean;
+    /** Always [] for a box: only polygons have points. */
+    readonly points: Vector2[];
+    /** Centre of the box. Assigning moves it; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Not used by a box: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    radius: number;
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected player, later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the colshape changes later: they make it anew and the server does not send it again. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** BaseObjectType.Colshape (7); the shape is colshapeType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
 }
 
 export class ColshapeCircle {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly colshapeType: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    height: any;
-    id: any;
-    isEntityIn(...args: any[]): any;
-    isGlobal: any;
-    isPointIn(...args: any[]): any;
-    readonly kind: any;
-    readonly max: any;
-    maxZ: any;
-    readonly min: any;
-    minZ: any;
-    playersOnly: any;
-    readonly points: any;
-    pos: any;
-    radius: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly type: any;
-    readonly valid: any;
+    /** Creates a circle colshape of `radius` metres (2 by default) around x, y at any height, in dimension 0. The server checks players, vehicles, peds and objects in it and raises `entityEnterColshape`/`entityLeaveColshape`. */
+    constructor(x: number, y: number, radius?: number);
+    /** Every valid circle colshape of every resource; a new array on each read. */
+    static readonly all: ColshapeCircle[];
+    /** How many valid circle colshapes there are now. */
+    static readonly count: number;
+    /** The valid circle colshape with that id; null for none or for a colshape of another kind. */
+    static getByID(id: number): ColshapeCircle | null;
+    /** ColShapeType.Circle (2). */
+    readonly colshapeType: number;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    destroy(): void;
+    /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Not used by a circle: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    height: number;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether the entity is valid, in a dimension that sees the colshape's as the server's test has it (the same one; a negative dimension sees 0 too; -2147483648 is seen from every dimension), and its pos, as this host mirrors it, isPointIn; false for null. */
+    isEntityIn(entity: Player | Vehicle | Ped | Object | NativeVehicle | NativePed | VirtualEntity | null): boolean;
+    /** Whether its dimension is -2147483648 (every dimension). Assigning true sets that dimension, false sets dimension 0. */
+    isGlobal: boolean;
+    /** Whether the point is within radius of pos on x and y (z does not count), as this host computes it; no dimension check, and a non-finite component counts as 0. */
+    isPointIn(point: Vector3Like): boolean;
+    /** Always "colshape", for every kind. */
+    readonly kind: "colshape";
+    /** pos plus the radius on x and y; z is pos.z: a circle is tested on x and y only. */
+    readonly max: Vector3;
+    /** Not used by a circle: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    maxZ: number;
+    /** pos minus the radius on x and y; z is pos.z: a circle is tested on x and y only. */
+    readonly min: Vector3;
+    /** Not used by a circle: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
+    minZ: number;
+    /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
+    playersOnly: boolean;
+    /** Always [] for a circle: only polygons have points. */
+    readonly points: Vector2[];
+    /** Centre of the circle; z does not count. Assigning moves it; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Radius of the circle in metres, 2 by default; only x and y count. Assigning re-sends the colshape; NaN is 0. */
+    radius: number;
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected player, later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the colshape changes later: they make it anew and the server does not send it again. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** BaseObjectType.Colshape (7); the shape is colshapeType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
 }
 
 export class ColshapeCuboid {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly colshapeType: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    height: any;
-    id: any;
-    isEntityIn(...args: any[]): any;
-    isGlobal: any;
-    isPointIn(...args: any[]): any;
-    readonly kind: any;
-    readonly max: any;
-    maxZ: any;
-    readonly min: any;
-    minZ: any;
-    playersOnly: any;
-    readonly points: any;
-    pos: any;
-    radius: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly type: any;
-    readonly valid: any;
+    /** Creates a box colshape between two opposite corners given in any order, in dimension 0; a non-numeric coordinate counts as 0. The server checks players, vehicles, peds and objects in it and raises `entityEnterColshape`/`entityLeaveColshape`. */
+    constructor(x1: number, y1: number, z1: number, x2: number, y2: number, z2: number);
+    /** Every valid box colshape of every resource; a new array on each read. ColshapeBox and ColshapeCuboid are one kind: both list the colshapes either made, and createColshape's with kind 'box'. */
+    static readonly all: ColshapeCuboid[];
+    /** How many valid box colshapes there are now (ColshapeBox and ColshapeCuboid alike). */
+    static readonly count: number;
+    /** The valid box colshape with that id; null for none or for a colshape of another kind. */
+    static getByID(id: number): ColshapeCuboid | null;
+    /** ColShapeType.Cuboid (3), as for every box and cuboid. */
+    readonly colshapeType: number;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    destroy(): void;
+    /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Not used by a cuboid: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    height: number;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether the entity is valid, in a dimension that sees the colshape's as the server's test has it (the same one; a negative dimension sees 0 too; -2147483648 is seen from every dimension), and its pos, as this host mirrors it, isPointIn; false for null. */
+    isEntityIn(entity: Player | Vehicle | Ped | Object | NativeVehicle | NativePed | VirtualEntity | null): boolean;
+    /** Whether its dimension is -2147483648 (every dimension). Assigning true sets that dimension, false sets dimension 0. */
+    isGlobal: boolean;
+    /** Whether the point is within the half-extents of pos on every axis, as this host computes it; no dimension check, and a non-finite component counts as 0. */
+    isPointIn(point: Vector3Like): boolean;
+    /** Always "colshape", for every kind. */
+    readonly kind: "colshape";
+    /** The cuboid's highest corner: pos plus its half-extents. */
+    readonly max: Vector3;
+    /** Not used by a cuboid: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    maxZ: number;
+    /** The cuboid's lowest corner: pos minus its half-extents. */
+    readonly min: Vector3;
+    /** Not used by a cuboid: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
+    minZ: number;
+    /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
+    playersOnly: boolean;
+    /** Always [] for a cuboid: only polygons have points. */
+    readonly points: Vector2[];
+    /** Centre of the cuboid (made from its two corners). Assigning moves it; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Not used by a cuboid: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    radius: number;
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected player, later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the colshape changes later: they make it anew and the server does not send it again. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** BaseObjectType.Colshape (7); the shape is colshapeType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
 }
 
 export class ColshapeCylinder {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly colshapeType: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    height: any;
-    id: any;
-    isEntityIn(...args: any[]): any;
-    isGlobal: any;
-    isPointIn(...args: any[]): any;
-    readonly kind: any;
-    readonly max: any;
-    maxZ: any;
-    readonly min: any;
-    minZ: any;
-    playersOnly: any;
-    readonly points: any;
-    pos: any;
-    radius: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly type: any;
-    readonly valid: any;
+    /** Creates a cylinder colshape of `radius` metres around x, y, from z up to z + `height` (both 2 by default), in dimension 0. The server checks players, vehicles, peds and objects in it and raises `entityEnterColshape`/`entityLeaveColshape`. */
+    constructor(x: number, y: number, z: number, radius?: number, height?: number);
+    /** Every valid cylinder colshape of every resource; a new array on each read. */
+    static readonly all: ColshapeCylinder[];
+    /** How many valid cylinder colshapes there are now. */
+    static readonly count: number;
+    /** The valid cylinder colshape with that id; null for none or for a colshape of another kind. */
+    static getByID(id: number): ColshapeCylinder | null;
+    /** ColShapeType.Cylinder (1). */
+    readonly colshapeType: number;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    destroy(): void;
+    /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Height in metres above pos.z: the cylinder reaches from z to z + height; 2 by default. Assigning re-sends the colshape; NaN is 0. */
+    height: number;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether the entity is valid, in a dimension that sees the colshape's as the server's test has it (the same one; a negative dimension sees 0 too; -2147483648 is seen from every dimension), and its pos, as this host mirrors it, isPointIn; false for null. */
+    isEntityIn(entity: Player | Vehicle | Ped | Object | NativeVehicle | NativePed | VirtualEntity | null): boolean;
+    /** Whether its dimension is -2147483648 (every dimension). Assigning true sets that dimension, false sets dimension 0. */
+    isGlobal: boolean;
+    /** Whether the point is within radius of pos on x and y and between pos.z and pos.z + height, as this host computes it; no dimension check, and a non-finite component counts as 0. */
+    isPointIn(point: Vector3Like): boolean;
+    /** Always "colshape", for every kind. */
+    readonly kind: "colshape";
+    /** pos plus the radius on x and y, and its top, pos.z + height, on z. */
+    readonly max: Vector3;
+    /** Not used by a cylinder: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    maxZ: number;
+    /** pos minus the radius on x and y, and its base, pos.z, on z. */
+    readonly min: Vector3;
+    /** Not used by a cylinder: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
+    minZ: number;
+    /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
+    playersOnly: boolean;
+    /** Always [] for a cylinder: only polygons have points. */
+    readonly points: Vector2[];
+    /** Centre of the cylinder's base. Assigning moves it; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Radius of the cylinder in metres, 2 by default. Assigning re-sends the colshape; NaN is 0. */
+    radius: number;
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected player, later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the colshape changes later: they make it anew and the server does not send it again. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** BaseObjectType.Colshape (7); the shape is colshapeType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
 }
 
 export class ColshapePolygon {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly colshapeType: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    height: any;
-    id: any;
-    isEntityIn(...args: any[]): any;
-    isGlobal: any;
-    isPointIn(...args: any[]): any;
-    readonly kind: any;
-    readonly max: any;
-    maxZ: any;
-    readonly min: any;
-    minZ: any;
-    playersOnly: any;
-    readonly points: any;
-    pos: any;
-    radius: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly type: any;
-    readonly valid: any;
+    /** Creates a polygon colshape from its corners (objects with x, y, or a flat list x1, y1, x2, y2, …) between heights `minZ` and `maxZ`, in dimension 0; with fewer than 3 corners it contains nothing. The server checks players, vehicles, peds and objects in it and raises `entityEnterColshape`/`entityLeaveColshape`. */
+    constructor(minZ: number, maxZ: number, points: { x: number; y: number }[]);
+    constructor(minZ: number, maxZ: number, points: number[]);
+    /** Every valid polygon colshape of every resource; a new array on each read. */
+    static readonly all: ColshapePolygon[];
+    /** How many valid polygon colshapes there are now. */
+    static readonly count: number;
+    /** The valid polygon colshape with that id; null for none or for a colshape of another kind. */
+    static getByID(id: number): ColshapePolygon | null;
+    /** ColShapeType.Polygon (6). */
+    readonly colshapeType: number;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    destroy(): void;
+    /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Not used by a polygon: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    height: number;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether the entity is valid, in a dimension that sees the colshape's as the server's test has it (the same one; a negative dimension sees 0 too; -2147483648 is seen from every dimension), and its pos, as this host mirrors it, isPointIn; false for null. */
+    isEntityIn(entity: Player | Vehicle | Ped | Object | NativeVehicle | NativePed | VirtualEntity | null): boolean;
+    /** Whether its dimension is -2147483648 (every dimension). Assigning true sets that dimension, false sets dimension 0. */
+    isGlobal: boolean;
+    /** Whether the point is inside the points on x and y and between minZ and maxZ (never with fewer than 3 points), as this host computes it; no dimension check, and a non-finite component counts as 0. */
+    isPointIn(point: Vector3Like): boolean;
+    /** Always "colshape", for every kind. */
+    readonly kind: "colshape";
+    /** The largest x and y of its points, and maxZ (pos.x and pos.y without points). */
+    readonly max: Vector3;
+    /** Highest z inside the polygon, 2 by default. Assigning re-sends the colshape; NaN is 0. */
+    maxZ: number;
+    /** The smallest x and y of its points, and minZ (pos.x and pos.y without points). */
+    readonly min: Vector3;
+    /** Lowest z inside the polygon, 0 by default. Assigning re-sends the colshape; NaN is 0. */
+    minZ: number;
+    /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
+    playersOnly: boolean;
+    /** Its points as Vector2 (x, y) in world coordinates; with fewer than 3 it contains nothing. A new array on each read. */
+    readonly points: Vector2[];
+    /** Not used by a polygon: its points are in world coordinates; (0, 0, 0) unless assigned. Assigning stores it; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Not used by a polygon: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    radius: number;
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected player, later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the colshape changes later: they make it anew and the server does not send it again. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** BaseObjectType.Colshape (7); the shape is colshapeType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
 }
 
 export class ColshapeRectangle {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly colshapeType: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    height: any;
-    id: any;
-    isEntityIn(...args: any[]): any;
-    isGlobal: any;
-    isPointIn(...args: any[]): any;
-    readonly kind: any;
-    readonly max: any;
-    maxZ: any;
-    readonly min: any;
-    minZ: any;
-    playersOnly: any;
-    readonly points: any;
-    pos: any;
-    radius: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly type: any;
-    readonly valid: any;
+    /** Creates a rectangle colshape between two opposite corners given in any order, at any height, in dimension 0; a non-numeric coordinate counts as 0. The server checks players, vehicles, peds and objects in it and raises `entityEnterColshape`/`entityLeaveColshape`. */
+    constructor(x1: number, y1: number, x2: number, y2: number);
+    /** Every valid rectangle colshape of every resource; a new array on each read. */
+    static readonly all: ColshapeRectangle[];
+    /** How many valid rectangle colshapes there are now. */
+    static readonly count: number;
+    /** The valid rectangle colshape with that id; null for none or for a colshape of another kind. */
+    static getByID(id: number): ColshapeRectangle | null;
+    /** ColShapeType.Rectangle (4). */
+    readonly colshapeType: number;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    destroy(): void;
+    /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Not used by a rectangle: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    height: number;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether the entity is valid, in a dimension that sees the colshape's as the server's test has it (the same one; a negative dimension sees 0 too; -2147483648 is seen from every dimension), and its pos, as this host mirrors it, isPointIn; false for null. */
+    isEntityIn(entity: Player | Vehicle | Ped | Object | NativeVehicle | NativePed | VirtualEntity | null): boolean;
+    /** Whether its dimension is -2147483648 (every dimension). Assigning true sets that dimension, false sets dimension 0. */
+    isGlobal: boolean;
+    /** Whether the point is within the half-extents of pos on x and y (z does not count), as this host computes it; no dimension check, and a non-finite component counts as 0. */
+    isPointIn(point: Vector3Like): boolean;
+    /** Always "colshape", for every kind. */
+    readonly kind: "colshape";
+    /** pos plus its half-extents on x and y; z is pos.z: a rectangle is tested on x and y only. */
+    readonly max: Vector3;
+    /** Not used by a rectangle: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    maxZ: number;
+    /** pos minus its half-extents on x and y; z is pos.z: a rectangle is tested on x and y only. */
+    readonly min: Vector3;
+    /** Not used by a rectangle: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
+    minZ: number;
+    /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
+    playersOnly: boolean;
+    /** Always [] for a rectangle: only polygons have points. */
+    readonly points: Vector2[];
+    /** Centre of the rectangle; z does not count. Assigning moves it; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Not used by a rectangle: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    radius: number;
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected player, later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the colshape changes later: they make it anew and the server does not send it again. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** BaseObjectType.Colshape (7); the shape is colshapeType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
 }
 
 export class ColshapeSphere {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly colshapeType: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    height: any;
-    id: any;
-    isEntityIn(...args: any[]): any;
-    isGlobal: any;
-    isPointIn(...args: any[]): any;
-    readonly kind: any;
-    readonly max: any;
-    maxZ: any;
-    readonly min: any;
-    minZ: any;
-    playersOnly: any;
-    readonly points: any;
-    pos: any;
-    radius: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly type: any;
-    readonly valid: any;
+    /** Creates a sphere colshape of `radius` metres (2 by default) around x, y, z, in dimension 0. The server checks players, vehicles, peds and objects in it and raises `entityEnterColshape`/`entityLeaveColshape`. */
+    constructor(x: number, y: number, z: number, radius?: number);
+    /** Every valid sphere colshape of every resource; a new array on each read. */
+    static readonly all: ColshapeSphere[];
+    /** How many valid sphere colshapes there are now. */
+    static readonly count: number;
+    /** The valid sphere colshape with that id; null for none or for a colshape of another kind. */
+    static getByID(id: number): ColshapeSphere | null;
+    /** ColShapeType.Sphere (0). */
+    readonly colshapeType: number;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    destroy(): void;
+    /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Not used by a sphere: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    height: number;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether the entity is valid, in a dimension that sees the colshape's as the server's test has it (the same one; a negative dimension sees 0 too; -2147483648 is seen from every dimension), and its pos, as this host mirrors it, isPointIn; false for null. */
+    isEntityIn(entity: Player | Vehicle | Ped | Object | NativeVehicle | NativePed | VirtualEntity | null): boolean;
+    /** Whether its dimension is -2147483648 (every dimension). Assigning true sets that dimension, false sets dimension 0. */
+    isGlobal: boolean;
+    /** Whether the point is within radius of pos (in 3D), as this host computes it; no dimension check, and a non-finite component counts as 0. */
+    isPointIn(point: Vector3Like): boolean;
+    /** Always "colshape", for every kind. */
+    readonly kind: "colshape";
+    /** pos plus the radius on every axis. */
+    readonly max: Vector3;
+    /** Not used by a sphere: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
+    maxZ: number;
+    /** pos minus the radius on every axis. */
+    readonly min: Vector3;
+    /** Not used by a sphere: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
+    minZ: number;
+    /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
+    playersOnly: boolean;
+    /** Always [] for a sphere: only polygons have points. */
+    readonly points: Vector2[];
+    /** Centre of the sphere. Assigning moves it; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Radius of the sphere in metres, 2 by default. Assigning re-sends the colshape; NaN is 0. */
+    radius: number;
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected player, later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the colshape changes later: they make it anew and the server does not send it again. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** BaseObjectType.Colshape (7); the shape is colshapeType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
 }
 
 export const ConnectDeniedReason: {
@@ -2891,249 +3224,171 @@ export const ConnectDeniedReason: {
 };
 
 export class ConnectionInfo {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static getByID(...args: any[]): any;
-    accept(...args: any[]): any;
-    readonly authToken: any;
-    readonly branch: any;
-    readonly build: any;
-    readonly cdnUrl: any;
-    readonly cloudAuthResult: any;
-    readonly cloudID: any;
-    decline(...args: any[]): any;
-    readonly discordUserID: any;
-    readonly hwid3: any;
-    readonly hwidExHash: any;
-    readonly hwidHash: any;
-    readonly id: any;
-    readonly ip: any;
-    readonly isAccepted: any;
-    readonly isDebug: any;
-    readonly name: any;
-    readonly passwordHash: any;
-    readonly socialClubName: any;
-    readonly socialID: any;
-    text: any;
-    readonly valid: any;
+    /** Cannot be constructed: `new` throws a `TypeError`. A connection waiting in the queue comes to `connectionQueueAdd` and `connectionQueueRemove` handlers and from `ConnectionInfo.all` and `ConnectionInfo.getByID(id)`. */
+    private constructor();
+    /** Every connection that waits in the queue now (server.toml connectionQueue = true); a new array on each read. */
+    static readonly all: ConnectionInfo[];
+    /** The waiting connection with this id, or null. */
+    static getByID(id: number): ConnectionInfo | null;
+    /** Lets the client in, in queue order once a player slot is free; sendNames false (true by default) keeps the other players' names from it. Nothing for a connection that left the queue. */
+    accept(sendNames?: boolean): void;
+    /** The token the client got from the server's early-auth page (useEarlyAuth); empty without one. */
+    readonly authToken: string;
+    /** The client's release channel. */
+    readonly branch: string;
+    /** The client's build number. */
+    readonly build: number;
+    /** Always empty: the client's join request carries no CDN address. */
+    readonly cdnUrl: string;
+    /** The cloud check of the client's identity, a CloudAuthResult: 0 verified, 1 nothing checked (no cloud auth or no ticket), 2 refused. */
+    readonly cloudAuthResult: number;
+    /** The account id the client gave for the cloud check; empty without one. */
+    readonly cloudID: string;
+    /** Refuses the connection: the client is disconnected with the reason (cut to 512 characters, "connection declined" by default). Nothing for a connection that left the queue. */
+    decline(reason?: string): void;
+    /** Always empty: the client's join request carries no Discord id. */
+    readonly discordUserID: string;
+    /** Always empty: the client's join request carries no third hardware id. */
+    readonly hwid3: string;
+    /** Always empty: the client's join request carries only the first hardware hash (hwidHash). */
+    readonly hwidExHash: string;
+    /** A 64-bit hash of the client's C: volume serial and computer name as decimal text, empty for 0; the client reports it unverified. */
+    readonly hwidHash: string;
+    /** The connection's id; the player gets the same id once admitted. */
+    readonly id: number;
+    /** The client's IP address as text. */
+    readonly ip: string;
+    /** True once accept() was called, and as the server reports it when the connection leaves the queue. */
+    readonly isAccepted: boolean;
+    /** Always false: the client's join request does not say whether it is a debug build. */
+    readonly isDebug: boolean;
+    /** The player name the client gave (up to 64 bytes). */
+    readonly name: string;
+    /** The client's password digest: SHA-256 hex of the password and this connection's transport key, so it differs on every connection; empty without a password. */
+    readonly passwordHash: string;
+    /** Always empty: the client's join request carries no Social Club name. */
+    readonly socialClubName: string;
+    /** Always empty: the client's join request carries no Social Club id. */
+    readonly socialID: string;
+    /** The text the waiting client sees beside its queue position; assigning sends it, cut to 512 characters. Ignored once the connection left the queue. */
+    get text(): string;
+    set text(value: string);
+    /** True while the connection waits in the queue; false once connectionQueueRemove's handlers ran. */
+    readonly valid: boolean;
 }
 
 export class Entity {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly accelerationLevel: any;
-    activeRadioStation: any;
-    readonly attached: any;
-    readonly attachedTo: any;
-    /** Varion's form: GTA's bone index of the parent, offset in metres, rotation in degrees. alt:V's seven arguments (told by the third, a bone): rot in radians (turned into degrees), noFixedRotation the opposite of fixedRotation. Bone names, an own bone other than 0 (the root) and a ped parent's bone id other than 0 reject: not supported yet. Rejects for an invalid entity or parent, a native vehicle or NPC as parent, or the server's refusal. */
+    /** Instances are created by the VARION runtime and cannot be constructed directly. */
+    private constructor();
+    /** Every connected player, then every valid old-path vehicle, ped and object, then native vehicles and NPCs. A new array on each read. A virtual entity is a WorldObject, not an Entity: VirtualEntity.all lists it, and getEntities and the spatial queries still take it. */
+    static readonly all: (Player | Vehicle | Ped | Object | NativeVehicle | NativePed)[];
+    /** The length of Entity.all: players and entities, no virtual entities. */
+    static readonly count: number;
+    /** The valid player or old-path vehicle, ped or object of that network id, else the native vehicle or NPC of that script id; null for none, for a virtual entity and for an entity whose destroy() is pending, as Entity.all. */
+    static getByID(id: number): Player | Vehicle | Ped | Object | NativeVehicle | NativePed | null;
+    /** Players, peds, objects and virtual entities: whether attachTo attached it and it still is, by this host's record: false after detach() and once its parent is gone (the server then detaches it itself). On an old-path vehicle it is the old-path vehicle attached to this one, or null. */
+    readonly attached: boolean | Vehicle | null;
+    /** The parent attachTo attached it to, of any kind, while it is attached: null before an attach, after detach() and once that parent is gone (the server then detaches it itself). On a blip it is the entity the blip follows, assignable there. */
+    readonly attachedTo: Player | Vehicle | Ped | Object | VirtualEntity | null;
+    /** Five arguments: GTA's bone index of the parent, offset in metres, rotation in degrees. Seven arguments (told by the third, a bone): rot in radians (turned into degrees), noFixedRotation the opposite of fixedRotation. Bone names, an own bone other than 0 (the root) and a ped parent's bone id other than 0 reject: not supported yet. Rejects for an invalid entity or parent, a native vehicle or NPC as parent, or the server's refusal. */
     attachTo(parent: Entity, boneIndex?: number, offset?: Vector3Like, rotation?: Vector3Like, useSoftPinning?: boolean, collision?: boolean, fixedRotation?: boolean): Promise<boolean>;
     attachTo(parent: Entity, entityBone: number, ownBone: number, pos: Vector3Like, rot: Vector3Like, enableCollisions: boolean, noFixedRotation: boolean): Promise<boolean>;
-    boatAnchorActive: any;
-    bodyAdditionalHealth: any;
-    bodyHealth: any;
-    readonly brakeLevel: any;
-    collision: any;
-    counterMeasureCount: any;
-    customPrimaryColor: any;
-    customSecondaryColor: any;
-    customTires: any;
-    darkness: any;
-    dashboardColor: any;
-    daylightOn: any;
-    deleteMeta(...args: any[]): any;
-    deleteStreamSyncedMeta(...args: any[]): any;
-    deleteStreamSyncedMetaData(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    deleteSyncedMetaData(...args: any[]): any;
-    destroy(...args: any[]): any;
-    readonly destroyed: any;
-    detach(...args: any[]): any;
-    dimension: any;
-    dirtLevel: any;
-    doesWheelHasTire(...args: any[]): any;
-    driftModeEnabled: any;
-    readonly driver: any;
-    engineHealth: any;
-    engineOn: any;
-    readonly flamethrowerActive: any;
-    readonly frontWheels: any;
-    frozen: any;
-    readonly gear: any;
-    getAppearanceDataBase64(...args: any[]): any;
-    getArmoredWindowHealth(...args: any[]): any;
-    getArmoredWindowShootCount(...args: any[]): any;
-    getBumperDamageLevel(...args: any[]): any;
-    getDamageStatusBase64(...args: any[]): any;
-    getDoorState(...args: any[]): any;
-    getExtra(...args: any[]): any;
-    getGamestateDataBase64(...args: any[]): any;
-    getHealthDataBase64(...args: any[]): any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getMod(...args: any[]): any;
-    getModsCount(...args: any[]): any;
-    getPartBulletHoles(...args: any[]): any;
-    getPartDamageLevel(...args: any[]): any;
-    getScriptDataBase64(...args: any[]): any;
-    getStreamSyncedMeta(...args: any[]): any;
-    getStreamSyncedMetaData(...args: any[]): any;
-    getStreamSyncedMetaDataKeys(...args: any[]): any;
-    getStreamSyncedMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaData(...args: any[]): any;
-    getSyncedMetaDataKeys(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    getWeaponCapacity(...args: any[]): any;
-    getWheelCamber(...args: any[]): any;
-    getWheelHealth(...args: any[]): any;
-    getWheelHeight(...args: any[]): any;
-    getWheelRimRadius(...args: any[]): any;
-    getWheelTrackWidth(...args: any[]): any;
-    getWheelTyreRadius(...args: any[]): any;
-    getWheelTyreWidth(...args: any[]): any;
-    handbrakeActive: any;
-    readonly hasArmoredWindows: any;
-    hasMeta(...args: any[]): any;
-    hasStreamSyncedMeta(...args: any[]): any;
-    hasStreamSyncedMetaData(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    hasSyncedMetaData(...args: any[]): any;
-    readonly hasTimedExplosion: any;
-    headlightColor: any;
-    readonly heliMainRotorHealth: any;
-    readonly heliTailRotorHealth: any;
-    hornActive: any;
-    hybridExtraActive: any;
-    hybridExtraState: any;
-    id: any;
-    indicatorLights: any;
-    interiorColor: any;
-    isLightDamaged(...args: any[]): any;
-    isMissionTrain: any;
-    isSpecialLightDamaged(...args: any[]): any;
-    isStaticEntity: any;
-    isToggleModOn(...args: any[]): any;
-    isTrainCaboose: any;
-    isTrainEngine: any;
-    isWheelBurst(...args: any[]): any;
-    isWheelDetached(...args: any[]): any;
-    isWheelOnFire(...args: any[]): any;
-    isWindowDamaged(...args: any[]): any;
-    isWindowOpened(...args: any[]): any;
-    readonly kind: any;
-    readonly landingGearState: any;
-    lightsMultiplier: any;
-    lightState: any;
-    livery: any;
-    lockState: any;
-    manualEngineControl: any;
-    model: any;
-    modKit: any;
-    readonly modKitsCount: any;
-    neon: any;
-    neonColor: any;
-    readonly netOwner: any;
-    readonly netOwnershipDisabled: any;
-    nightlightOn: any;
-    numberPlateIndex: any;
-    numberPlateText: any;
-    readonly passengers: any;
-    pearlColor: any;
-    petrolTankHealth: any;
-    pos: any;
-    primaryColor: any;
-    quaternion: any;
-    readonly rearWheels: any;
-    repair(...args: any[]): any;
-    readonly repairsCount: any;
-    resetNetOwner(...args: any[]): any;
-    rocketRefuelSpeed: any;
-    roofClosed: any;
-    roofLivery: any;
-    roofState: any;
-    rot: any;
-    rotation: any;
-    readonly rpm: any;
-    scriptMaxSpeed: any;
-    secondaryColor: any;
-    setAppearanceDataBase64(...args: any[]): any;
-    setArmoredWindowHealth(...args: any[]): any;
-    setArmoredWindowShootCount(...args: any[]): any;
-    setBumperDamageLevel(...args: any[]): any;
-    setDamageStatusBase64(...args: any[]): any;
-    setDoorState(...args: any[]): any;
-    setExtra(...args: any[]): any;
-    setGamestateDataBase64(...args: any[]): any;
-    setHealthDataBase64(...args: any[]): any;
-    setLightDamaged(...args: any[]): any;
-    setMeta(...args: any[]): any;
-    setMod(...args: any[]): any;
-    setNetOwner(...args: any[]): any;
-    setPartBulletHoles(...args: any[]): any;
-    setPartDamageLevel(...args: any[]): any;
-    setRearWheels(...args: any[]): any;
-    setScriptDataBase64(...args: any[]): any;
-    setSearchLightTo(...args: any[]): any;
-    setSpecialLightDamaged(...args: any[]): any;
-    setStreamSyncedMeta(...args: any[]): any;
-    setStreamSyncedMetaData(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    setSyncedMetaData(...args: any[]): any;
-    setTimedExplosion(...args: any[]): any;
-    setTrainEngineId(...args: any[]): any;
-    setTrainLinkedToBackwardId(...args: any[]): any;
-    setTrainLinkedToForwardId(...args: any[]): any;
-    setWeaponCapacity(...args: any[]): any;
-    setWheelBurst(...args: any[]): any;
-    setWheelCamber(...args: any[]): any;
-    setWheelDetached(...args: any[]): any;
-    setWheelFixed(...args: any[]): any;
-    setWheelHasTire(...args: any[]): any;
-    setWheelHealth(...args: any[]): any;
-    setWheelHeight(...args: any[]): any;
-    setWheelOnFire(...args: any[]): any;
-    setWheelRimRadius(...args: any[]): any;
-    setWheels(...args: any[]): any;
-    setWheelTrackWidth(...args: any[]): any;
-    setWheelTyreRadius(...args: any[]): any;
-    setWheelTyreWidth(...args: any[]): any;
-    setWindowDamaged(...args: any[]): any;
-    setWindowOpened(...args: any[]): any;
-    sirenActive: any;
-    steeringAngle: any;
-    streamed: any;
-    streamingDistance: any;
-    readonly timedExplosionCulprit: any;
-    readonly timedExplosionTime: any;
-    readonly timestamp: any;
-    tireSmokeColor: any;
-    toggleMod(...args: any[]): any;
-    trainCarriageConfigIndex: any;
-    trainConfigIndex: any;
-    trainCruiseSpeed: any;
-    trainDirection: any;
-    trainDistanceFromEngine: any;
-    readonly trainEngineId: any;
-    trainForceDoorsOpen: any;
-    readonly trainLinkedToBackwardId: any;
-    readonly trainLinkedToForwardId: any;
-    trainPassengerCarriages: any;
-    trainRenderDerailed: any;
-    trainTrackId: any;
-    trainUnk1: any;
-    trainUnk2: any;
-    trainUnk3: any;
-    readonly type: any;
-    readonly valid: any;
-    velocity: any;
-    visible: any;
-    wheelColor: any;
-    readonly wheelsCount: any;
-    wheelType: any;
-    windowTint: any;
+    /** Whether it collides, by the server's record (true by default). Assigning sends it to the clients that have it; for one that is gone it throws. */
+    collision: boolean;
+    /** Removes the key from this host's own metadata: true, and metaChange fires with the value undefined; false when the key was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the stream-synced key: clients lose it and streamSyncedMetaChange fires with undefined; false when the key was not there. Once the object is gone only this host's copy goes; a checkpoint fires no event. */
+    deleteStreamSyncedMeta(key: string): boolean;
+    /** Another name of deleteStreamSyncedMeta: the same function. */
+    deleteStreamSyncedMetaData(key: string): boolean;
+    /** Removes the synced key: clients lose it and syncedMetaChange fires with undefined; false when the key was not there. Once the object is gone only this host's copy goes. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Another name of deleteSyncedMeta: the same function. */
+    deleteSyncedMetaData(key: string): boolean;
+    /** Detaches it and resolves true once the server started the detach; false when it was not attached on the server or is invalid. On true this host's record (attached, attachedTo) clears; rejects when the server does not answer in 5 s. */
+    detach(): Promise<boolean>;
+    /** The dimension it is in (0 by default); assigning moves it there. Old-path entities take a 32-bit integer (else a RangeError; the fraction is dropped) and lose their owner, a vehicle its occupants too; native ones go through setDimension; blips, markers and colshapes truncate the value. */
+    dimension: number;
+    /** Whether it is frozen in place, by the server's record (false by default). Assigning sends it to the clients that have it; freezing a ped or object also takes its owner away. */
+    frozen: boolean;
+    /** The value setMeta stored under the key, undefined for none: this host's own metadata, which no client sees. */
+    getMeta(key: string): any;
+    /** The keys of this host's own metadata (setMeta); getMetaKeys returns the same. */
+    getMetaDataKeys(): string[];
+    /** The keys of this host's own metadata (setMeta), as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setStreamSyncedMeta stored under the key, as the script set it (an entity stays that entity); undefined for none. On a player or old-path entity a change a C# resource made arrives through the server, its entity references turned into this host's objects. */
+    getStreamSyncedMeta(key: string): any;
+    /** Another name of getStreamSyncedMeta: the same function. */
+    getStreamSyncedMetaData(key: string): any;
+    /** Another name of getStreamSyncedMetaKeys: the same function. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** The keys setStreamSyncedMeta stored, as this host keeps them. */
+    getStreamSyncedMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script set it (an entity stays that entity); undefined for none. On a player or old-path entity a change a C# resource made arrives through the server, its entity references turned into this host's objects. */
+    getSyncedMeta(key: string): any;
+    /** Another name of getSyncedMeta: the same function. */
+    getSyncedMetaData(key: string): any;
+    /** Another name of getSyncedMetaKeys: the same function. */
+    getSyncedMetaDataKeys(): string[];
+    /** The keys setSyncedMeta stored, as this host keeps them. */
+    getSyncedMetaKeys(): string[];
+    /** Whether this host's own metadata (setMeta) holds the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setStreamSyncedMeta stored a value under the key, as this host keeps them. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** Another name of hasStreamSyncedMeta: the same function. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key, as this host keeps them. */
+    hasSyncedMeta(key: string): boolean;
+    /** Another name of hasSyncedMeta: the same function. */
+    hasSyncedMetaData(key: string): boolean;
+    /** Its id within its kind: the network id of a player or old-path entity (a removed one's id is reused), the script id of a native vehicle or NPC (from 65536); blips, markers, colshapes, checkpoints and text labels share one counter, voice channels have their own. Ids of different kinds can be equal. */
+    readonly id: number;
+    /** Its kind by name; native vehicles and NPCs read "vehicle" and "ped". "entity" only while the server has not named an entity's kind yet. */
+    readonly kind: "player" | "vehicle" | "ped" | "object" | "virtualEntity" | "blip" | "marker" | "colshape" | "checkpoint" | "textlabel" | "voiceChannel" | "virtualEntityGroup" | "entity";
+    /** Its model hash. Assigning a name (hashed) or a hash changes it, and clients that have an old-path entity get it anew with the new model; a bad model throws a TypeError or RangeError. A native vehicle's or NPC's cannot be assigned. */
+    get model(): number;
+    set model(value: number | string);
+    /** On a vehicle, ped or object: true while a script keeps its owner from changing (setNetOwner or resetNetOwner with disableMigration), by the server's record. On a player it means something else and is assignable: the server never makes that player an owner. */
+    readonly netOwnershipDisabled: boolean;
+    /** Its position. Assigning moves it: a player or old-path entity throws a TypeError for a non-finite component and the server ignores a point beyond 100000 m; a native vehicle is teleported through its owner; a blip, marker or colshape moves at once (non-finite components become 0). A native NPC's cannot be assigned. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Takes its owner away: without disableMigration the ordinary hand-overs give it to a player again, with it the server alone places it. Old-path entities return nothing and read netOwner as null at once (a removed one is ignored); native ones resolve to the outcome. A player (GTA keeps his ped with his own client) and a virtual entity have no owner on the server: nothing is sent. */
+    resetNetOwner(disableMigration?: boolean): void | Promise<NativeEntityControlOutcome>;
+    /** Its rotation in degrees. Assigning: an old-path entity turns on the server and its clients (non-finite components become 0, the server ignores a component beyond 36000); a player turns to z; a marker takes it at once. A native vehicle's cannot be assigned. */
+    get rot(): Vector3;
+    set rot(value: Vector3Like);
+    /** Stores a value under the key in this host's own metadata, which no client sees; an object alone sets each of its keys. metaChange fires unless the value is the same (Object.is); the key is turned into a string. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Asks the server to make the player its owner; with disableMigration it then stays with that player. An old-path entity returns nothing: netOwner and netOwnershipDisabled change when the server hands it over (netOwnerChange), at once for the player who owns it already, and not at all when the server passes the player over (out of range, another dimension, not spawned, dead). A native one resolves to the outcome. A player and a virtual entity have no owner on the server: nothing is sent. An invalid player throws a TypeError. */
+    setNetOwner(player: Player, disableMigration?: boolean): void | Promise<NativeEntityControlOutcome>;
+    /** Stream-synced metadata the clients that have it streamed in get (getStreamSyncedMeta there); streamSyncedMetaChange fires here unless the value is the same. Limits as setSyncedMeta (key 1..1024 UTF-8 bytes, value within 512 KiB); a checkpoint takes keys of up to 256 bytes and fires no event. */
+    setStreamSyncedMeta(key: string, value: any): void;
+    setStreamSyncedMeta(values: { [key: string]: any }): void;
+    /** Another name of setStreamSyncedMeta: the same function. */
+    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData(values: { [key: string]: any }): void;
+    /** Synced metadata the clients get with it (getSyncedMeta there); syncedMetaChange fires here unless the value is the same. The key must be 1..1024 UTF-8 bytes (RangeError) and the value serializable within 512 KiB (TypeError, RangeError); once the object is gone only this host's copy changes. A voice channel's or virtual entity group's stays on this host. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Another name of setSyncedMeta: the same function. */
+    setSyncedMetaData(key: string, value: any): void;
+    setSyncedMetaData(values: { [key: string]: any }): void;
+    /** Whether clients may have it at all (true by default). Assigning false takes it from every client and takes away its owner (a vehicle's occupants are put out); true lets clients in range get it again. A virtual entity's cannot be assigned. */
+    streamed: boolean;
+    /** Metres within which clients get it; 0 (the default) is the server's distance. Assigning is clamped to 0..20000 with the fraction dropped (a native one goes through setStreamingDistance); a virtual entity's and a checkpoint's cannot be assigned. */
+    streamingDistance: number;
+    /** The server's time in milliseconds (unsigned 32-bit) of the last state the host got for it; 0 until the first one, and a virtual entity's stays 0. */
+    readonly timestamp: number;
+    /** Its BaseObjectType: Player 0, Vehicle 1, Ped 2, Object 3, Blip 4, VoiceChannel 6, Colshape 7, Checkpoint 8, VirtualEntity 20, VirtualEntityGroup 21, Marker 22, TextLabel 23; -1 while the server has not named an entity's kind. */
+    readonly type: number;
+    /** False once it is gone: a player left, an old-path entity from its destroy() on (true again if the server refused the removal), a blip, marker, colshape, voice channel or group once destroyed or its resource stopped, a native vehicle or NPC once the server removed it. */
+    readonly valid: boolean;
+    /** Whether clients show it (true by default), by the server's record; assigning sends it to the clients that have it. Blips, markers and checkpoints take it as one of their options. */
+    visible: boolean;
 }
 
 export const ExplosionType: {
@@ -3180,8 +3435,11 @@ export const ExplosionType: {
 };
 
 export const File: {
-    exists(...args: any[]): any;
-    read(...args: any[]): any;
+    /** Whether a file or folder exists at the path, relative to this resource's folder. Throws outside a resource's code and for a path that leads out of the resource's folder. */
+    exists(filename: string): boolean;
+    /** Reads a file of this resource: text as UTF-8 (default), "utf-16" as UTF-16 LE, "binary" as an ArrayBuffer; names ignore case, any other reads UTF-8. Throws for a missing file, outside a resource's code and for a path out of the resource's folder. */
+    read(filename: string, encoding: "binary"): ArrayBuffer;
+    read(filename: string, encoding?: "utf-8" | "utf-16"): string;
 };
 
 export const FileEncoding: {
@@ -3406,37 +3664,75 @@ export const KeyCode: {
 };
 
 export class Marker {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    color: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    dir: any;
-    faceCamera: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    id: any;
-    isGlobal: any;
-    readonly kind: any;
-    markerType: any;
-    pos: any;
-    rot: any;
-    scale: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly target: any;
-    readonly type: any;
-    readonly valid: any;
-    visible: any;
+    /** Creates a marker that every player in dimension 0 sees, with scale 1 and no rotation. Without `color` it is 255, 255, 255, 120; a colour without `a` gets alpha 255. */
+    constructor(type: number, position: Vector3Like, color?: RGBALike);
+    /** Every valid marker of every resource; a new array on each read. */
+    static readonly all: Marker[];
+    /** How many markers Marker.all holds now. */
+    static readonly count: number;
+    /** The valid marker with that id; null for none. */
+    static getByID(id: number): Marker | null;
+    /** Colour, RGBA(255, 255, 255, 120) by default. Assigning takes { r, g, b, a }; each component is rounded and kept to 0..255, as clients take it, and a missing alpha is 255. */
+    get color(): RGBA;
+    set color(value: RGBALike);
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the marker from every client and from Marker.all; valid turns false and baseObjectRemove fires. After it its setters change and send nothing; later calls do nothing, and a resource's markers go when it stops. */
+    destroy(): void;
+    /** Clients draw it for players whose dimension sees it: in this dimension, 0 by default; in every one at -2147483648; and at 0 also for players in a negative dimension. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** Direction passed to DRAW_MARKER, (0, 0, 0) by default; a non-finite component becomes 0. */
+    get dir(): Vector3;
+    set dir(value: Vector3Like);
+    /** Turns to face the camera (DRAW_MARKER); false by default. */
+    faceCamera: boolean;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** True when it has no target: every player gets it (clients draw it in its dimension). It cannot be changed after creation. */
+    isGlobal: boolean;
+    /** Always "marker". */
+    readonly kind: "marker";
+    /** GTA's marker type for DRAW_MARKER, as MarkerType; 1 by default. Truncated to an integer. */
+    markerType: number;
+    /** Where it is drawn. Assigning moves it for every player who gets it; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Rotation in degrees passed to DRAW_MARKER, (0, 0, 0) by default; a non-finite component becomes 0. */
+    get rot(): Vector3;
+    set rot(value: Vector3Like);
+    /** Size on x, y and z (DRAW_MARKER), (1, 1, 1) by default; a number given at creation sets all three, a number assigned later gives (0, 0, 0). A non-finite component becomes 0. */
+    get scale(): Vector3;
+    set scale(value: Vector3Like);
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every player who gets the marker (everyone, or only its target), later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** The player who alone gets it (the target option at creation), kept as that player: null for a marker every player gets, or once he left. When he leaves nobody gets the marker any more, not the next player with his id; a target not connected at creation gives a marker nobody gets. */
+    readonly target: Player | null;
+    /** BaseObjectType.Marker (22); the marker's own type is markerType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
+    /** Whether clients draw it; true by default. */
+    visible: boolean;
 }
 
 export const MarkerType: {
@@ -3527,55 +3823,83 @@ export const ModelType: {
 };
 
 export class NativePed {
-    constructor(...args: any[]);
+    /** Instances are created by the VARION runtime and cannot be constructed directly. */
+    private constructor();
+    /** Every NPC createNativePed made, by any resource, that this host still holds as valid; a new array on each read (getNativePeds returns the same). */
     static readonly all: NativePed[];
+    /** How many NPCs NativePed.all holds now. */
     static readonly count: number;
+    /** The NPC of that script id (NativePed#id); null for none or one no longer valid. Ped.getByID and BaseObject.getByID find it too. */
     static getByID(id: number): NativePed | null;
-    /** FiveM GET_PED_ARMOUR, as health. */
+    /** GET_PED_ARMOUR, as health. */
     readonly armour: number | null;
     /** CLEAR_PED_TASKS on its owner; CLEAR_PED_TASKS_IMMEDIATELY with `immediately`. */
     clearTasks(immediately?: boolean): Promise<NativeVehicleCommandOutcome>;
+    /** Removes the key from this host's own metadata of it: true, and metaChange fires with the value undefined; false when the key was not there. */
     deleteMeta(key: string): boolean;
+    /** Removes the stream-synced key: the clients whose GTA has it lose it and streamSyncedMetaChange fires with the value undefined; false when the key was not there. Once the NPC is no longer valid, only this host's copy goes. */
     deleteStreamSyncedMeta(key: string): boolean;
-    deleteStreamSyncedMetaData(...args: any[]): any;
+    /** Another name of deleteStreamSyncedMeta: the same function. */
+    deleteStreamSyncedMetaData(key: string): boolean;
+    /** Removes the synced key: the clients whose GTA has it lose it and syncedMetaChange fires with the value undefined; false when the key was not there. Once the NPC is no longer valid, only this host's copy goes. */
     deleteSyncedMeta(key: string): boolean;
-    deleteSyncedMetaData(...args: any[]): any;
+    /** Another name of deleteSyncedMeta: the same function. */
+    deleteSyncedMetaData(key: string): boolean;
+    /** Removes it for everyone, as destroyNativePed (DELETE_ENTITY): true, and it is no longer valid (baseObjectRemove fires); false when it is gone or its owner's client did not negotiate owner migration. */
     destroy(): Promise<boolean>;
-    /** Assigning moves it (setDimension) and reads back at once, as alt:V entity.dimension; a refusal puts the old value back. fetch() reads the server's value. */
+    /** Assigning moves it (setDimension) and reads back at once; a refusal puts the old value back. fetch() reads the server's value. */
     dimension: number;
     /** The server's current reading of it; null once it is gone (it is then no longer valid). */
     fetch(): Promise<NativePed | null>;
+    /** The value setMeta stored under the key, undefined for none: this host's own metadata of it, which no client sees. */
     getMeta(key: string): any;
+    /** The keys of this host's own metadata of it (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
+    /** The keys of this host's own metadata of it (setMeta), as getMetaDataKeys. */
     getMetaKeys(): string[];
+    /** The value setStreamSyncedMeta stored under the key, as this host keeps it (not read back from a client); undefined for none. */
     getStreamSyncedMeta(key: string): any;
-    getStreamSyncedMetaData(...args: any[]): any;
-    getStreamSyncedMetaDataKeys(...args: any[]): any;
+    /** Another name of getStreamSyncedMeta: the same function. */
+    getStreamSyncedMetaData(key: string): any;
+    /** Another name of getStreamSyncedMetaKeys: the same function. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** The keys setStreamSyncedMeta stored, as this host keeps them. */
     getStreamSyncedMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as this host keeps it (not read back from a client); undefined for none. */
     getSyncedMeta(key: string): any;
-    getSyncedMetaData(...args: any[]): any;
-    getSyncedMetaDataKeys(...args: any[]): any;
+    /** Another name of getSyncedMeta: the same function. */
+    getSyncedMetaData(key: string): any;
+    /** Another name of getSyncedMetaKeys: the same function. */
+    getSyncedMetaDataKeys(): string[];
+    /** The keys setSyncedMeta stored, as this host keeps them. */
     getSyncedMetaKeys(): string[];
+    /** Whether this host's own metadata of it (setMeta) holds the key. */
     hasMeta(key: string): boolean;
+    /** Whether setStreamSyncedMeta stored a value under the key. */
     hasStreamSyncedMeta(key: string): boolean;
-    hasStreamSyncedMetaData(...args: any[]): any;
+    /** Another name of hasStreamSyncedMeta: the same function. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
     hasSyncedMeta(key: string): boolean;
-    hasSyncedMetaData(...args: any[]): any;
-    /** Degrees, 0..360 (FiveM GET_ENTITY_HEADING), as fetch() last read it. */
+    /** Another name of hasSyncedMeta: the same function. */
+    hasSyncedMetaData(key: string): boolean;
+    /** Degrees, 0..360 (GET_ENTITY_HEADING), as fetch() last read it. */
     readonly heading: number;
-    /** Its health as fetch() last read it from its owner's tree (FiveM GET_ENTITY_HEALTH); while it waits, as its last owner left it; null before the server read its health node. */
+    /** Its health as fetch() last read it from its owner's tree (GET_ENTITY_HEALTH); while it waits, as its last owner left it; null before the server read its health node. */
     readonly health: number | null;
     /** Its script id, of the native range (from 65536, shared with NativeVehicle; never a legacy entity's id): unique while the server runs. Ped.getByID and BaseObject.getByID find it. */
     readonly id: number;
     /** GTA's own death state (dying or dead) from its owner's tree, as fetch() last read it; null before it was read. */
     readonly isDead: boolean | null;
+    /** Always "ped", as for any Ped. */
     readonly kind: "ped";
-    /** FiveM GET_ENTITY_MAX_HEALTH, as health. */
+    /** GET_ENTITY_MAX_HEALTH, as health. */
     readonly maxHealth: number | null;
+    /** Its model hash as an unsigned 32-bit number: what createNativePed was given, a name hashed as varion.hash. */
     readonly model: number;
     /** Its GTA network object id, as the server last mirrored it (a changed record every 100 ms at most) or fetch() read it; 0 while it waits for an owner. */
     readonly netId: number;
-    /** alt:V's name for owner. */
+    /** Another name for owner. */
     readonly netOwner: Player | null;
     /** True while a script keeps it with its owner (setNetOwner or resetNetOwner with disableMigration). */
     readonly netOwnershipDisabled: boolean;
@@ -3583,38 +3907,42 @@ export class NativePed {
     readonly owner: Player | null;
     /** TASK_PLAY_ANIM on its owner, which loads the dictionary first ("refused" for one GTA does not have). Names: 1-64 printable ASCII characters without spaces. */
     playAnim(dict: string, name: string, blendInSpeed?: number, blendOutSpeed?: number, duration?: number, flag?: number, playbackRate?: number, lockX?: boolean, lockY?: boolean, lockZ?: boolean): Promise<NativeVehicleCommandOutcome>;
-    /** Where its owner's tree puts it (FiveM GET_ENTITY_COORDS), as fetch() last read it. */
+    /** Where its owner's tree puts it (GET_ENTITY_COORDS), as fetch() last read it. */
     readonly pos: Vector3;
-    /** alt:V resetNetOwner: the ordinary hand-overs again, or with disableMigration its current owner kept. */
+    /** The ordinary hand-overs again, or with disableMigration its current owner kept. */
     resetNetOwner(disableMigration?: boolean): Promise<NativeEntityControlOutcome>;
-    /** Moves it to a dimension (alt:V entity.dimension, FiveM SetEntityRoutingBucket): the players that can see that dimension get it, the others lose it, and its owner hands it to one of them that holds it. One the server made whose owner cannot see that dimension starts over there at once: its owner lets it go and it waits there for an owner with its state (a new netId). A client's car stays with its owner until a player there holds it. */
+    /** Moves it to a dimension: the players that can see that dimension get it, the others lose it, and its owner hands it to one of them that holds it. One the server made whose owner cannot see that dimension starts over there at once: its owner lets it go and it waits there for an owner with its state (a new netId). A client's car stays with its owner until a player there holds it. */
     setDimension(dimension: number): Promise<NativeEntityControlOutcome>;
     /** SET_PED_INTO_VEHICLE on its owner, into a native vehicle (or the one of that network id); seat -1 is the driver's, -2 any free one. */
     setIntoVehicle(vehicle: NativeVehicle | number, seat?: number): Promise<NativeVehicleCommandOutcome>;
-    /** This host's own metadata of it, as alt:V meta: no client sees it; metaChange fires on a change. */
+    /** This host's own metadata of it: no client sees it; metaChange fires on a change. */
     setMeta(key: string, value: any): void;
     setMeta(values: { [key: string]: any }): void;
-    /** alt:V setNetOwner: the player takes it over once its GTA holds it (its CREATE acknowledged, 1.5 s), as a hand-over, whether its owner still sees it or not; with disableMigration it keeps it then. "not-native": that player is not on the native path; "refused": its client cannot own it; "waiting": one the server made has no owner yet. */
+    /** Hands it to the player: the player takes it over once its GTA holds it (its CREATE acknowledged, 1.5 s), as a hand-over, whether its owner still sees it or not; with disableMigration it keeps it then. "not-native": that player is not on the native path; "refused": its client cannot own it; "waiting": one the server made has no owner yet. */
     setNetOwner(player: Player, disableMigration?: boolean): Promise<NativeEntityControlOutcome>;
     /** SET_ENTITY_COORDS on its owner, then SET_ENTITY_HEADING when a heading (degrees) is given. */
     setPosition(pos: Vector3Like, heading?: number): Promise<NativeVehicleCommandOutcome>;
     /** Sets streamingDistance; one the server made keeps it for each of its lifetimes. */
     setStreamingDistance(distance: number): Promise<NativeEntityControlOutcome>;
-    /** Stream-synced metadata, as alt:V's: the clients whose GTA has it now read it (getStreamSyncedMeta, streamSyncedMetaChange there). */
+    /** Stream-synced metadata: the clients whose GTA has it now read it (getStreamSyncedMeta, streamSyncedMetaChange there). */
     setStreamSyncedMeta(key: string, value: any): void;
     setStreamSyncedMeta(values: { [key: string]: any }): void;
-    setStreamSyncedMetaData(...args: any[]): any;
-    /** Synced metadata, as alt:V's: every client whose GTA has it reads it (getSyncedMeta, syncedMetaChange there), one that gets it later gets it with it; the getters here read the scripts' own values. Throws for a value that cannot be sent. */
+    /** Another name of setStreamSyncedMeta: the same function. */
+    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData(values: { [key: string]: any }): void;
+    /** Synced metadata: every client whose GTA has it reads it (getSyncedMeta, syncedMetaChange there), one that gets it later gets it with it; the getters here read the scripts' own values. Throws for a value that cannot be sent. */
     setSyncedMeta(key: string, value: any): void;
     setSyncedMeta(values: { [key: string]: any }): void;
-    setSyncedMetaData(...args: any[]): any;
-    /** Metres within which players see it, in place of the server's (alt:V entity.streamingDistance); 0 is the server's. Assigning sends it (0..20000, as the legacy entities'). */
+    /** Another name of setSyncedMeta: the same function. */
+    setSyncedMetaData(key: string, value: any): void;
+    setSyncedMetaData(values: { [key: string]: any }): void;
+    /** Metres within which players see it, in place of the server's; 0 is the server's. Assigning sends it (0..20000, as the legacy entities'). */
     streamingDistance: number;
     /** TASK_GO_STRAIGHT_TO_COORD on its owner: speed 1 walks, 2 runs, 3 sprints; timeout in ms (-1 none); heading 40000 keeps the one the walk ends with. */
     taskGoStraightToCoord(pos: Vector3Like, speed?: number, timeout?: number, heading?: number, slide?: number): Promise<NativeVehicleCommandOutcome>;
     /** TASK_GO_TO_COORD_ANY_MEANS on its owner. */
     taskGoToCoordAnyMeans(pos: Vector3Like, speed?: number, p5?: number, p6?: boolean, walkingStyle?: number, p8?: number): Promise<NativeVehicleCommandOutcome>;
-    /** TASK_WANDER_STANDARD on its owner; GTA's own scripts pass 10 and 10. Not one of FiveM's RPC natives. */
+    /** TASK_WANDER_STANDARD on its owner; GTA's own scripts pass 10 and 10. Not an RPC native. */
     taskWanderStandard(p1?: number, p2?: number): Promise<NativeVehicleCommandOutcome>;
     /** BaseObjectType.Ped (2), as any Ped. */
     readonly type: number;
@@ -3625,142 +3953,183 @@ export class NativePed {
 }
 
 export class NativeVehicle {
-    constructor(...args: any[]);
+    /** Instances are created by the VARION runtime and cannot be constructed directly. */
+    private constructor();
+    /** Every native vehicle the host mirrors and holds as valid, a client script's car and a train carriage too; a new array on each read (getNativeVehicles returns the same). */
     static readonly all: NativeVehicle[];
+    /** How many native vehicles NativeVehicle.all holds now. */
     static readonly count: number;
+    /** The native vehicle of that script id (NativeVehicle#id); null for none or one that is gone. Vehicle.getByID and BaseObject.getByID find it too. */
     static getByID(id: number): NativeVehicle | null;
     /** By its GTA network object id (what a client script sees); null for none. */
     static getByNetId(netId: number): NativeVehicle | null;
-    /** FiveM GET_VEHICLE_BODY_HEALTH, as engineHealth. */
+    /** GET_VEHICLE_BODY_HEALTH, as engineHealth. */
     readonly bodyHealth: number;
     /** SET_VEHICLE_DOOR_BROKEN on its owner; `remove` takes the door away. */
     breakDoor(door: number, remove?: boolean): Promise<NativeVehicleCommandOutcome>;
-    /** FiveM GET_VEHICLE_CUSTOM_PRIMARY_COLOUR; null while it has none. Assigning null clears it. */
+    /** GET_VEHICLE_CUSTOM_PRIMARY_COLOUR; null while it has none. Assigning null clears it. */
     get customPrimaryColor(): RGBA | null;
     set customPrimaryColor(value: RGBALike | null);
+    /** GET_VEHICLE_CUSTOM_SECONDARY_COLOUR from its owner's appearance node, alpha 255; null while it has none. Assigning {r, g, b} (whole numbers 0..255, else a RangeError; alpha is not used) sends SET_VEHICLE_CUSTOM_SECONDARY_COLOUR to its owner, and null clears it. */
     get customSecondaryColor(): RGBA | null;
     set customSecondaryColor(value: RGBALike | null);
+    /** Removes the key from this host's own metadata of it: true, and metaChange fires with the value undefined; false when the key was not there. */
     deleteMeta(key: string): boolean;
+    /** Removes the stream-synced key: the clients whose GTA has it lose it and streamSyncedMetaChange fires with the value undefined; false when the key was not there. Once the vehicle is gone, only this host's copy goes. */
     deleteStreamSyncedMeta(key: string): boolean;
-    deleteStreamSyncedMetaData(...args: any[]): any;
+    /** Another name of deleteStreamSyncedMeta: the same function. */
+    deleteStreamSyncedMetaData(key: string): boolean;
+    /** Removes the synced key: the clients whose GTA has it lose it and syncedMetaChange fires with the value undefined; false when the key was not there. Once the vehicle is gone, only this host's copy goes. */
     deleteSyncedMeta(key: string): boolean;
-    deleteSyncedMetaData(...args: any[]): any;
+    /** Another name of deleteSyncedMeta: the same function. */
+    deleteSyncedMetaData(key: string): boolean;
+    /** Removes it for everyone, a client script's car too, as destroyNativeVehicle (DELETE_ENTITY): true once the server removed it (valid is false by then); false when it is gone, its owner's client did not negotiate owner migration, or it is a train carriage behind its engine. */
     destroy(): Promise<boolean>;
-    /** Assigning moves it (setDimension) and reads back at once, as alt:V entity.dimension; a refusal puts the old value back. */
+    /** Assigning moves it (setDimension) and reads back at once; a refusal puts the old value back. */
     dimension: number;
+    /** The dirt level its owner's appearance node carries (GET_VEHICLE_DIRT_LEVEL, a whole number); 0 until the server read it. Assigning a whole number 0..15 (else a RangeError) sends SET_VEHICLE_DIRT_LEVEL to its owner. */
     dirtLevel: number;
+    /** The player in seat 1 by its occupants as the server last mirrored them; null when no player drives. */
     readonly driver: Player | null;
-    /** Its owner's health node, as alt:V's engineHealth and FiveM GET_VEHICLE_ENGINE_HEALTH: 1000 undamaged (also before the node came), below 0 on fire. */
+    /** Its owner's health node, as GET_VEHICLE_ENGINE_HEALTH: 1000 undamaged (also before the node came), below 0 on fire. */
     readonly engineHealth: number;
-    /** FiveM GET_IS_VEHICLE_ENGINE_RUNNING. Assigning is SET_VEHICLE_ENGINE_ON(value, instantly, disableAutoStart) on its owner. */
+    /** GET_IS_VEHICLE_ENGINE_RUNNING. Assigning is SET_VEHICLE_ENGINE_ON(value, instantly, disableAutoStart) on its owner. */
     engineOn: boolean;
-    /** 0 closed, otherwise how far open, from its game state node (FiveM GET_VEHICLE_DOOR_STATUS); doors 0..6. */
+    /** 0 closed, otherwise how far open, from its game state node (GET_VEHICLE_DOOR_STATUS); doors 0..6. */
     getDoorState(door: number): number;
-    /** FiveM IS_VEHICLE_EXTRA_TURNED_ON. */
+    /** IS_VEHICLE_EXTRA_TURNED_ON. */
     getExtra(extraId: number): boolean;
+    /** The value setMeta stored under the key, undefined for none: this host's own metadata of it, which no client sees. */
     getMeta(key: string): any;
+    /** The keys of this host's own metadata of it (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
+    /** The keys of this host's own metadata of it (setMeta), as getMetaDataKeys. */
     getMetaKeys(): string[];
+    /** The value setStreamSyncedMeta stored under the key, as this host keeps it (not read back from a client); undefined for none. */
     getStreamSyncedMeta(key: string): any;
-    getStreamSyncedMetaData(...args: any[]): any;
-    getStreamSyncedMetaDataKeys(...args: any[]): any;
+    /** Another name of getStreamSyncedMeta: the same function. */
+    getStreamSyncedMetaData(key: string): any;
+    /** Another name of getStreamSyncedMetaKeys: the same function. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** The keys setStreamSyncedMeta stored, as this host keeps them. */
     getStreamSyncedMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as this host keeps it (not read back from a client); undefined for none. */
     getSyncedMeta(key: string): any;
-    getSyncedMetaData(...args: any[]): any;
-    getSyncedMetaDataKeys(...args: any[]): any;
+    /** Another name of getSyncedMeta: the same function. */
+    getSyncedMetaData(key: string): any;
+    /** Another name of getSyncedMetaKeys: the same function. */
+    getSyncedMetaDataKeys(): string[];
+    /** The keys setSyncedMeta stored, as this host keeps them. */
     getSyncedMetaKeys(): string[];
+    /** Whether this host's own metadata of it (setMeta) holds the key. */
     hasMeta(key: string): boolean;
+    /** Whether setStreamSyncedMeta stored a value under the key. */
     hasStreamSyncedMeta(key: string): boolean;
-    hasStreamSyncedMetaData(...args: any[]): any;
+    /** Another name of hasStreamSyncedMeta: the same function. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
     hasSyncedMeta(key: string): boolean;
-    hasSyncedMetaData(...args: any[]): any;
+    /** Another name of hasSyncedMeta: the same function. */
+    hasSyncedMetaData(key: string): boolean;
     /** Degrees, 0..360. */
     readonly heading: number;
     /** Its script id, of the native range (from 65536, shared with NativePed; never a legacy entity's id): unique while the server runs. Vehicle.getByID and BaseObject.getByID find it. */
     readonly id: number;
     /** Its turn indicators: 0 off, 1 left, 2 right, 3 both (hazard lights). Not in GTA's sync trees: the server holds what its owner's client reports (its driver, a client script, GTA's driving task) and sets it on every copy; assigning does that at once, the owner's car included -- a car the server made takes it once it has an owner. Anything but 0..3 throws a RangeError. */
     indicatorLights: number;
+    /** True while it has a custom primary colour (customPrimaryColor is not null), as its owner's appearance node says. */
     readonly isPrimaryColorRGB: boolean;
+    /** True while it has a custom secondary colour (customSecondaryColor is not null), as its owner's appearance node says. */
     readonly isSecondaryColorRGB: boolean;
+    /** Always "vehicle", as for any Vehicle. */
     readonly kind: "vehicle";
     /** -1 without one. */
     livery: number;
-    /** alt:V VehicleLockState (FiveM GET_VEHICLE_DOOR_LOCK_STATUS). */
+    /** VehicleLockState (GET_VEHICLE_DOOR_LOCK_STATUS). */
     lockState: number;
     /** Model hash; 0 until the server read it. */
     readonly model: number;
+    /** The kit field of its owner's appearance node: 0 without a kit, else 1..3, not the index SET_VEHICLE_MOD_KIT was given. Assigning a whole number 0..255 (else a RangeError) sends SET_VEHICLE_MOD_KIT to its owner; setMod needs a kit. */
     modKit: number;
     /** Its GTA network object id; 0 while a car the server made waits for an owner. */
     readonly netId: number;
-    /** alt:V's name for owner. */
+    /** Another name for owner. */
     readonly netOwner: Player | null;
     /** True while a script keeps it with its owner (setNetOwner or resetNetOwner with disableMigration). */
     readonly netOwnershipDisabled: boolean;
-    /** Up to eight characters, as its owner's appearance node carries them (FiveM GET_VEHICLE_NUMBER_PLATE_TEXT); compare it trimmed. Assigned text is cut to 8 printable ASCII characters. */
+    /** Up to eight characters, as its owner's appearance node carries them (GET_VEHICLE_NUMBER_PLATE_TEXT); compare it trimmed. Assigned text is cut to 8 printable ASCII characters. */
     numberPlateText: string;
-    /** The player whose client simulates it (FiveM NETWORK_GET_ENTITY_OWNER); null while a car the server made waits. */
+    /** The player whose client simulates it (NETWORK_GET_ENTITY_OWNER); null while a car the server made waits. */
     readonly owner: Player | null;
     /** Seat -> player for every occupied seat, the driver (seat 1) included. */
     readonly passengers: { [seat: number]: Player };
-    /** FiveM GET_VEHICLE_EXTRA_COLOURS. */
+    /** GET_VEHICLE_EXTRA_COLOURS. */
     pearlColor: number;
-    /** FiveM GET_VEHICLE_PETROL_TANK_HEALTH, as engineHealth. */
+    /** GET_VEHICLE_PETROL_TANK_HEALTH, as engineHealth. */
     readonly petrolTankHealth: number;
     /** Assigning teleports it (SET_ENTITY_COORDS through its owner), its heading kept. */
     get pos(): Vector3;
     set pos(value: Vector3Like);
-    /** Palette colour from its owner's appearance node (FiveM GET_VEHICLE_COLOURS); 0 until the server read it. Assigning sends SET_VEHICLE_COLOURS to its owner without waiting; this reads the new colour once the owner's next sync arrives. So do the other assignable properties. */
+    /** Palette colour from its owner's appearance node (GET_VEHICLE_COLOURS); 0 until the server read it. Assigning sends SET_VEHICLE_COLOURS to its owner without waiting; this reads the new colour once the owner's next sync arrives. So do the other assignable properties. */
     primaryColor: number;
-    /** alt:V resetNetOwner: the ordinary hand-overs again, or with disableMigration its current owner kept. */
+    /** The ordinary hand-overs again, or with disableMigration its current owner kept. */
     resetNetOwner(disableMigration?: boolean): Promise<NativeEntityControlOutcome>;
-    /** Degrees, as GET_ENTITY_ROTATION -- not alt:V's radians, as every rot of the Varion API; GTA 3788 sends them in 0.9 degree steps. */
+    /** Degrees, as GET_ENTITY_ROTATION, as every rot of the API; GTA sends them in steps of about 0.9 degrees. */
     readonly rot: Vector3;
+    /** Secondary palette colour from its owner's appearance node (GET_VEHICLE_COLOURS); 0 until the server read it. Assigning a whole number 0..255 (else a RangeError) sends SET_VEHICLE_COLOURS to its owner, the primary colour kept. */
     secondaryColor: number;
+    /** True for a car createNativeVehicle made; false for one a client made, a client script's car or a createNativeTrain carriage. */
     readonly serverMade: boolean;
-    /** Moves it to a dimension (alt:V entity.dimension, FiveM SetEntityRoutingBucket): the players that can see that dimension get it, the others lose it, and its owner hands it to one of them that holds it. One the server made whose owner cannot see that dimension starts over there at once: its owner lets it go and it waits there for an owner with its state (a new netId). A client's car stays with its owner until a player there holds it. */
+    /** Moves it to a dimension: the players that can see that dimension get it, the others lose it, and its owner hands it to one of them that holds it. One the server made whose owner cannot see that dimension starts over there at once: its owner lets it go and it waits there for an owner with its state (a new netId). A client's car stays with its owner until a player there holds it. */
     setDimension(dimension: number): Promise<NativeEntityControlOutcome>;
-    /** alt:V VehicleDoorState: 0 shuts the door (SET_VEHICLE_DOOR_SHUT), any other value opens it (SET_VEHICLE_DOOR_OPEN; GTA opens it fully). Doors 0..7. */
+    /** VehicleDoorState: 0 shuts the door (SET_VEHICLE_DOOR_SHUT), any other value opens it (SET_VEHICLE_DOOR_OPEN; GTA opens it fully). Doors 0..7. */
     setDoorState(door: number, state: number): Promise<NativeVehicleCommandOutcome>;
     /** SET_VEHICLE_ENGINE_ON on its owner; both flags default to true. */
     setEngineOn(on: boolean, instantly?: boolean, disableAutoStart?: boolean): Promise<NativeVehicleCommandOutcome>;
     /** SET_VEHICLE_EXTRA on its owner; "refused" where the model has no such extra. */
     setExtra(extraId: number, enabled: boolean): Promise<NativeVehicleCommandOutcome>;
-    /** This host's own metadata of it, as alt:V meta: no client sees it; metaChange fires on a change. */
+    /** This host's own metadata of it: no client sees it; metaChange fires on a change. */
     setMeta(key: string, value: any): void;
     setMeta(values: { [key: string]: any }): void;
     /** SET_VEHICLE_MOD on its owner; modIndex -1 is stock. GTA needs the mod kit set first (modKit = 0). There is no getMod: the server reads no mod type/index from the tree. */
     setMod(modType: number, modIndex: number): Promise<NativeVehicleCommandOutcome>;
-    /** alt:V setNetOwner: the player takes it over once its GTA holds it (its CREATE acknowledged, 1.5 s), as a hand-over, whether its owner still sees it or not; with disableMigration it keeps it then. "not-native": that player is not on the native path; "refused": its client cannot own it; "waiting": one the server made has no owner yet. */
+    /** Hands it to the player: the player takes it over once its GTA holds it (its CREATE acknowledged, 1.5 s), as a hand-over, whether its owner still sees it or not; with disableMigration it keeps it then. "not-native": that player is not on the native path; "refused": its client cannot own it; "waiting": one the server made has no owner yet. */
     setNetOwner(player: Player, disableMigration?: boolean): Promise<NativeEntityControlOutcome>;
     /** SET_ENTITY_COORDS on its owner, then SET_ENTITY_HEADING when a heading (degrees) is given. */
     setPosition(pos: Vector3Like, heading?: number): Promise<NativeVehicleCommandOutcome>;
     /** Sets streamingDistance; one the server made keeps it for each of its lifetimes. */
     setStreamingDistance(distance: number): Promise<NativeEntityControlOutcome>;
-    /** Stream-synced metadata, as alt:V's: the clients whose GTA has it now read it (getStreamSyncedMeta, streamSyncedMetaChange there). */
+    /** Stream-synced metadata: the clients whose GTA has it now read it (getStreamSyncedMeta, streamSyncedMetaChange there). */
     setStreamSyncedMeta(key: string, value: any): void;
     setStreamSyncedMeta(values: { [key: string]: any }): void;
-    setStreamSyncedMetaData(...args: any[]): any;
-    /** Synced metadata, as alt:V's: every client whose GTA has it reads it (getSyncedMeta, syncedMetaChange there), one that gets it later gets it with it; the getters here read the scripts' own values. Throws for a value that cannot be sent. */
+    /** Another name of setStreamSyncedMeta: the same function. */
+    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData(values: { [key: string]: any }): void;
+    /** Synced metadata: every client whose GTA has it reads it (getSyncedMeta, syncedMetaChange there), one that gets it later gets it with it; the getters here read the scripts' own values. Throws for a value that cannot be sent. */
     setSyncedMeta(key: string, value: any): void;
     setSyncedMeta(values: { [key: string]: any }): void;
-    setSyncedMetaData(...args: any[]): any;
+    /** Another name of setSyncedMeta: the same function. */
+    setSyncedMetaData(key: string, value: any): void;
+    setSyncedMetaData(values: { [key: string]: any }): void;
     /** SET_TRAIN_CRUISE_SPEED on its owner, for the train's engine: the speed GTA's train keeps to, m/s, -100 to 100 (a negative one backwards). "refused" for a vehicle that is no train. */
     setTrainCruiseSpeed(speed: number): Promise<NativeVehicleCommandOutcome>;
     /** SET_TRAIN_SPEED on its owner, for the train's engine (any carriage names its train): m/s, -100 to 100; a negative speed runs the train backwards -- set the cruise speed the same way, or GTA brakes it back towards its cruise speed. "refused" for a vehicle that is no train. */
     setTrainSpeed(speed: number): Promise<NativeVehicleCommandOutcome>;
-    /** Metres within which players see it, in place of the server's (alt:V entity.streamingDistance); 0 is the server's. Assigning sends it (0..20000, as the legacy entities'). */
+    /** Metres within which players see it, in place of the server's; 0 is the server's. Assigning sends it (0..20000, as the legacy entities'). */
     streamingDistance: number;
     /** TOGGLE_VEHICLE_MOD on its owner (turbo 18, tyre smoke 20, xenon 22). */
     toggleMod(modType: number, enabled: boolean): Promise<NativeVehicleCommandOutcome>;
-    /** A train carriage's place in its train and the train's state, as FiveM's server natives read it; null for any other vehicle, or until its owner's train node arrived. */
+    /** A train carriage's place in its train and the train's state, as the server natives read it; null for any other vehicle, or until its owner's train node arrived. */
     readonly train: NativeTrainState | null;
     /** BaseObjectType.Vehicle (1), as any Vehicle. */
     readonly type: number;
+    /** False once the server removed it: its owner or a script deleted it, or its owner left and nobody could take it over. It stays readable. */
     readonly valid: boolean;
-    /** As FiveM GET_VEHICLE_TYPE. */
+    /** GET_VEHICLE_TYPE. */
     readonly vehicleType: "automobile" | "bike" | "boat" | "heli" | "plane" | "submarine" | "trailer" | "train" | "unknown";
+    /** Wheel palette colour from its owner's appearance node (GET_VEHICLE_EXTRA_COLOURS); 0 until the server read it. Assigning a whole number 0..255 (else a RangeError) sends SET_VEHICLE_EXTRA_COLOURS to its owner, the pearl colour kept. */
     wheelColor: number;
-    /** -1 for none (FiveM GET_VEHICLE_WINDOW_TINT). */
+    /** -1 for none (GET_VEHICLE_WINDOW_TINT). */
     windowTint: number;
 }
 
@@ -3780,136 +4149,269 @@ export const NumberPlateStyle: {
 };
 
 export class Object {
-    /** Throws: use `await varion.createObject(model, pos, rot)` (alt:V's `new alt.Object`). */
-    constructor(...args: never[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    activatePhysics(...args: any[]): any;
-    alpha: any;
-    readonly attached: any;
-    readonly attachedTo: any;
-    /** Varion's form: GTA's bone index of the parent, offset in metres, rotation in degrees. alt:V's seven arguments (told by the third, a bone): rot in radians (turned into degrees), noFixedRotation the opposite of fixedRotation. Bone names, an own bone other than 0 (the root) and a ped parent's bone id other than 0 reject: not supported yet. Rejects for an invalid entity or parent, a native vehicle or NPC as parent, or the server's refusal. */
+    /** Runtime-created object. Use `await varion.createObject(model, pos, rot)`. */
+    private constructor();
+    /** Every valid object of the old path (varion.createObject). A new array on each read. */
+    static readonly all: Object[];
+    /** How many objects Object.all holds now. */
+    static readonly count: number;
+    /** The valid object of that network id; null for none. */
+    static getByID(id: number): Object | null;
+    /** Asks the clients that have it, and its owner, to activate its physics; once its physics is active a player in reach may own it. Throws for a removed object. */
+    activatePhysics(): void;
+    /** Opacity 0..255, 255 by default. Assigning is clamped to 0..255 and truncated and sent to the clients that have it. */
+    alpha: number;
+    /** Whether attachTo attached it and it still is, by this host's record: false after detach() and once its parent is gone, as the server then detaches it itself. */
+    readonly attached: boolean;
+    /** The parent attachTo attached it to, while it is attached: null before an attach, after detach() and once that parent is gone (the server then detaches it itself). */
+    readonly attachedTo: Player | Vehicle | Ped | Object | null;
+    /** Five arguments: GTA's bone index of the parent, offset in metres, rotation in degrees. Seven arguments (told by the third, a bone): rot in radians (turned into degrees), noFixedRotation the opposite of fixedRotation. Bone names, an own bone other than 0 (the root) and a ped parent's bone id other than 0 reject: not supported yet. Rejects for an invalid entity or parent, a native vehicle or NPC as parent, or the server's refusal. */
     attachTo(parent: Entity, boneIndex?: number, offset?: Vector3Like, rotation?: Vector3Like, useSoftPinning?: boolean, collision?: boolean, fixedRotation?: boolean): Promise<boolean>;
     attachTo(parent: Entity, entityBone: number, ownBone: number, pos: Vector3Like, rot: Vector3Like, enableCollisions: boolean, noFixedRotation: boolean): Promise<boolean>;
-    collision: any;
-    deleteMeta(...args: any[]): any;
-    deleteStreamSyncedMeta(...args: any[]): any;
-    deleteStreamSyncedMetaData(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    deleteSyncedMetaData(...args: any[]): any;
-    destroy(...args: any[]): any;
-    detach(...args: any[]): any;
-    dimension: any;
-    frozen: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getStreamSyncedMeta(...args: any[]): any;
-    getStreamSyncedMetaData(...args: any[]): any;
-    getStreamSyncedMetaDataKeys(...args: any[]): any;
-    getStreamSyncedMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaData(...args: any[]): any;
-    getSyncedMetaDataKeys(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasStreamSyncedMeta(...args: any[]): any;
-    hasStreamSyncedMetaData(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    hasSyncedMetaData(...args: any[]): any;
-    id: any;
-    /** An object (varion.createObject) with no owner and no migration: the server alone places it, as alt:V's static entity (otherwise, once its physics is active, the nearest player in reach owns it). Assigning true takes its owner away for good, false lets a player own it again. */
+    /** Whether it collides, by the server's record (true by default). Assigning sends it to the clients that have it; for one that is gone it throws. */
+    collision: boolean;
+    /** Removes the key from this host's own metadata: true, and metaChange fires with the value undefined; false when the key was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the stream-synced key: clients lose it and streamSyncedMetaChange fires with undefined; false when the key was not there. Once the entity is gone only this host's copy goes. */
+    deleteStreamSyncedMeta(key: string): boolean;
+    /** Another name of deleteStreamSyncedMeta: the same function. */
+    deleteStreamSyncedMetaData(key: string): boolean;
+    /** Removes the synced key: clients lose it and syncedMetaChange fires with undefined; false when the key was not there. Once the object is gone only this host's copy goes. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Another name of deleteSyncedMeta: the same function. */
+    deleteSyncedMetaData(key: string): boolean;
+    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on. While the server's removal queue is full it resolves false and the object is valid again; a second call, or one on a removed object, resolves false. */
+    destroy(): Promise<boolean>;
+    /** Detaches it and resolves true once the server started the detach; false when it was not attached on the server or is invalid. On true this host's record (attached, attachedTo) clears; rejects when the server does not answer in 5 s. */
+    detach(): Promise<boolean>;
+    /** The dimension it is in (0 by default). Assigning a 32-bit integer (else a RangeError; the fraction is dropped) moves it there and takes its owner away. */
+    dimension: number;
+    /** Whether it is frozen in place, by the server's record (false by default). Assigning sends it to the clients that have it; freezing also takes its owner away, so the server alone places it. */
+    frozen: boolean;
+    /** The value setMeta stored under the key, undefined for none: this host's own metadata, which no client sees. */
+    getMeta(key: string): any;
+    /** The keys of this host's own metadata (setMeta); getMetaKeys returns the same. */
+    getMetaDataKeys(): string[];
+    /** The keys of this host's own metadata (setMeta), as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setStreamSyncedMeta stored under the key, as the script set it (an entity stays that entity); undefined for none. On a player or old-path entity a change a C# resource made arrives through the server, its entity references turned into this host's objects. */
+    getStreamSyncedMeta(key: string): any;
+    /** Another name of getStreamSyncedMeta: the same function. */
+    getStreamSyncedMetaData(key: string): any;
+    /** Another name of getStreamSyncedMetaKeys: the same function. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** The keys setStreamSyncedMeta stored, as this host keeps them. */
+    getStreamSyncedMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script set it (an entity stays that entity); undefined for none. On a player or old-path entity a change a C# resource made arrives through the server, its entity references turned into this host's objects. */
+    getSyncedMeta(key: string): any;
+    /** Another name of getSyncedMeta: the same function. */
+    getSyncedMetaData(key: string): any;
+    /** Another name of getSyncedMetaKeys: the same function. */
+    getSyncedMetaDataKeys(): string[];
+    /** The keys setSyncedMeta stored, as this host keeps them. */
+    getSyncedMetaKeys(): string[];
+    /** Whether this host's own metadata (setMeta) holds the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setStreamSyncedMeta stored a value under the key, as this host keeps them. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** Another name of hasStreamSyncedMeta: the same function. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key, as this host keeps them. */
+    hasSyncedMeta(key: string): boolean;
+    /** Another name of hasSyncedMeta: the same function. */
+    hasSyncedMetaData(key: string): boolean;
+    /** Its network id, which clients know it by; after it is removed, a new entity may get the same id. */
+    readonly id: number;
+    /** An object (varion.createObject) with no owner and no migration: the server alone places it, a static entity (otherwise, once its physics is active, the nearest player in reach owns it). Assigning true takes its owner away for good, false lets a player own it again. */
     isStaticEntity: boolean;
-    readonly kind: any;
-    lodDistance: any;
-    model: any;
-    readonly netOwner: any;
-    readonly netOwnershipDisabled: any;
-    placeOnGroundProperly(...args: any[]): any;
-    pos: any;
-    resetNetOwner(...args: any[]): any;
-    rot: any;
-    rotation: any;
-    setMeta(...args: any[]): any;
-    setNetOwner(...args: any[]): any;
-    setStreamSyncedMeta(...args: any[]): any;
-    setStreamSyncedMetaData(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    setSyncedMetaData(...args: any[]): any;
-    streamed: any;
-    streamingDistance: any;
-    textureVariation: any;
-    readonly timestamp: any;
-    readonly type: any;
-    readonly valid: any;
-    visible: any;
+    /** Always "object". */
+    readonly kind: "object";
+    /** LOD distance 0..65535, 100 by default. Assigning is clamped to 0..65535 and truncated and sent to the clients that have it. */
+    lodDistance: number;
+    /** Its model hash. Assigning a name (hashed) or a 32-bit hash makes the clients that have it get it anew with the new model; an empty name or a non-integer throws a TypeError, 0 a RangeError, and nothing changes. */
+    get model(): number;
+    set model(value: number | string);
+    /** The player whose client simulates it, by the server's last record; null with none. It changes when the server hands it over (netOwnerChange; setNetOwner does not change it before that) and at once with resetNetOwner. */
+    readonly netOwner: Player | null;
+    /** True while a script keeps its owner from changing (setNetOwner or resetNetOwner with disableMigration), by the server's record. */
+    readonly netOwnershipDisabled: boolean;
+    /** Asks the clients that have it, and its owner, to place it properly on the ground. Throws for a removed object. */
+    placeOnGroundProperly(): void;
+    /** Its position as the server last synced it. Assigning moves it on the server and the clients that have it: a component that is not a finite number throws a TypeError, and a point beyond 100000 m is ignored. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Takes its owner away: without disableMigration the ordinary hand-overs give it to a player again, with it the server alone places it. netOwner reads null at once; a removed entity is ignored. */
+    resetNetOwner(disableMigration?: boolean): void;
+    /** Its rotation in degrees, as the server last synced it. Assigning sets it on the server and the clients that have it: non-finite components become 0, and the server ignores a rotation with a component beyond 36000. */
+    get rot(): Vector3;
+    set rot(value: Vector3Like);
+    /** The same as rot (degrees): reading gives rot, assigning assigns it. */
+    get rotation(): Vector3;
+    set rotation(value: Vector3Like);
+    /** Stores a value under the key in this host's own metadata, which no client sees; an object alone sets each of its keys. metaChange fires unless the value is the same (Object.is); the key is turned into a string. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Asks the server to make the player its owner; with disableMigration it then stays with that player. Returns nothing: netOwner and netOwnershipDisabled change when the server hands it over (netOwnerChange), at once for the player who owns it already, and not at all when the server passes the player over (out of range, another dimension, not spawned, dead). Throws for a removed entity or an invalid player. */
+    setNetOwner(player: Player, disableMigration?: boolean): void;
+    /** Stream-synced metadata the clients that have it streamed in get (getStreamSyncedMeta there); streamSyncedMetaChange fires here unless the value is the same. The key must be 1..1024 UTF-8 bytes (RangeError) and the value serializable within 512 KiB (TypeError, RangeError); once the entity is gone only this host's copy changes. */
+    setStreamSyncedMeta(key: string, value: any): void;
+    setStreamSyncedMeta(values: { [key: string]: any }): void;
+    /** Another name of setStreamSyncedMeta: the same function. */
+    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData(values: { [key: string]: any }): void;
+    /** Synced metadata every connected client gets (getSyncedMeta there); syncedMetaChange fires here unless the value is the same. The key must be 1..1024 UTF-8 bytes (RangeError) and the value serializable within 512 KiB (TypeError, RangeError); once the entity is gone only this host's copy changes. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Another name of setSyncedMeta: the same function. */
+    setSyncedMetaData(key: string, value: any): void;
+    setSyncedMetaData(values: { [key: string]: any }): void;
+    /** Whether clients may have it at all (true by default). Assigning false takes it from every client and takes its owner away; true lets clients in range get it again; an equal value sends nothing. */
+    streamed: boolean;
+    /** Metres within which clients get it; 0 (the default) is the server's distance. Assigning is clamped to 0..20000 with the fraction dropped; an equal value sends nothing. */
+    streamingDistance: number;
+    /** Texture variation 0..255, 0 by default. Assigning is clamped to 0..255 and truncated and sent to the clients that have it. */
+    textureVariation: number;
+    /** The server's time in milliseconds (unsigned 32-bit) of the last state the host got for it; 0 until the first one. */
+    readonly timestamp: number;
+    /** BaseObjectType.Object (3). */
+    readonly type: number;
+    /** False from destroy() on (true again if the server refused the removal) and once the server removed it; changes to it then throw an Error. */
+    readonly valid: boolean;
+    /** Whether clients show it, by the server's record (true by default); assigning sends it to the clients that have it, and throws for a removed one. */
+    visible: boolean;
 }
 
 export class Ped {
-    /** Throws: use `await varion.createNativePed(model, pos, heading)`, an NPC GTA syncs (alt:V's `new alt.Ped`); `varion.createPed` is the old path. */
-    constructor(...args: never[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    armour: any;
-    readonly attached: any;
-    readonly attachedTo: any;
-    /** Varion's form: GTA's bone index of the parent, offset in metres, rotation in degrees. alt:V's seven arguments (told by the third, a bone): rot in radians (turned into degrees), noFixedRotation the opposite of fixedRotation. Bone names, an own bone other than 0 (the root) and a ped parent's bone id other than 0 reject: not supported yet. Rejects for an invalid entity or parent, a native vehicle or NPC as parent, or the server's refusal. */
+    /** Runtime-created NPC. Use `await varion.createNativePed(model, pos, heading)`. */
+    private constructor();
+    /** instanceof Ped holds for every Ped and every NativePed. */
+    static [Symbol.hasInstance](value: unknown): value is Ped | NativePed;
+    /** Every valid old-path ped, then every valid NPC createNativePed made. A new array on each read. */
+    static readonly all: (Ped | NativePed)[];
+    /** How many peds Ped.all holds now, native NPCs included. */
+    static readonly count: number;
+    /** The valid old-path ped of that network id, else the native NPC of that script id; null for none. */
+    static getByID(id: number): Ped | NativePed | null;
+    /** Armour by the server's record, 0 by default. Assigning is clamped to 0..100 and truncated and reaches clients with the server's next state of the ped; pedHeal fires when it rose. */
+    armour: number;
+    /** Whether attachTo attached it and it still is, by this host's record: false after detach() and once its parent is gone, as the server then detaches it itself. */
+    readonly attached: boolean;
+    /** The parent attachTo attached it to, while it is attached: null before an attach, after detach() and once that parent is gone (the server then detaches it itself). */
+    readonly attachedTo: Player | Vehicle | Ped | Object | null;
+    /** Five arguments: GTA's bone index of the parent, offset in metres, rotation in degrees. Seven arguments (told by the third, a bone): rot in radians (turned into degrees), noFixedRotation the opposite of fixedRotation. Bone names, an own bone other than 0 (the root) and a ped parent's bone id other than 0 reject: not supported yet. Rejects for an invalid entity or parent, a native vehicle or NPC as parent, or the server's refusal. */
     attachTo(parent: Entity, boneIndex?: number, offset?: Vector3Like, rotation?: Vector3Like, useSoftPinning?: boolean, collision?: boolean, fixedRotation?: boolean): Promise<boolean>;
     attachTo(parent: Entity, entityBone: number, ownBone: number, pos: Vector3Like, rot: Vector3Like, enableCollisions: boolean, noFixedRotation: boolean): Promise<boolean>;
-    collision: any;
-    currentWeapon: any;
-    deleteMeta(...args: any[]): any;
-    deleteStreamSyncedMeta(...args: any[]): any;
-    deleteStreamSyncedMetaData(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    deleteSyncedMetaData(...args: any[]): any;
-    destroy(...args: any[]): any;
-    detach(...args: any[]): any;
-    dimension: any;
-    frozen: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getStreamSyncedMeta(...args: any[]): any;
-    getStreamSyncedMetaData(...args: any[]): any;
-    getStreamSyncedMetaDataKeys(...args: any[]): any;
-    getStreamSyncedMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaData(...args: any[]): any;
-    getSyncedMetaDataKeys(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasStreamSyncedMeta(...args: any[]): any;
-    hasStreamSyncedMetaData(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    hasSyncedMetaData(...args: any[]): any;
-    health: any;
-    id: any;
-    /** A ped of the old path (varion.createPed) with no owner and no migration: the server alone places it, as alt:V's static entity (otherwise the nearest player in range owns it). Assigning true takes its owner away for good, false lets the nearest player own it again. */
+    /** Whether it collides, by the server's record (true by default). Assigning sends it to the clients that have it; for one that is gone it throws. */
+    collision: boolean;
+    /** The weapon hash it holds by the server's record, 0 by default. Assigning takes a hash (as an unsigned 32-bit number) or a weapon name, hashed as varion.hash does. */
+    currentWeapon: number;
+    /** Removes the key from this host's own metadata: true, and metaChange fires with the value undefined; false when the key was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the stream-synced key: clients lose it and streamSyncedMetaChange fires with undefined; false when the key was not there. Once the entity is gone only this host's copy goes. */
+    deleteStreamSyncedMeta(key: string): boolean;
+    /** Another name of deleteStreamSyncedMeta: the same function. */
+    deleteStreamSyncedMetaData(key: string): boolean;
+    /** Removes the synced key: clients lose it and syncedMetaChange fires with undefined; false when the key was not there. Once the object is gone only this host's copy goes. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Another name of deleteSyncedMeta: the same function. */
+    deleteSyncedMetaData(key: string): boolean;
+    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on. While the server's removal queue is full it resolves false and the ped is valid again; a second call, or one on a removed ped, resolves false. A native NPC resolves as destroyNativePed. */
+    destroy(): Promise<boolean>;
+    /** Detaches it and resolves true once the server started the detach; false when it was not attached on the server or is invalid. On true this host's record (attached, attachedTo) clears; rejects when the server does not answer in 5 s. */
+    detach(): Promise<boolean>;
+    /** The dimension it is in (0 by default). Assigning a 32-bit integer (else a RangeError; the fraction is dropped) moves it there and takes its owner away. */
+    dimension: number;
+    /** Whether it is frozen in place, by the server's record (false by default). Assigning sends it to the clients that have it; freezing also takes its owner away, so the server alone places it. */
+    frozen: boolean;
+    /** The value setMeta stored under the key, undefined for none: this host's own metadata, which no client sees. */
+    getMeta(key: string): any;
+    /** The keys of this host's own metadata (setMeta); getMetaKeys returns the same. */
+    getMetaDataKeys(): string[];
+    /** The keys of this host's own metadata (setMeta), as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setStreamSyncedMeta stored under the key, as the script set it (an entity stays that entity); undefined for none. On a player or old-path entity a change a C# resource made arrives through the server, its entity references turned into this host's objects. */
+    getStreamSyncedMeta(key: string): any;
+    /** Another name of getStreamSyncedMeta: the same function. */
+    getStreamSyncedMetaData(key: string): any;
+    /** Another name of getStreamSyncedMetaKeys: the same function. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** The keys setStreamSyncedMeta stored, as this host keeps them. */
+    getStreamSyncedMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script set it (an entity stays that entity); undefined for none. On a player or old-path entity a change a C# resource made arrives through the server, its entity references turned into this host's objects. */
+    getSyncedMeta(key: string): any;
+    /** Another name of getSyncedMeta: the same function. */
+    getSyncedMetaData(key: string): any;
+    /** Another name of getSyncedMetaKeys: the same function. */
+    getSyncedMetaDataKeys(): string[];
+    /** The keys setSyncedMeta stored, as this host keeps them. */
+    getSyncedMetaKeys(): string[];
+    /** Whether this host's own metadata (setMeta) holds the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setStreamSyncedMeta stored a value under the key, as this host keeps them. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** Another name of hasStreamSyncedMeta: the same function. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key, as this host keeps them. */
+    hasSyncedMeta(key: string): boolean;
+    /** Another name of hasSyncedMeta: the same function. */
+    hasSyncedMetaData(key: string): boolean;
+    /** Health by the server's record, 200 by default. Assigning is clamped to 0..65535 and truncated (the server then caps it at maxHealth) and reaches clients with the server's next state of the ped; pedHeal fires when it rose. */
+    health: number;
+    /** Its network id, which clients know it by; after it is removed, a new entity may get the same id. */
+    readonly id: number;
+    /** A ped of the old path (varion.createPed) with no owner and no migration: the server alone places it, a static entity (otherwise the nearest player in range owns it). Assigning true takes its owner away for good, false lets the nearest player own it again. */
     isStaticEntity: boolean;
-    readonly kind: any;
-    maxHealth: any;
-    model: any;
-    readonly netOwner: any;
-    readonly netOwnershipDisabled: any;
-    pos: any;
-    resetNetOwner(...args: any[]): any;
-    rot: any;
-    rotation: any;
-    setMeta(...args: any[]): any;
-    setNetOwner(...args: any[]): any;
-    setStreamSyncedMeta(...args: any[]): any;
-    setStreamSyncedMetaData(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    setSyncedMetaData(...args: any[]): any;
-    streamed: any;
-    streamingDistance: any;
-    readonly timestamp: any;
-    readonly type: any;
-    readonly valid: any;
-    visible: any;
+    /** Always "ped", a native NPC's too. */
+    readonly kind: "ped";
+    /** Maximum health by the server's record, 200 by default. Assigning is clamped to 1..65535 and truncated; a higher health drops to it. */
+    maxHealth: number;
+    /** Its model hash. Assigning a name (hashed) or a 32-bit hash makes the clients that have it get it anew with the new model; an empty name or a non-integer throws a TypeError, 0 a RangeError, and nothing changes. */
+    get model(): number;
+    set model(value: number | string);
+    /** The player whose client simulates it, by the server's last record; null with none. It changes when the server hands it over (netOwnerChange; setNetOwner does not change it before that) and at once with resetNetOwner. */
+    readonly netOwner: Player | null;
+    /** True while a script keeps its owner from changing (setNetOwner or resetNetOwner with disableMigration), by the server's record. */
+    readonly netOwnershipDisabled: boolean;
+    /** Its position as the server last synced it. Assigning moves it on the server and the clients that have it: a component that is not a finite number throws a TypeError, and a point beyond 100000 m is ignored. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Takes its owner away: without disableMigration the ordinary hand-overs give it to a player again, with it the server alone places it. netOwner reads null at once; a removed entity is ignored. */
+    resetNetOwner(disableMigration?: boolean): void;
+    /** Its rotation in degrees, as the server last synced it. Assigning sets it on the server and the clients that have it: non-finite components become 0, and the server ignores a rotation with a component beyond 36000. */
+    get rot(): Vector3;
+    set rot(value: Vector3Like);
+    /** The same as rot (degrees): reading gives rot, assigning assigns it. */
+    get rotation(): Vector3;
+    set rotation(value: Vector3Like);
+    /** Stores a value under the key in this host's own metadata, which no client sees; an object alone sets each of its keys. metaChange fires unless the value is the same (Object.is); the key is turned into a string. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Asks the server to make the player its owner; with disableMigration it then stays with that player. Returns nothing: netOwner and netOwnershipDisabled change when the server hands it over (netOwnerChange), at once for the player who owns it already, and not at all when the server passes the player over (out of range, another dimension, not spawned, dead). Throws for a removed entity or an invalid player. */
+    setNetOwner(player: Player, disableMigration?: boolean): void;
+    /** Stream-synced metadata the clients that have it streamed in get (getStreamSyncedMeta there); streamSyncedMetaChange fires here unless the value is the same. The key must be 1..1024 UTF-8 bytes (RangeError) and the value serializable within 512 KiB (TypeError, RangeError); once the entity is gone only this host's copy changes. */
+    setStreamSyncedMeta(key: string, value: any): void;
+    setStreamSyncedMeta(values: { [key: string]: any }): void;
+    /** Another name of setStreamSyncedMeta: the same function. */
+    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData(values: { [key: string]: any }): void;
+    /** Synced metadata every connected client gets (getSyncedMeta there); syncedMetaChange fires here unless the value is the same. The key must be 1..1024 UTF-8 bytes (RangeError) and the value serializable within 512 KiB (TypeError, RangeError); once the entity is gone only this host's copy changes. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Another name of setSyncedMeta: the same function. */
+    setSyncedMetaData(key: string, value: any): void;
+    setSyncedMetaData(values: { [key: string]: any }): void;
+    /** Whether clients may have it at all (true by default). Assigning false takes it from every client and takes its owner away; true lets clients in range get it again; an equal value sends nothing. */
+    streamed: boolean;
+    /** Metres within which clients get it; 0 (the default) is the server's distance. Assigning is clamped to 0..20000 with the fraction dropped; an equal value sends nothing. */
+    streamingDistance: number;
+    /** The server's time in milliseconds (unsigned 32-bit) of the last state the host got for it; 0 until the first one. */
+    readonly timestamp: number;
+    /** BaseObjectType.Ped (2), a native NPC's too. */
+    readonly type: number;
+    /** False from destroy() on (true again if the server refused the removal) and once the server removed it; changes to it then throw an Error. */
+    readonly valid: boolean;
+    /** Whether clients show it, by the server's record (true by default); assigning sends it to the clients that have it, and throws for a removed one. */
+    visible: boolean;
 }
 
 export const PedConfigFlag: {
@@ -4484,7 +4986,8 @@ export const PedConfigFlag: {
 };
 
 export const PedModelInfo: {
-    get(...args: any[]): any;
+    /** A ped model of the built-in GTA catalog by hash or name (hashed): name, ped type, DLC, default unarmed weapon, movement clip set and bones; the same frozen object on each call. Throws Error for a model the catalog lacks. */
+    get(model: number | string): { readonly hash: number; readonly name: string; readonly type: string; readonly dlcName: string; readonly defaultUnarmedWeapon: string; readonly movementClipSet: string; readonly bones: ReadonlyArray<{ readonly id: number; readonly index: number; readonly name: string }> };
 };
 
 export const Permission: {
@@ -4503,343 +5006,637 @@ export const Permission: {
 };
 
 export class Player {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    static getByName(...args: any[]): any;
-    static getByRemoteID(...args: any[]): any;
-    addDecoration(...args: any[]): any;
-    addWeaponComponent(...args: any[]): any;
-    readonly admissionEpoch: any;
-    readonly aimPos: any;
-    readonly ammo: any;
-    armour: any;
-    readonly attached: any;
-    readonly attachedTo: any;
-    /** Varion's form: GTA's bone index of the parent, offset in metres, rotation in degrees. alt:V's seven arguments (told by the third, a bone): rot in radians (turned into degrees), noFixedRotation the opposite of fixedRotation. Bone names, an own bone other than 0 (the root) and a ped parent's bone id other than 0 reject: not supported yet. Rejects for an invalid entity or parent, a native vehicle or NPC as parent, or the server's refusal. */
+    /** Instances are created by the VARION runtime and cannot be constructed directly. */
+    private constructor();
+    /** Every connected player; a new array on each read. */
+    static readonly all: Player[];
+    /** How many players are connected. */
+    static readonly count: number;
+    /** The connected player with this id (converted with Number), or null. */
+    static getByID(id: number): Player | null;
+    /** The first connected player whose name equals it exactly (case matters), or null. */
+    static getByName(name: string): Player | null;
+    /** The same as Player.getByID. */
+    static getByRemoteID(id: number): Player | null;
+    /** Adds a tattoo or badge for him and the players who see him: collection and overlay by name (hashed) or hash, count copies (1–32), at most 32 decorations in all. Throws for a player who left; before playerReady the server refuses it. */
+    addDecoration(collection: number | string, overlay: number | string, count?: number): void;
+    /** Adds a component, given by name (hashed) or hash, to a weapon he has; nothing for a weapon he lacks, a component he has or past 8 components. Throws for a player who left; before playerReady the server refuses it. */
+    addWeaponComponent(weapon: number | string, component: number | string): void;
+    /** The server's id of this player's admission, a uint64 as decimal text. Every player call carries it; a reconnect is a new admission and a new Player. */
+    readonly admissionEpoch: string;
+    /** The point 80 m along his camera's view, as his client reports while he aims or shoots. */
+    readonly aimPos: Vector3;
+    /** Ammo of the weapon in his hands: 0–65535 as his client reports; after the server changes that ammo type, its count (-1: infinite). */
+    readonly ammo: number;
+    /** His armour from the server's record; assigning truncates to 0–65535, and the server keeps it within maxArmour and tells his client. Throws for a player who left; before playerReady the server refuses it. */
+    armour: number;
+    /** Whether attachTo attached him and he still is, by this host's record: false after detach() and once his parent is gone, as the server then detaches him itself. */
+    readonly attached: boolean;
+    /** What attachTo attached him to, while he is attached: null before an attach, after detach() and once that parent is gone (the server then detaches him itself). */
+    readonly attachedTo: Player | Vehicle | Ped | Object | null;
+    /** Five arguments: GTA's bone index of the parent, offset in metres, rotation in degrees. Seven arguments (told by the third, a bone): rot in radians (turned into degrees), noFixedRotation the opposite of fixedRotation. Bone names, an own bone other than 0 (the root) and a ped parent's bone id other than 0 reject: not supported yet. Rejects for an invalid entity or parent, a native vehicle or NPC as parent, or the server's refusal. */
     attachTo(parent: Entity, boneIndex?: number, offset?: Vector3Like, rotation?: Vector3Like, useSoftPinning?: boolean, collision?: boolean, fixedRotation?: boolean): Promise<boolean>;
     attachTo(parent: Entity, entityBone: number, ownBone: number, pos: Vector3Like, rot: Vector3Like, enableCollisions: boolean, noFixedRotation: boolean): Promise<boolean>;
-    readonly authToken: any;
-    clearBloodDamage(...args: any[]): any;
-    clearClothes(...args: any[]): any;
-    clearDecorations(...args: any[]): any;
-    clearProp(...args: any[]): any;
-    clearTasks(...args: any[]): any;
-    readonly cloudAuthResult: any;
+    /** The token the client got from the server's early-auth page (useEarlyAuth); empty without one. */
+    readonly authToken: string;
+    /** Clears the blood damage of his ped on his own client. Throws for a player who left; before playerReady the server refuses it. */
+    clearBloodDamage(): void;
+    /** Resets clothing component 0–11 to drawable 0, texture 0, palette 0. Throws RangeError for a value out of range and Error for a player who left; before playerReady the server refuses it. */
+    clearClothes(component: number): void;
+    /** Removes all his decorations. Throws for a player who left; before playerReady the server refuses it. */
+    clearDecorations(): void;
+    /** Removes the prop of slot 0–9. Throws RangeError for a value out of range and Error for a player who left; before playerReady the server refuses it. */
+    clearProp(component: number): void;
+    /** Clears his ped's tasks (CLEAR_PED_TASKS) on his client and for the players who see him, ending what playAnimation started. Throws for a player who left; before playerReady the server refuses it. */
+    clearTasks(): void;
+    /** The cloud check of the player's identity, a CloudAuthResult: 0 verified, 1 nothing checked (no cloud auth or no ticket), 2 refused. A value the server did not send reads 1. */
+    readonly cloudAuthResult: number;
+    /** The Varion account id the player's client sent, '' without one. It is verified only when cloudAuthResult is 0 (server.toml useCloudAuth = true); otherwise a client can send any id. */
     readonly cloudID: string;
-    collision: any;
-    readonly connected: any;
-    readonly currentAnimationDict: any;
-    readonly currentAnimationName: any;
-    readonly currentInterior: any;
-    /** The weapon hash the player holds. Assigning (a hash or a name) selects a weapon the player has, or fists (weapon_unarmed), as alt:V's: no ammo is added; a weapon the player does not have is not given (logged) -- giveWeapon gives one. */
+    /** Whether his ped collides (true by default) for him and the players who see him; assigning sends it. Throws for a player who left; before playerReady the server refuses it. */
+    collision: boolean;
+    /** The same as valid: true while this object is the connected player of its id. */
+    readonly connected: boolean;
+    /** Always 0: the client never reports which animation plays (GTA has no native that gives it), and playAnimation does not set it. */
+    readonly currentAnimationDict: number;
+    /** Always 0: the client never reports which animation plays (GTA has no native that gives it), and playAnimation does not set it. */
+    readonly currentAnimationName: number;
+    /** The interior id as his client reports, 0 outside; playerInteriorChange fires on a change. */
+    readonly currentInterior: number;
+    /** The weapon hash the player holds. Assigning (a hash or a name) selects a weapon the player has, or fists (weapon_unarmed): no ammo is added; a weapon the player does not have is not given (logged) -- giveWeapon gives one. */
     get currentWeapon(): number;
     set currentWeapon(value: number | string);
-    readonly currentWeaponComponents: any;
-    readonly currentWeaponTintIndex: any;
-    deleteLocalMeta(...args: any[]): any;
-    deleteMeta(...args: any[]): any;
-    deleteStreamSyncedMeta(...args: any[]): any;
-    deleteStreamSyncedMetaData(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    deleteSyncedMetaData(...args: any[]): any;
-    despawn(...args: any[]): any;
-    detach(...args: any[]): any;
-    dimension: any;
-    readonly discordID: any;
+    /** The component hashes this host's record has for the weapon in his hands (addWeaponComponent); a new array on each read. */
+    readonly currentWeaponComponents: number[];
+    /** The tint this host's record has for the weapon in his hands (setWeaponTintIndex); 0 without one. */
+    readonly currentWeaponTintIndex: number;
+    /** Removes a key of his local metadata, at his client too; false when it was not set. Throws for a player who left; before playerReady the server refuses it. */
+    deleteLocalMeta(key: string): boolean;
+    /** Removes a key of his own metadata; false when it was not set. metaChange fires with value undefined. */
+    deleteMeta(key: string): boolean;
+    /** Removes a key of his stream-synced metadata, at the clients too; false when it was not set. */
+    deleteStreamSyncedMeta(key: string): boolean;
+    /** Another name for deleteStreamSyncedMeta. */
+    deleteStreamSyncedMetaData(key: string): boolean;
+    /** Removes a key of his synced metadata, at the clients too; false when it was not set. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Another name for deleteSyncedMeta. */
+    deleteSyncedMetaData(key: string): boolean;
+    /** Takes his body out of the world: his client removes the ped, the others stream him out, his seat and what he owns are released, isSpawned turns false; ignored when he is not spawned. Throws for a player who left; before playerReady the server refuses it. */
+    despawn(): void;
+    /** Detaches him from what attachTo attached him to; false when he is not attached or has left. Rejects after 5 s without an answer. */
+    detach(): Promise<boolean>;
+    /** The dimension the player is in; assigning moves the player there. */
+    dimension: number;
+    /** Always "0": the client's join request carries no Discord id, so the server has none to give. */
+    readonly discordID: string;
+    /** Sends an event to this player's client (onServer there), reliably; a Player, Vehicle, Ped or Object among the arguments arrives as the client's own object of that id (null where it has none). A value that cannot be sent throws, as does a player who left; an event over server.toml maxServerScriptEventSize is dropped with a warning. */
     emit(eventName: string, ...args: any[]): void;
-    /** Not alt:V's raw events: the same path as emit (JSON with entity references). alt:V's raw codec is not supported, so a Map or Set, binary data or a BigInt beyond 2^53 throws here instead of arriving changed. */
+    /** The same path as emit (JSON with entity references); there is no separate raw codec, so a Map or Set, binary data or a BigInt beyond 2^53 throws here instead of arriving changed. */
     emitRaw(eventName: string, ...args: any[]): void;
-    emitRpc(...args: any[]): any;
-    emitUnreliable(...args: any[]): any;
-    readonly entityAimingAt: any;
-    readonly entityAimOffset: any;
-    readonly flashlightActive: any;
-    readonly forwardSpeed: any;
-    frozen: any;
-    getAmmo(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    getAmmoFlags(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    getAmmoMax(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    getAmmoMax100(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    getAmmoMax50(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    getAmmoSpecialType(...args: any[]): any;
-    getClothes(...args: any[]): any;
-    getDecorations(...args: any[]): any;
-    getDlcClothes(...args: any[]): any;
-    getDlcProp(...args: any[]): any;
-    getEyeColor(...args: any[]): any;
-    getFaceFeatureScale(...args: any[]): any;
-    getHairColor(...args: any[]): any;
-    getHairHighlightColor(...args: any[]): any;
-    getHeadBlendData(...args: any[]): any;
-    getHeadBlendPaletteColor(...args: any[]): any;
-    getHeadOverlay(...args: any[]): any;
-    getLocalMeta(...args: any[]): any;
-    getLocalMetaKeys(...args: any[]): any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getProp(...args: any[]): any;
-    getStreamSyncedMeta(...args: any[]): any;
-    getStreamSyncedMetaData(...args: any[]): any;
-    getStreamSyncedMetaDataKeys(...args: any[]): any;
-    getStreamSyncedMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaData(...args: any[]): any;
-    getSyncedMetaDataKeys(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    getWeaponAmmo(...args: any[]): any;
-    giveWeapon(...args: any[]): any;
-    hasLocalMeta(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasStreamSyncedMeta(...args: any[]): any;
-    hasStreamSyncedMetaData(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    hasSyncedMetaData(...args: any[]): any;
-    hasWeapon(...args: any[]): any;
-    hasWeaponComponent(...args: any[]): any;
-    readonly heading: any;
-    readonly headRot: any;
+    /** Calls an RPC his client registered and resolves to its answer; rejects with the client's error, after 10 s, when he leaves, or for arguments that cannot be sent. Throws at once for a player who left. */
+    emitRpc(rpcName: string, ...args: any[]): Promise<any>;
+    /** As emit, but over the unreliable channel: the event may be lost or arrive out of order. Arguments that cannot be sent, or a player who left, throw; before playerReady the server refuses it. */
+    emitUnreliable(eventName: string, ...args: any[]): void;
+    /** The player or entity he aims at, as his client reports while he aims or shoots; null for none or one this host does not know. */
+    readonly entityAimingAt: Player | Vehicle | Ped | Object | VirtualEntity | NativeVehicle | NativePed | null;
+    /** aimPos minus the position of entityAimingAt; a zero vector without a target. */
+    readonly entityAimOffset: Vector3;
+    /** True while his weapon's flashlight is on, as his client reports; the same as isFlashlightActive. */
+    readonly flashlightActive: boolean;
+    /** Not a speed: how he moves, 0 standing, 1 walking, 2 running, 3 sprinting, as his client reports (GTA's move blend ratio, which the client API reads the same way); his speed is the length of velocity. */
+    readonly forwardSpeed: number;
+    /** Whether his ped is frozen in place (false by default) for him and the players who see him; assigning sends it. Throws for a player who left; before playerReady the server refuses it. */
+    frozen: boolean;
+    /** The ammo of an ammo type (an AMMO_* hash or name; getAmmoHashForWeaponHash gives a weapon's) as the server last knew it; 0 for an unknown type, -1 for infinite. */
+    getAmmo(ammoType: number | string): number;
+    /** The flags setAmmoFlags last set for that ammo type (a hash, or a name hashed as varion.hash) on this player, as this host keeps them; all false when never set. Not read from the game. */
+    getAmmoFlags(ammoHash: string | number): { infiniteAmmo: boolean; addSmokeOnExplosion: boolean; fuse: boolean; fixedAfterExplosion: boolean };
+    /** Returns the configured limit; 0 if no override was set. */
+    getAmmoMax(ammoHash: string | number): number;
+    /** Returns the configured limit; 0 if no override was set. */
+    getAmmoMax100(ammoHash: string | number): number;
+    /** Returns the configured limit; 0 if no override was set. */
+    getAmmoMax50(ammoHash: string | number): number;
+    /** The special type setAmmoSpecialType last set for that ammo type on this player, as this host keeps it; 0 when never set. Not read from the game. */
+    getAmmoSpecialType(ammoHash: string | number): number;
+    /** A copy of what this host set for clothing component 0–11 (dlc or collection when set that way); null for another component. */
+    getClothes(component: number): { drawable: number; texture: number; palette: number; dlc?: number; collection?: string } | null;
+    /** Copies of the decorations this host gave him, as hashes, one entry per copy. */
+    getDecorations(): { collection: number; overlay: number }[];
+    /** What this host set for clothing component 0–11 with its DLC hash (0 when not set by setDlcClothes); null for another component. */
+    getDlcClothes(component: number): { drawable: number; texture: number; palette: number; dlc: number } | null;
+    /** What this host set for prop slot 0–9 with its DLC hash (0 when not set by setDlcProp); null for another slot. */
+    getDlcProp(component: number): { drawable: number; texture: number; dlc: number } | null;
+    /** The eye colour this host set (setEyeColor), 0–255; 0 before one. */
+    getEyeColor(): number;
+    /** The scale this host set for face feature 0–19; 0 when unset or out of range. */
+    getFaceFeatureScale(index: number): number;
+    /** The hair colour this host set; 0 before one. */
+    getHairColor(): number;
+    /** The hair highlight colour this host set; 0 before one. */
+    getHairHighlightColor(): number;
+    /** A copy of the head blend this host last set (setHeadBlendData); null before one. */
+    getHeadBlendData(): { shapeFirstID: number; shapeSecondID: number; shapeThirdID: number; skinFirstID: number; skinSecondID: number; skinThirdID: number; shapeMix: number; skinMix: number; thirdMix: number } | null;
+    /** A copy of the palette colour this host set (alpha 255); RGBA 0, 0, 0, 0 when unset. */
+    getHeadBlendPaletteColor(paletteId: number): RGBA;
+    /** A copy of what this host set for head overlay 0–12 (index -1: none); null for another overlay. */
+    getHeadOverlay(overlayID: number): { index: number; opacity: number; colorType: number; colorIndex: number; secondColorIndex: number } | null;
+    /** A value of his local metadata as this host set it; undefined when unset. */
+    getLocalMeta(key: string): any;
+    /** The keys of his local metadata. */
+    getLocalMetaKeys(): string[];
+    /** A value of his own metadata (setMeta); undefined when unset. */
+    getMeta(key: string): any;
+    /** Another name for getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys of his own metadata. */
+    getMetaKeys(): string[];
+    /** A copy of what this host set for prop slot 0–9 (drawable -1: none); null for another slot. */
+    getProp(component: number): { drawable: number; texture: number; dlc?: number; collection?: string; attach?: boolean } | null;
+    /** A value of his stream-synced metadata as this host set it; undefined when unset. */
+    getStreamSyncedMeta(key: string): any;
+    /** Another name for getStreamSyncedMeta. */
+    getStreamSyncedMetaData(key: string): any;
+    /** Another name for getStreamSyncedMetaKeys. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** The keys of his stream-synced metadata. */
+    getStreamSyncedMetaKeys(): string[];
+    /** A value of his synced metadata as this host set it; undefined when unset. */
+    getSyncedMeta(key: string): any;
+    /** Another name for getSyncedMeta. */
+    getSyncedMetaData(key: string): any;
+    /** Another name for getSyncedMetaKeys. */
+    getSyncedMetaDataKeys(): string[];
+    /** The keys of his synced metadata. */
+    getSyncedMetaKeys(): string[];
+    /** The ammo of the weapon's ammo type as the server last knew it; 0 when he lacks the weapon, -1 for a melee weapon or infinite ammo. */
+    getWeaponAmmo(weapon: number | string): number;
+    /** Gives a weapon by name (hashed) or hash and adds ammo to its ammo type (truncated; negative: infinite ammo); equipNow (true by default) puts it in his hands. Throws for a player who left; before playerReady the server refuses it. */
+    giveWeapon(weapon: number | string, ammo?: number, equipNow?: boolean): void;
+    /** Whether his local metadata has the key. */
+    hasLocalMeta(key: string): boolean;
+    /** Whether his own metadata has the key. */
+    hasMeta(key: string): boolean;
+    /** Whether his stream-synced metadata has the key. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** Another name for hasStreamSyncedMeta. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** Whether his synced metadata has the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Another name for hasSyncedMeta. */
+    hasSyncedMetaData(key: string): boolean;
+    /** Whether this host's record has the weapon: one giveWeapon gave or his client reported in his hands. */
+    hasWeapon(weapon: number | string): boolean;
+    /** Whether this host's record has the component on that weapon. */
+    hasWeaponComponent(weapon: number | string, component: number | string): boolean;
+    /** His heading in degrees: rot.z as his client reports, not brought to 0–360. */
+    readonly heading: number;
+    /** The rotation of his gameplay camera in degrees while he aims or shoots, as his client reports it; 0, 0, 0 otherwise. Not his head's rotation. */
+    readonly headRot: Vector3;
+    /** Health as the server holds it (200 by default). Assigning is clamped to 0..maxHealth: 0 kills the player, a dead player keeps 0 until spawn, and a player who left throws. */
     health: number;
-    readonly hwid3: any;
+    /** Always empty: the client's join request carries no third hardware id, and playerCreate has no such field. */
+    readonly hwid3: string;
+    /** Always "0": no client sends a second hardware hash. */
     readonly hwidExHash: string;
+    /** A number the player's client computes from its C: volume serial and computer name, as decimal text ("0" for none). The client sends it itself, so a modified client can send any value. */
     readonly hwidHash: string;
-    id: number;
-    invincible: any;
-    readonly ip: any;
-    readonly isAiming: any;
-    readonly isCrouching: any;
-    readonly isDead: any;
-    readonly isEnteringVehicle: any;
-    isEntityInStreamRange(...args: any[]): any;
-    readonly isFlashlightActive: any;
-    readonly isInCover: any;
-    readonly isInMelee: any;
-    readonly isInRagdoll: any;
-    readonly isInVehicle: any;
-    readonly isInWater: any;
-    readonly isJumping: any;
-    readonly isLeavingVehicle: any;
-    readonly isOnFire: any;
-    readonly isOnLadder: any;
-    readonly isOnVehicle: any;
-    readonly isParachuteFreeFall: any;
-    readonly isParachuteOpen: any;
-    readonly isParachuting: any;
-    readonly isPerformingMeleeAction: any;
-    readonly isReady: any;
-    readonly isReloading: any;
-    readonly isShooting: any;
-    readonly isSpawned: any;
-    readonly isStealthy: any;
-    readonly isSuperJumpEnabled: any;
+    /** The player's network id; after the player leaves, a new player may get the same id. */
+    readonly id: number;
+    /** While true the server refuses every hit on him; his client is told too. Throws for a player who left; before playerReady the server refuses it. */
+    invincible: boolean;
+    /** The player's IP address as text. */
+    readonly ip: string;
+    /** True while he free-aims or shoots, as his client reports. */
+    readonly isAiming: boolean;
+    /** True in stealth movement (GET_PED_STEALTH_MOVEMENT), as his client reports; the same as isStealthy. */
+    readonly isCrouching: boolean;
+    /** The server's death state: true from his death until player.spawn. */
+    readonly isDead: boolean;
+    /** True while he gets into a vehicle (IS_PED_GETTING_INTO_A_VEHICLE), as his client reports. */
+    readonly isEnteringVehicle: boolean;
+    /** Whether his client has the entity now: the old path's by the server's stream set, a native vehicle or NPC by whether its GTA has it. False for an invalid entity. */
+    isEntityInStreamRange(entity: Entity | NativeVehicle | NativePed): boolean;
+    /** True while his weapon's flashlight is on, as his client reports; the same as flashlightActive. */
+    readonly isFlashlightActive: boolean;
+    /** True while he is in cover (IS_PED_IN_COVER), as his client reports. */
+    readonly isInCover: boolean;
+    /** True in melee combat or during a melee action, as his client reports. */
+    readonly isInMelee: boolean;
+    /** True while his ped is a ragdoll or runs a ragdoll task, as his client reports. */
+    readonly isInRagdoll: boolean;
+    /** True while he is in any vehicle (IS_PED_IN_ANY_VEHICLE), as his client reports. */
+    readonly isInVehicle: boolean;
+    /** True while his ped is in water (IS_ENTITY_IN_WATER), as his client reports. */
+    readonly isInWater: boolean;
+    /** True while he jumps (IS_PED_JUMPING), as his client reports. */
+    readonly isJumping: boolean;
+    /** True while he gets out of a vehicle or jumps out, as his client reports. */
+    readonly isLeavingVehicle: boolean;
+    /** True while his ped burns (IS_ENTITY_ON_FIRE), as his client reports. */
+    readonly isOnFire: boolean;
+    /** True while IS_PED_CLIMBING holds for his ped, as his client reports. */
+    readonly isOnLadder: boolean;
+    /** True while he stands on a vehicle (IS_PED_ON_VEHICLE), as his client reports. */
+    readonly isOnVehicle: boolean;
+    /** True in parachute free fall, before the canopy opens, as his client reports. */
+    readonly isParachuteFreeFall: boolean;
+    /** True while his parachute canopy is open, as his client reports. */
+    readonly isParachuteOpen: boolean;
+    /** True from the free fall to the landing of a parachute jump (parachute state 0–2), as his client reports. */
+    readonly isParachuting: boolean;
+    /** True while he performs a melee action (IS_PED_PERFORMING_MELEE_ACTION), as his client reports. */
+    readonly isPerformingMeleeAction: boolean;
+    /** The client reported that it is ready: playerReady has fired. */
+    readonly isReady: boolean;
+    /** True while he reloads (IS_PED_RELOADING), as his client reports. */
+    readonly isReloading: boolean;
+    /** True while he shoots (IS_PED_SHOOTING), as his client reports. */
+    readonly isShooting: boolean;
+    /** True once his client spawned his ped; despawn clears it. */
+    readonly isSpawned: boolean;
+    /** True in stealth movement (GET_PED_STEALTH_MOVEMENT), as his client reports; the same as isCrouching. */
+    readonly isStealthy: boolean;
+    /** Always false: the client never sets it. GTA gives super jump one frame at a time (SET_SUPER_JUMP_THIS_FRAME) and has no native that reads it back. */
+    readonly isSuperJumpEnabled: boolean;
+    /** Disconnects the player: the client gets the reason ('' without one) and playerDisconnect follows. Throws for a player who already left. */
     kick(reason?: string): void;
-    readonly kind: any;
-    /** The body part the last damage hit (-1: none), as the damage events report it. Assigning a whole number from -1 to 255 sets the server's record, as alt:V's; the next damage overwrites it. */
+    /** Always "player". */
+    readonly kind: "player";
+    /** The body part the last damage hit (-1: none), as the damage events report it. Assigning a whole number from -1 to 255 sets the server's record; the next damage overwrites it. */
     get lastDamagedBodyPart(): number;
     set lastDamagedBodyPart(value: number);
-    maxArmour: any;
-    maxHealth: any;
-    /** Its model hash. Assigning takes a name (hashed) or a hash, as alt:V; the mirror holds the hash the core gets. A bad model throws and changes nothing. */
+    /** The most armour he can have (100 by default); assigning truncates to 0–65535, and armour above it drops to it. Throws for a player who left; before playerReady the server refuses it. */
+    maxArmour: number;
+    /** The most health he can have (200 by default); assigning truncates to 1–65535, and health above it drops to it. Throws for a player who left; before playerReady the server refuses it. */
+    maxHealth: number;
+    /** Its model hash. Assigning takes a name (hashed) or a hash; the mirror holds the hash the core gets. A bad model throws and changes nothing. */
     get model(): number;
     set model(value: number | string);
-    readonly moveSpeed: any;
+    /** His speed in m/s (GET_ENTITY_SPEED), as his client reports. */
+    readonly moveSpeed: number;
+    /** The name the player's client sent when it connected; it does not change while the player is connected. */
     readonly name: string;
-    /** True: the server never makes this player the network owner of a vehicle, ped or object, on either path, as alt:V's -- the hand-overs pass it by, what it owns goes to a player that sees it and can take it (a native entity nobody else can take stays with it: a GTA network object always has an owner), and a car another player's GTA passes it (taking the wheel) is refused. A script's setNetOwner(player) still gives it one, and an owner pinned with disableMigration stays. A driver that may not own the car cannot drive it, as in alt:V. */
+    /** True: the server never makes this player the network owner of a vehicle, ped or object, on either path: the hand-overs pass it by, what it owns goes to a player that sees it and can take it (a native entity nobody else can take stays with it: a GTA network object always has an owner), and a car another player's GTA passes it (taking the wheel) is refused. A script's setNetOwner(player) still gives it one, and an owner pinned with disableMigration stays. A driver that may not own the car cannot drive it. */
     netOwnershipDisabled: boolean;
-    readonly p0RunID: any;
-    readonly ping: any;
-    playAmbientSpeech(...args: any[]): any;
-    playAnimation(...args: any[]): any;
-    playScenario(...args: any[]): any;
+    /** The acceptance-run id of this server process (VARION_P0_RUN_ID), the same for every player; empty on a server that runs no acceptance profile. */
+    readonly p0RunID: string;
+    /** The round-trip time of his connection in milliseconds. */
+    readonly ping: number;
+    /** Plays ambient speech on his ped for him and the players who see him; name and parameter non-empty, under 64 bytes; the dictionary as a hash or a name (hashed), 0 by default. Throws for a player who left; before playerReady the server refuses it. */
+    playAmbientSpeech(speechName: string, speechParam: string, speechDictHash?: number | string): void;
+    /** Plays an animation on his ped for everyone who sees him, a late joiner too: names under 64 bytes, blend speeds 8 and -8 by default, duration -1 (until stopped) or 1–3600000 ms; flag 16 (upper body) and 32 (secondary) pick the layer; the server drops bad arguments. Throws for a player who left; before playerReady the server refuses it. */
+    playAnimation(dict: string, name: string, blendIn?: number, blendOut?: number, duration?: number, flag?: number): void;
+    /** Starts a GTA scenario (under 64 bytes) on his ped, for him and the players who see him; it replaces an animation of playAnimation. Throws for a player who left; before playerReady the server refuses it. */
+    playScenario(name: string): void;
+    /** Where the server last accepted the player. Assigning teleports the player's ped there (SET_ENTITY_COORDS on their client, heading kept; a driver of an old-path vehicle takes it along): a component that is not a finite number throws a TypeError and nothing moves; a point beyond 100000 m is ignored, and a player who left throws. */
     get pos(): Vector3;
     set pos(value: Vector3Like);
-    readonly probeSessionID: any;
-    removeAllWeapons(...args: any[]): any;
-    removeDecoration(...args: any[]): any;
-    removeFaceFeature(...args: any[]): any;
-    /** Asks the player's client to leave the vehicle. A Vehicle: playerLeftVehicle, player.vehicle and the other players follow when he is really out; without his confirmation the server releases the seat after 4 s. A NativeVehicle: TASK_LEAVE_ANY_VEHICLE on his own client, as FiveM sends its TaskLeaveAnyVehicle RPC native to the ped's owner; the others see the exit through his ped's sync. A passenger of a car another player's client controls gets out without the exit animation (CLEAR_PED_TASKS_IMMEDIATELY, Varion's own): GTA's exit waits for the owner's door grant (VEHICLE_COMPONENT_CONTROL_EVENT), which Varion does not relay yet. */
+    /** A 32-character hex token the server minted for this authenticated session; a reconnect gets a new one. */
+    readonly probeSessionID: string;
+    /** Takes every weapon and all ammo; fists stay. Throws for a player who left; before playerReady the server refuses it. */
+    removeAllWeapons(): void;
+    /** Removes every copy of that decoration. Throws for a player who left; before playerReady the server refuses it. */
+    removeDecoration(collection: number | string, overlay: number | string): void;
+    /** Sets face feature 0–19 back to 0; false for another index. Throws for a player who left; before playerReady the server refuses it. */
+    removeFaceFeature(index: number): boolean;
+    /** Asks the player's client to leave the vehicle. A Vehicle: playerLeftVehicle, player.vehicle and the other players follow when the player is really out; without the player's confirmation the server releases the seat after 4 s. A NativeVehicle: TASK_LEAVE_ANY_VEHICLE on the player's own client: the RPC native goes to the ped's owner; the others see the exit through his ped's sync. A passenger of a car another player's client controls gets out without the exit animation (CLEAR_PED_TASKS_IMMEDIATELY, Varion's own): GTA's exit waits for the owner's door grant (VEHICLE_COMPONENT_CONTROL_EVENT), which Varion does not relay yet. */
     removeFromVehicle(): void;
-    removeHeadBlendData(...args: any[]): any;
-    removeHeadBlendPaletteColor(...args: any[]): any;
-    removeHeadOverlay(...args: any[]): any;
-    removeWeapon(...args: any[]): any;
-    removeWeaponComponent(...args: any[]): any;
-    resetNetOwner(...args: any[]): any;
-    /** Degrees, as GTA's GET_ENTITY_ROTATION -- not alt:V's radians (multiply alt:V values by 180 / Math.PI). Every rot, rotation and heading of the Varion API is in degrees; only attachTo's alt:V form takes radians. Assigning turns a player on foot to z (x and y are not used) by the correction player.pos uses: the player's client puts the ped where the server last accepted it, facing z. A player in a vehicle is not turned (logged); before the spawn it does nothing (spawn(pos, heading) sets the heading). */
+    /** Sets every head blend id and mix to 0 (setHeadBlendData with zeros); getHeadBlendData then reads those zeros, not null. GTA has no native that takes a head blend away. Throws for a player who left; before playerReady the server refuses it. */
+    removeHeadBlendData(): void;
+    /** Clears all four head blend palette colours. Throws for a player who left; before playerReady the server refuses it. */
+    removeHeadBlendPaletteColor(): void;
+    /** Removes the style of head overlay 0–12 (index -1, opacity 0); false for another overlay. Throws for a player who left; before playerReady the server refuses it. */
+    removeHeadOverlay(overlayID: number): boolean;
+    /** Takes a weapon away, given by name (hashed) or hash; if he held it, he gets fists. Throws for a player who left; before playerReady the server refuses it. */
+    removeWeapon(weapon: number | string): void;
+    /** Removes a component this host gave the weapon; nothing when the record has no such component. Throws for a player who left; before playerReady the server refuses it. */
+    removeWeaponComponent(weapon: number | string, component: number | string): void;
+    /** No effect and nothing is sent: GTA keeps a player's ped with his own client. Does nothing after he left either. */
+    resetNetOwner(disableMigration?: boolean): void;
+    /** Degrees, as GTA's GET_ENTITY_ROTATION, not radians (multiply radians by 180 / Math.PI). Every rot, rotation and heading of the Varion API is in degrees; only attachTo's seven-argument form takes radians. Assigning turns a player on foot to z (x and y are not used) by the correction player.pos uses: the player's client puts the ped where the server last accepted it, facing z. A player in a vehicle is not turned (logged); before the spawn it does nothing (spawn(pos, heading) sets the heading). */
     get rot(): Vector3;
     set rot(value: Vector3Like);
     /** Seat in Player#vehicle: 1 = driver, 2 = front passenger, 3-4 = rear; 0 outside a vehicle. */
     readonly seat: number;
-    sendNames: any;
-    setAmmo(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setAmmoFlags(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setAmmoMax(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setAmmoMax100(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setAmmoMax50(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setAmmoSpecialType(...args: any[]): any;
-    setClothes(...args: any[]): any;
-    setClothesByCollection(...args: any[]): any;
-    setDateTime(...args: any[]): any;
-    setDlcClothes(...args: any[]): any;
-    setDlcProp(...args: any[]): any;
+    /** Whether this player's client gets the other players' names (set by accept, true by default); assigning sends the change. Throws for a player who left; before playerReady the server refuses it. */
+    sendNames: boolean;
+    /** Sets the ammo of an ammo type (an AMMO_* hash or name), shared by every weapon of that type: truncated, clamped to 0–2147483647. Throws for a player who left; before playerReady the server refuses it. */
+    setAmmo(ammoType: number | string, ammo: number): void;
+    /** Sets the four flags of that ammo type (the low bits of GTA's ammo info) in this player's game until they disconnect; getAmmoFlags reads them back. Throws for an ammo hash of 0 or a player who left. */
+    setAmmoFlags(ammoHash: string | number, infiniteAmmo: boolean, addSmokeOnExplosion: boolean, fuse: boolean, fixedAfterExplosion: boolean): void;
+    /** Sets the local client ammo limit. Clamped to 0..65535. Overrides are restored on disconnect. */
+    setAmmoMax(ammoHash: string | number, amount: number): void;
+    /** Sets the local client ammo limit. Clamped to 0..65535. Overrides are restored on disconnect. */
+    setAmmoMax100(ammoHash: string | number, amount: number): void;
+    /** Sets the local client ammo limit. Clamped to 0..65535. Overrides are restored on disconnect. */
+    setAmmoMax50(ammoHash: string | number, amount: number): void;
+    /** Sets GTA's special type of that ammo type (0..6, clamped and truncated) in this player's game until they disconnect; getAmmoSpecialType reads it back. Throws for an ammo hash of 0 or a player who left. */
+    setAmmoSpecialType(ammoHash: string | number, specialType: number): void;
+    /** Sets clothing component 0–11 (drawable and texture integers 0–65534, palette 0–255) for him and the players who see him; returns true. Throws RangeError for a value out of range and Error for a player who left; before playerReady the server refuses it. */
+    setClothes(component: number, drawable: number, texture?: number, palette?: number): boolean;
+    /** As setClothes, with the drawable counted inside the named collection (ASCII letters, digits and _, else TypeError; under 128 bytes); returns true. Throws RangeError for a value out of range and Error for a player who left; before playerReady the server refuses it. */
+    setClothesByCollection(component: number, collection: string, drawable: number, texture?: number, palette?: number): boolean;
+    /** Sends a date and time to this player's client only: month 0–11 (0 is January), day within the month, year 1–9999, values truncated; an invalid date is ignored. Throws for a player who left; before playerReady the server refuses it. */
+    setDateTime(day: number, month: number, year: number, hour: number, minute: number, second?: number): void;
+    /** As setClothes, with the drawable counted inside the DLC collection whose hash is dlc (a number, not 0); returns true. Throws RangeError for a value out of range and Error for a player who left; before playerReady the server refuses it. */
+    setDlcClothes(dlc: number, component: number, drawable: number, texture?: number, palette?: number): boolean;
+    /** As setProp, with the drawable counted inside the DLC collection whose hash is dlc (a number, not 0); returns true. Throws RangeError for a value out of range and Error for a player who left; before playerReady the server refuses it. */
+    setDlcProp(dlc: number, component: number, drawable: number, texture?: number): boolean;
     /** GTA keeps a freemode ped's eye colour in its head blend data: without setHeadBlendData the ped has none (GTA reads -1). Varion keeps the colour and applies it once a blend is set, and after later blends. Returns true. */
     setEyeColor(eyeColor: number): boolean;
-    setFaceFeature(...args: any[]): any;
-    setHairColor(...args: any[]): any;
-    setHairHighlightColor(...args: any[]): any;
-    setHeadBlendData(...args: any[]): any;
-    setHeadBlendPaletteColor(...args: any[]): any;
-    setHeadOverlay(...args: any[]): any;
-    setHeadOverlayColor(...args: any[]): any;
-    /** Warps into the seat (1 = driver). A Vehicle: at once; throws for an invalid vehicle or a seat outside 1..32. A NativeVehicle: SET_PED_INTO_VEHICLE on the player's own client, as FiveM sends the RPC native to the ped's owner (seats 1..17); the outcome is what its GTA made of it, "not-found" while a car the server made has no owner yet. */
+    /** Sets face feature 0–19 to a scale clamped to -1..1 (not a number: 0) for him and the players who see him; false for another index. Throws for a player who left; before playerReady the server refuses it. */
+    setFaceFeature(index: number, scale: number): boolean;
+    /** Sets his hair colour for him and the players who see him, truncated and clamped to 0–255; the highlight colour is sent with it. Throws for a player who left; before playerReady the server refuses it. */
+    setHairColor(hairColor: number): void;
+    /** Sets his hair highlight colour for him and the players who see him, truncated and clamped to 0–255; the hair colour is sent with it. Throws for a player who left; before playerReady the server refuses it. */
+    setHairHighlightColor(hairHighlightColor: number): void;
+    /** Sets the freemode head blend for him and the players who see him: parent ids truncated (the server keeps them in -1..32767), the three mixes clamped to 0–1. Throws for a player who left; before playerReady the server refuses it. */
+    setHeadBlendData(shapeFirstID: number, shapeSecondID: number, shapeThirdID: number, skinFirstID: number, skinSecondID: number, skinThirdID: number, shapeMix: number, skinMix: number, thirdMix: number): void;
+    /** Sets head blend palette colour 0–3 for him and the players who see him, channels truncated and clamped to 0–255; false for another palette id. Throws for a player who left; before playerReady the server refuses it. */
+    setHeadBlendPaletteColor(paletteId: number, red: number, green: number, blue: number): boolean;
+    /** Sets head overlay 0–12 (beard, make-up...) to a style index (-1 none, up to 254) and opacity 0–1 (1 by default) for him and the players who see him; false for another overlay. Throws for a player who left; before playerReady the server refuses it. */
+    setHeadOverlay(overlayID: number, index: number, opacity?: number): boolean;
+    /** Sets the colour type and colours of head overlay 0–12 for him and the players who see him, truncated (the server keeps them in 0–255); false for another overlay. Throws for a player who left; before playerReady the server refuses it. */
+    setHeadOverlayColor(overlayID: number, colorType: number, colorIndex: number, secondColorIndex?: number): boolean;
+    /** Warps into the seat (1 = driver). A Vehicle: at once; throws for an invalid vehicle or a seat outside 1..32. A NativeVehicle: SET_PED_INTO_VEHICLE on the player's own client: the RPC native goes to the ped's owner (seats 1..17); the outcome is what its GTA made of it, "not-found" while a car the server made has no owner yet. */
     setIntoVehicle(vehicle: Vehicle, seat?: number): void;
     setIntoVehicle(vehicle: NativeVehicle, seat?: number): Promise<NativeVehicleCommandOutcome>;
-    setLocalMeta(...args: any[]): any;
-    setMeta(...args: any[]): any;
-    setNetOwner(...args: any[]): any;
+    /** Data only this player's client gets (getLocalMeta there); localMetaChange fires here on a change. Key 1–1024 UTF-8 bytes, value up to 512 KiB as JSON; throws for a value that cannot be sent and for a player who left; before playerReady the server refuses it. */
+    setLocalMeta(key: string, value: any): void;
+    setLocalMeta(values: { [key: string]: any }): void;
+    /** This host's own data on the player: no client sees it; metaChange fires on a change (not for the same value). */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** No effect and nothing is sent: GTA keeps a player's ped with his own client, and the server gives only vehicles, peds and objects to an owner. Throws for a player who left and a TypeError for an invalid player argument. */
+    setNetOwner(player: Player, disableMigration?: boolean): void;
     /** What the cabinet's players tab shows for this player while server.toml sets panelAgent = true: the role and the key (as your resource names them; up to 32 and 64 bytes) and up to 8 actions. Each action is a button there; pressing it runs its command as a console line, exactly as if typed in the server window, so the cabinet and the game do the same thing (e.g. { id: 'role-admin', label: 'Make admin', command: 'access allow <key> admin' }). The cabinet only names the action; the command stays on the server. Call again whenever the role or the actions change; throws on text over the limits or with control characters. */
     setPanelInfo(info: { role?: string; key?: string; actions?: Array<{ id: string; label: string; command: string }> }): void;
-    setProp(...args: any[]): any;
-    setPropByCollection(...args: any[]): any;
-    setStreamSyncedMeta(...args: any[]): any;
-    setStreamSyncedMetaData(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    setSyncedMetaData(...args: any[]): any;
-    setWeaponAmmo(...args: any[]): any;
-    setWeaponTintIndex(...args: any[]): any;
-    setWeather(...args: any[]): any;
-    readonly socialClubName: any;
+    /** Sets prop slot 0–9 (hat, glasses...) to a drawable and texture, integers 0–65534, for him and the players who see him; returns true. Throws RangeError for a value out of range and Error for a player who left; before playerReady the server refuses it. */
+    setProp(component: number, drawable: number, texture?: number): boolean;
+    /** As setProp, with the drawable counted inside the named collection (ASCII letters, digits and _, else TypeError; under 128 bytes); attach true by default. Throws RangeError for a value out of range and Error for a player who left; before playerReady the server refuses it. */
+    setPropByCollection(component: number, collection: string, drawable: number, texture?: number, attach?: boolean): boolean;
+    /** Stream-synced metadata: his own client and the clients that stream him in read it (getStreamSyncedMeta there); streamSyncedMetaChange fires here. Key 1–1024 UTF-8 bytes, value up to 512 KiB as JSON; throws for a value that cannot be sent, and after he left only this object changes. */
+    setStreamSyncedMeta(key: string, value: any): void;
+    setStreamSyncedMeta(values: { [key: string]: any }): void;
+    /** Another name for setStreamSyncedMeta. */
+    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData(values: { [key: string]: any }): void;
+    /** Synced metadata: every client reads it (getSyncedMeta on the player there); syncedMetaChange fires here. Key 1–1024 UTF-8 bytes, value up to 512 KiB as JSON; throws for a value that cannot be sent, and after he left only this object changes. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Another name for setSyncedMeta. */
+    setSyncedMetaData(key: string, value: any): void;
+    setSyncedMetaData(values: { [key: string]: any }): void;
+    /** Sets the ammo of the weapon's ammo type, shared by every weapon of that type: truncated, clamped to 0–2147483647; nothing for a weapon he lacks. Throws for a player who left; before playerReady the server refuses it. */
+    setWeaponAmmo(weapon: number | string, ammo: number): void;
+    /** Sets the tint of a weapon he has, truncated and clamped to 0–255; nothing for a weapon he lacks. Throws for a player who left; before playerReady the server refuses it. */
+    setWeaponTintIndex(weapon: number | string, tintIndex: number): void;
+    /** Sends a WeatherType (0–14; another value is ignored) to this player's client only; the server's world weather stays. Throws for a player who left; before playerReady the server refuses it. */
+    setWeather(weatherType: number): void;
+    /** Always empty: the client's join request carries no Social Club name, so the server has none to give. */
+    readonly socialClubName: string;
+    /** Always "0": the server gives the host no Social Club id. */
     readonly socialID: string;
-    /** Varion's (pos, heading in degrees, model; 0 keeps it) and alt:V's (x, y, z, delay in ms) and (model, pos), told apart by their arguments' types. alt:V's (pos, delay) is the one form both write alike: there the number is Varion's heading. A bad position, heading, delay or model throws and sends nothing. */
+    /** (pos, heading in degrees, model; 0 keeps it), (x, y, z, delay in ms) and (model, pos), told apart by their arguments' types. (pos, number) reads the number as the heading. A bad position, heading, delay or model throws and sends nothing. */
     spawn(pos: Vector3Like, heading?: number, model?: number | string): void;
     spawn(x: number, y: number, z: number, delay?: number): void;
     spawn(model: number | string, pos: Vector3Like): void;
-    readonly strafeSpeed: any;
-    streamed: any;
-    readonly streamedEntities: any;
-    streamingDistance: any;
-    readonly timestamp: any;
-    readonly type: any;
+    /** While he strafes, his velocity along his right side in m/s, clamped to -10..10; 0 otherwise, as his client reports. */
+    readonly strafeSpeed: number;
+    /** False takes the player away from every other client: they stream him out, he leaves his vehicle seat and loses what he owns; true shows him again. Throws for a player who left; before playerReady the server refuses it. */
+    streamed: boolean;
+    /** The entities his client has now (the old path's by the server's stream set, native ones by their delivery), each with its distance from him in metres; a new array on each read. */
+    readonly streamedEntities: { entity: Player | Vehicle | Ped | Object | VirtualEntity | NativeVehicle | NativePed; distance: number }[];
+    /** Metres within which others see him, in place of the server's (0: the server's); assigning truncates and clamps to 0–20000. Throws for a player who left; before playerReady the server refuses it. */
+    streamingDistance: number;
+    /** The client's sync counter of his last state the server took: +1 per sync, not a time. */
+    readonly timestamp: number;
+    /** BaseObjectType.Player (0). */
+    readonly type: number;
+    /** False once the player left (after playerDisconnect) or another connection took their id; from then on calls that change the player throw. The stand-in the host makes for a player it does not hold, such as an event's argument for one who left, reads false too. */
     readonly valid: boolean;
     /** The vehicle by the server's record of the last confirmed entry (playerEnteredVehicle); a native vehicle by its occupants, as its driver and passengers read them. */
     readonly vehicle: Vehicle | NativeVehicle | null;
-    readonly velocity: any;
-    visible: any;
-    readonly weapons: any;
-    readonly worldEpoch: any;
+    /** His velocity in m/s (GET_ENTITY_VELOCITY), as his client reports. */
+    readonly velocity: Vector3;
+    /** Whether his ped is visible (true by default) for him and the players who see him; assigning sends it. Throws for a player who left; before playerReady the server refuses it. */
+    visible: boolean;
+    /** This host's record of his weapons (given by giveWeapon or reported in his hands): ammo of its ammo type, -1 for a melee weapon or infinite ammo. A new array of copies on each read. */
+    readonly weapons: { hash: number; ammo: number; tintIndex: number; components: number[] }[];
+    /** The id of the player's world inside the admission, a uint64 as decimal text; player calls carry it and the server refuses those of another world. */
+    readonly worldEpoch: string;
 }
 
 export class PointBlip {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    addTarget(...args: any[]): any;
-    alpha: any;
-    asMissionCreator: any;
-    attachedTo: any;
-    blipType: any;
-    bright: any;
-    category: any;
-    color: any;
-    crewIndicatorVisible: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    display: any;
-    fade(...args: any[]): any;
-    flashes: any;
-    flashesAlternate: any;
-    flashInterval: any;
-    flashTimer: any;
-    friendIndicatorVisible: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    gxtName: any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    heading: any;
-    headingIndicatorVisible: any;
-    height: any;
-    highDetail: any;
-    id: any;
-    readonly isAttached: any;
-    isFriendly: any;
-    isGlobal: any;
-    readonly kind: any;
-    name: any;
-    number: any;
-    outlineIndicatorVisible: any;
-    pos: any;
-    priority: any;
-    pulse: any;
-    radius: any;
-    removeTarget(...args: any[]): any;
-    route: any;
-    routeColor: any;
-    scale: any;
-    secondaryColor: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    shortRange: any;
-    showCone: any;
-    shrinked: any;
-    size: any;
-    sprite: any;
-    readonly targets: any;
-    tickVisible: any;
-    readonly type: any;
-    readonly valid: any;
-    visible: any;
-    width: any;
+    /** Creates a point blip at x, y, z, at a position or on an entity (attached to it), in dimension 0; every player there sees it, or with `global` false (default true) only the players added with `addTarget`. A non-numeric coordinate counts as 0; any other server object than a valid player, vehicle, ped or object, and a native vehicle or NPC, throws a `TypeError`. */
+    constructor(x: number, y: number, z: number, global?: boolean);
+    constructor(pos: Vector3Like, global?: boolean);
+    constructor(entity: Player | Vehicle | Ped | Object, global?: boolean);
+    /** Every valid point blip of every resource, attached ones included; a new array on each read. A blip whose kind blipType changes moves to that class's list. */
+    static readonly all: PointBlip[];
+    /** How many valid point blips there are now. */
+    static readonly count: number;
+    /** The valid point blip with that id; null for none or for a blip of another kind. */
+    static getByID(id: number): PointBlip | null;
+    /** Adds a player to its targets (they get it while isGlobal is false) and re-sends the blip; nothing happens for one already there. Throws a TypeError for a player who is not connected. */
+    addTarget(player: Player): void;
+    /** Opacity 0..255, 255 by default; truncated to an integer, and clients clamp it to 0..255. After fade it reads the opacity faded to. */
+    alpha: number;
+    /** SET_BLIP_AS_MISSION_CREATOR_BLIP; false by default. */
+    asMissionCreator: boolean;
+    /** The player, vehicle, ped or object it follows, while that one exists; a client that has it shows the blip on it (ADD_BLIP_FOR_ENTITY), others at the position it had when attached; null for none. Once the entity is gone it reads null and the blip stays where the entity was last seen. Assigning copies the entity's position, null detaches; anything else, an invalid entity or a native vehicle or NPC throws a TypeError. */
+    attachedTo: Player | Vehicle | Ped | Object | VirtualEntity | null;
+    /** GTA's blip type, as BlipType: Vehicle (1), Ped (2) or Object (3) by what it is attached to, else Destination (4). Assigning Radius (7) or Area (11) makes it that kind where it is and the object a RadiusBlip or AreaBlip (100 m where it has no size); Destination detaches it. Any other type throws a RangeError unless the blip already has it. Its size follows the new kind: scale for a point or radius blip, width and height for an area. */
+    blipType: number;
+    /** SET_BLIP_BRIGHT; false by default. */
+    bright: boolean;
+    /** SET_BLIP_CATEGORY, 0 by default. Truncated to an integer. */
+    category: number;
+    /** Colour index, as BlipColor; 0 by default. The cone (showCone) uses it too, and so does the route while routeColor is black. Truncated to an integer. */
+    color: number;
+    /** SHOW_CREW_INDICATOR_ON_BLIP; false by default. */
+    crewIndicatorVisible: boolean;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the blip from every client and from Blip.all; valid turns false and baseObjectRemove fires. After it its setters and methods change and send nothing (an update would make it anew); later calls do nothing, and a resource's blips go when it stops. */
+    destroy(): void;
+    /** Clients show it to players whose dimension sees it: in this dimension, 0 by default; in every one at -2147483648; and at 0 also to players in a negative dimension. The blip still reaches its players in other dimensions, hidden. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** Display mode (SET_BLIP_DISPLAY), 4 by default; clients use 0 while visible is false. Truncated to an integer. */
+    display: number;
+    /** Fades it on clients to opacity 0..255 (truncated and clamped) over duration milliseconds (SET_BLIP_FADE); a negative duration is 0. The fade runs once: alpha then reads that opacity, and a later change shows the blip at it (a change during the fade ends it there). */
+    fade(opacity: number, duration: number): void;
+    /** SET_BLIP_FLASHES; false by default. */
+    flashes: boolean;
+    /** SET_BLIP_FLASHES_ALTERNATE; false by default. */
+    flashesAlternate: boolean;
+    /** SET_BLIP_FLASH_INTERVAL in milliseconds, 0 by default. Truncated to an integer. */
+    flashInterval: number;
+    /** SET_BLIP_FLASH_TIMER in milliseconds, 0 by default. Truncated to an integer. */
+    flashTimer: number;
+    /** SHOW_FRIEND_INDICATOR_ON_BLIP; false by default. */
+    friendIndicatorVisible: boolean;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** GXT label of the name (SET_BLIP_NAME_FROM_TEXT_FILE), used while name is empty; '' by default. Assigning converts to text, null gives ''. */
+    gxtName: string;
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Rotation of the icon in degrees, 0 by default; NaN is 0. */
+    heading: number;
+    /** SHOW_HEADING_INDICATOR_ON_BLIP; false by default. */
+    headingIndicatorVisible: boolean;
+    /** Not used by a point blip: kept to read only, undefined until given, and assigning sends nothing; it becomes the area's height when blipType makes the blip an area. */
+    get height(): number | undefined;
+    set height(value: number);
+    /** SET_BLIP_HIGH_DETAIL; false by default. */
+    highDetail: boolean;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether attachedTo names an entity: false once that entity is gone. */
+    readonly isAttached: boolean;
+    /** SET_BLIP_AS_FRIENDLY; false by default. */
+    isFriendly: boolean;
+    /** True (the default): every player gets it; false: only its targets. Assigning re-sends it, and players who no longer get it lose it. */
+    isGlobal: boolean;
+    /** Always "blip". */
+    readonly kind: "blip";
+    /** Name shown for it on the map; undefined until set. It wins over gxtName. Assigning converts to text, null or '' clears it; quotes, backslashes and line breaks reach the clients as they are. */
+    get name(): string | undefined;
+    set name(value: string);
+    /** Number shown on it (SHOW_NUMBER_ON_BLIP), at most 99; a negative one hides it, -1 by default. Truncated to an integer. */
+    number: number;
+    /** SHOW_OUTLINE_INDICATOR_ON_BLIP; false by default. */
+    outlineIndicatorVisible: boolean;
+    /** Where it is (for an attached point blip, where its entity was when attached, and once that entity is gone where it was last seen). Assigning moves it for every player who gets the blip; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** SET_BLIP_PRIORITY, 0 by default. Truncated to an integer. */
+    priority: number;
+    /** PULSE_BLIP each time a client creates the blip: when it arrives and after every change to it; false by default. */
+    pulse: boolean;
+    /** Not used by a point blip: kept to read only, undefined until given, and assigning sends nothing; it becomes the radius when blipType makes the blip a radius blip. */
+    get radius(): number | undefined;
+    set radius(value: number);
+    /** Removes a player from its targets and re-sends the blip; anything not among them is ignored. A player who leaves is removed from every blip. */
+    removeTarget(player: Player): void;
+    /** GPS route to it (SET_BLIP_ROUTE); false by default. */
+    route: boolean;
+    /** Colour of its route: clients take the HUD colour nearest to r, g, b (black, the default: the blip's colour; alpha is not used). Assigning takes an RGBA or a number 0xRRGGBB; components are clamped to 0..255. */
+    get routeColor(): RGBA;
+    set routeColor(value: RGBALike | number);
+    /** SET_BLIP_SCALE, 1 by default; NaN is 0. Assigning sets size too (clients apply SET_BLIP_SCALE_2D after it), so the blip is drawn at the new scale. */
+    scale: number;
+    /** SET_BLIP_SECONDARY_COLOUR with r, g, b (alpha is not used); black by default. Assigning takes an RGBA or a number 0xRRGGBB; components are clamped to 0..255. */
+    get secondaryColor(): RGBA;
+    set secondaryColor(value: RGBALike | number);
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every player who gets the blip (everyone, or only its targets when it is not global), later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the blip changes later (they make it anew and the server does not send it again) and keep none for a blip they do not show (another dimension). Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Short-range blip (SET_BLIP_AS_SHORT_RANGE); true by default. */
+    shortRange: boolean;
+    /** A cone in the blip's colour (SET_BLIP_SHOW_CONE); false by default. */
+    showCone: boolean;
+    /** Drawn small at the edge of the minimap (SET_BLIP_AS_MINIMAL_ON_EDGE); false by default. */
+    shrinked: boolean;
+    /** SET_BLIP_SCALE_2D, which clients apply last; scale sets it on both axes. Assigning takes { x, y } (its own scale on each axis); a missing or non-numeric component is 0. */
+    get size(): Vector2;
+    set size(value: { x: number; y: number });
+    /** Icon, as BlipSprite; 1 by default. Truncated to an integer. */
+    sprite: number;
+    /** The connected players among its targets: while isGlobal is false only they get it. A new array on each read. */
+    readonly targets: Player[];
+    /** A tick on the blip (SHOW_TICK_ON_BLIP); false by default. */
+    tickVisible: boolean;
+    /** BaseObjectType.Blip (4); the GTA blip type is blipType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
+    /** False hides it on clients (SET_BLIP_DISPLAY 0) without removing it; true by default. */
+    visible: boolean;
+    /** Not used by a point blip: kept to read only, undefined until given, and assigning sends nothing; it becomes the area's width when blipType makes the blip an area. */
+    get width(): number | undefined;
+    set width(value: number);
 }
 
 export class Quaternion {
-    constructor(...args: any[]);
-    static readonly one: any;
-    static readonly zero: any;
-    toArray(...args: any[]): any;
-    toFixed(...args: any[]): any;
-    toString(...args: any[]): any;
-    w: any;
-    x: any;
-    y: any;
-    z: any;
+    /** Creates a quaternion from four numbers, an array, an object with x, y, z, w, or one number for all four; a missing or non-numeric component is 0. `new Quaternion()` is 0, 0, 0, 0, not the identity rotation. */
+    constructor(x: number, y: number, z?: number, w?: number);
+    constructor(value?: number);
+    constructor(xyzw: number[]);
+    constructor(q: { x: number; y: number; z: number; w: number });
+    /** (1, 1, 1, 1): every component 1, as Vector3.one, not the identity rotation (0, 0, 0, 1). A new Quaternion on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly one: Quaternion;
+    /** (0, 0, 0, 0) as a new Quaternion on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly zero: Quaternion;
+    /** [x, y, z, w] as a new array. */
+    toArray(): [number, number, number, number];
+    /** A new Quaternion with every component rounded to precision decimals (4 by default; outside 0–100 throws RangeError). */
+    toFixed(precision?: number): Quaternion;
+    /** Text such as "Quaternion{ x: 0, y: 0, z: 0, w: 1 }". */
+    toString(): string;
+    /** A plain field: assigning stores the value as given (the constructor turns NaN into 0). */
+    w: number;
+    /** A plain field: assigning stores the value as given (the constructor turns NaN into 0). */
+    x: number;
+    /** A plain field: assigning stores the value as given (the constructor turns NaN into 0). */
+    y: number;
+    /** A plain field: assigning stores the value as given (the constructor turns NaN into 0). */
+    z: number;
 }
 
 export class RGBA {
-    constructor(...args: any[]);
-    static readonly black: any;
-    static readonly blue: any;
-    static readonly clear: any;
-    static readonly green: any;
-    static readonly red: any;
-    static readonly white: any;
-    a: any;
-    b: any;
-    g: any;
-    r: any;
-    toARGB(...args: any[]): any;
-    toArray(...args: any[]): any;
-    toBGRA(...args: any[]): any;
-    toInt(...args: any[]): any;
-    toString(...args: any[]): any;
+    /** Creates a colour from numbers, an array [r, g, b, a] or an object with r, g, b, a. Each channel is rounded and clamped to 0–255; a missing or non-finite channel is 0, and alpha 255. */
+    constructor(r?: number, g?: number, b?: number, a?: number);
+    constructor(rgba: number[]);
+    constructor(color: RGBALike);
+    /** (0, 0, 0, 255) as a new RGBA on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly black: RGBA;
+    /** (0, 0, 255, 255) as a new RGBA on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly blue: RGBA;
+    /** (0, 0, 0, 0) as a new RGBA on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly clear: RGBA;
+    /** (0, 255, 0, 255) as a new RGBA on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly green: RGBA;
+    /** (255, 0, 0, 255) as a new RGBA on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly red: RGBA;
+    /** (255, 255, 255, 255) as a new RGBA on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly white: RGBA;
+    /** Alpha (255 by default): the constructor rounds it and clamps it to 0–255 (not a finite number: 0, alpha 255); assigning stores the value as given. */
+    a: number;
+    /** Blue: the constructor rounds it and clamps it to 0–255 (not a finite number: 0, alpha 255); assigning stores the value as given. */
+    b: number;
+    /** Green: the constructor rounds it and clamps it to 0–255 (not a finite number: 0, alpha 255); assigning stores the value as given. */
+    g: number;
+    /** Red: the constructor rounds it and clamps it to 0–255 (not a finite number: 0, alpha 255); assigning stores the value as given. */
+    r: number;
+    /** A new RGBA with the channels moved: its r holds alpha, g red, b green, a blue. */
+    toARGB(): RGBA;
+    /** [r, g, b, a] as a new array. */
+    toArray(): [number, number, number, number];
+    /** A new RGBA with red and blue swapped: its r holds blue, its b red. */
+    toBGRA(): RGBA;
+    /** The colour packed as 0xAABBGGRR (alpha in the high byte, red in the low byte), unsigned 32-bit. Channels outside 0–255 spill into each other. */
+    toInt(): number;
+    /** Text such as "RGBA{ r: 255, g: 0, b: 0, a: 255 }". */
+    toString(): string;
 }
 
 export const RadioStation: {
@@ -4886,93 +5683,186 @@ export const RadioStation: {
 };
 
 export class RadiusBlip {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    addTarget(...args: any[]): any;
-    alpha: any;
-    asMissionCreator: any;
-    attachedTo: any;
-    blipType: any;
-    bright: any;
-    category: any;
-    color: any;
-    crewIndicatorVisible: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    display: any;
-    fade(...args: any[]): any;
-    flashes: any;
-    flashesAlternate: any;
-    flashInterval: any;
-    flashTimer: any;
-    friendIndicatorVisible: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    gxtName: any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    heading: any;
-    headingIndicatorVisible: any;
-    height: any;
-    highDetail: any;
-    id: any;
-    readonly isAttached: any;
-    isFriendly: any;
-    isGlobal: any;
-    readonly kind: any;
-    name: any;
-    number: any;
-    outlineIndicatorVisible: any;
-    pos: any;
-    priority: any;
-    pulse: any;
-    radius: any;
-    removeTarget(...args: any[]): any;
-    route: any;
-    routeColor: any;
-    scale: any;
-    secondaryColor: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    shortRange: any;
-    showCone: any;
-    shrinked: any;
-    size: any;
-    sprite: any;
-    readonly targets: any;
-    tickVisible: any;
-    readonly type: any;
-    readonly valid: any;
-    visible: any;
-    width: any;
+    /** Creates a radius blip, a circle of `radius` metres around x, y, z, in dimension 0. Every player there sees it; with `global` false (default true) only the players added with `addTarget` do. */
+    constructor(x: number, y: number, z: number, radius: number, global?: boolean);
+    /** Every valid radius blip of every resource; a new array on each read. A blip whose kind blipType changes moves to that class's list. */
+    static readonly all: RadiusBlip[];
+    /** How many valid radius blips there are now. */
+    static readonly count: number;
+    /** The valid radius blip with that id; null for none or for a blip of another kind. */
+    static getByID(id: number): RadiusBlip | null;
+    /** Adds a player to its targets (they get it while isGlobal is false) and re-sends the blip; nothing happens for one already there. Throws a TypeError for a player who is not connected. */
+    addTarget(player: Player): void;
+    /** Opacity 0..255, 255 by default; truncated to an integer, and clients clamp it to 0..255. After fade it reads the opacity faded to. */
+    alpha: number;
+    /** SET_BLIP_AS_MISSION_CREATOR_BLIP; false by default. */
+    asMissionCreator: boolean;
+    /** The player, vehicle, ped or object it was given, while that one exists; null for none or once it is gone. Clients do not attach a radius blip (GTA makes a radius only at a position): assigning moves the blip to where the entity is now. Anything else, an invalid entity or a native vehicle or NPC throws a TypeError. */
+    attachedTo: Player | Vehicle | Ped | Object | VirtualEntity | null;
+    /** BlipType.Radius (7). Assigning Destination (4) makes it a point blip (detached, radius 0) and Area (11) an area (100 m where it has no width or height); the object becomes a PointBlip or AreaBlip. Any other type throws a RangeError. Its size follows the new kind: scale for a point or radius blip, width and height for an area. */
+    blipType: number;
+    /** SET_BLIP_BRIGHT; false by default. */
+    bright: boolean;
+    /** SET_BLIP_CATEGORY, 0 by default. Truncated to an integer. */
+    category: number;
+    /** Colour index, as BlipColor; 0 by default. The cone (showCone) uses it too, and so does the route while routeColor is black. Truncated to an integer. */
+    color: number;
+    /** SHOW_CREW_INDICATOR_ON_BLIP; false by default. */
+    crewIndicatorVisible: boolean;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the blip from every client and from Blip.all; valid turns false and baseObjectRemove fires. After it its setters and methods change and send nothing (an update would make it anew); later calls do nothing, and a resource's blips go when it stops. */
+    destroy(): void;
+    /** Clients show it to players whose dimension sees it: in this dimension, 0 by default; in every one at -2147483648; and at 0 also to players in a negative dimension. The blip still reaches its players in other dimensions, hidden. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** Display mode (SET_BLIP_DISPLAY), 4 by default; clients use 0 while visible is false. Truncated to an integer. */
+    display: number;
+    /** Fades it on clients to opacity 0..255 (truncated and clamped) over duration milliseconds (SET_BLIP_FADE); a negative duration is 0. The fade runs once: alpha then reads that opacity, and a later change shows the blip at it (a change during the fade ends it there). */
+    fade(opacity: number, duration: number): void;
+    /** SET_BLIP_FLASHES; false by default. */
+    flashes: boolean;
+    /** SET_BLIP_FLASHES_ALTERNATE; false by default. */
+    flashesAlternate: boolean;
+    /** SET_BLIP_FLASH_INTERVAL in milliseconds, 0 by default. Truncated to an integer. */
+    flashInterval: number;
+    /** SET_BLIP_FLASH_TIMER in milliseconds, 0 by default. Truncated to an integer. */
+    flashTimer: number;
+    /** SHOW_FRIEND_INDICATOR_ON_BLIP; false by default. */
+    friendIndicatorVisible: boolean;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** GXT label of the name (SET_BLIP_NAME_FROM_TEXT_FILE), used while name is empty; '' by default. Assigning converts to text, null gives ''. */
+    gxtName: string;
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Rotation of the icon in degrees, 0 by default; NaN is 0. */
+    heading: number;
+    /** SHOW_HEADING_INDICATOR_ON_BLIP; false by default. */
+    headingIndicatorVisible: boolean;
+    /** Not used by a radius blip: kept to read only, undefined until given, and assigning sends nothing; it becomes the area's height when blipType makes the blip an area. */
+    get height(): number | undefined;
+    set height(value: number);
+    /** SET_BLIP_HIGH_DETAIL; false by default. */
+    highDetail: boolean;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether attachedTo names an entity: false once that entity is gone. Clients do not attach a radius blip. */
+    readonly isAttached: boolean;
+    /** SET_BLIP_AS_FRIENDLY; false by default. */
+    isFriendly: boolean;
+    /** True (the default): every player gets it; false: only its targets. Assigning re-sends it, and players who no longer get it lose it. */
+    isGlobal: boolean;
+    /** Always "blip". */
+    readonly kind: "blip";
+    /** Name shown for it on the map; undefined until set. It wins over gxtName. Assigning converts to text, null or '' clears it; quotes, backslashes and line breaks reach the clients as they are. */
+    get name(): string | undefined;
+    set name(value: string);
+    /** Number shown on it (SHOW_NUMBER_ON_BLIP), at most 99; a negative one hides it, -1 by default. Truncated to an integer. */
+    number: number;
+    /** SHOW_OUTLINE_INDICATOR_ON_BLIP; false by default. */
+    outlineIndicatorVisible: boolean;
+    /** Centre of the circle. Assigning moves it for every player who gets the blip; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** SET_BLIP_PRIORITY, 0 by default. Truncated to an integer. */
+    priority: number;
+    /** PULSE_BLIP each time a client creates the blip: when it arrives and after every change to it; false by default. */
+    pulse: boolean;
+    /** Radius of the circle in metres (ADD_BLIP_FOR_RADIUS); clients use 50 when none was given at creation (it reads undefined then). Assigning re-creates the blip on clients; NaN is 0. */
+    get radius(): number | undefined;
+    set radius(value: number);
+    /** Removes a player from its targets and re-sends the blip; anything not among them is ignored. A player who leaves is removed from every blip. */
+    removeTarget(player: Player): void;
+    /** GPS route to it (SET_BLIP_ROUTE); false by default. */
+    route: boolean;
+    /** Colour of its route: clients take the HUD colour nearest to r, g, b (black, the default: the blip's colour; alpha is not used). Assigning takes an RGBA or a number 0xRRGGBB; components are clamped to 0..255. */
+    get routeColor(): RGBA;
+    set routeColor(value: RGBALike | number);
+    /** SET_BLIP_SCALE, 1 by default; NaN is 0. Assigning sets size too (clients apply SET_BLIP_SCALE_2D after it), so the blip is drawn at the new scale. */
+    scale: number;
+    /** SET_BLIP_SECONDARY_COLOUR with r, g, b (alpha is not used); black by default. Assigning takes an RGBA or a number 0xRRGGBB; components are clamped to 0..255. */
+    get secondaryColor(): RGBA;
+    set secondaryColor(value: RGBALike | number);
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every player who gets the blip (everyone, or only its targets when it is not global), later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Clients lose it when the blip changes later (they make it anew and the server does not send it again) and keep none for a blip they do not show (another dimension). Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Short-range blip (SET_BLIP_AS_SHORT_RANGE); true by default. */
+    shortRange: boolean;
+    /** A cone in the blip's colour (SET_BLIP_SHOW_CONE); false by default. */
+    showCone: boolean;
+    /** Drawn small at the edge of the minimap (SET_BLIP_AS_MINIMAL_ON_EDGE); false by default. */
+    shrinked: boolean;
+    /** SET_BLIP_SCALE_2D, which clients apply last; scale sets it on both axes. Assigning takes { x, y } (its own scale on each axis); a missing or non-numeric component is 0. */
+    get size(): Vector2;
+    set size(value: { x: number; y: number });
+    /** Icon, as BlipSprite; 1 by default. Truncated to an integer. */
+    sprite: number;
+    /** The connected players among its targets: while isGlobal is false only they get it. A new array on each read. */
+    readonly targets: Player[];
+    /** A tick on the blip (SHOW_TICK_ON_BLIP); false by default. */
+    tickVisible: boolean;
+    /** BaseObjectType.Blip (4); the GTA blip type is blipType. */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
+    /** False hides it on clients (SET_BLIP_DISPLAY 0) without removing it; true by default. */
+    visible: boolean;
+    /** Not used by a radius blip: kept to read only, undefined until given, and assigning sends nothing; it becomes the area's width when blipType makes the blip an area. */
+    get width(): number | undefined;
+    set width(value: number);
 }
 
 export class Resource {
     constructor(...args: any[]);
-    static readonly all: any;
+    /** A new snapshot of every resource the server knows, started or not (as getAllResources). */
+    static readonly all: Resource[];
+    /** The resource whose code is running, as a new snapshot on each read (name, path, main, a copy of its config, started, exports, dependencies, dependants); null outside a resource's code. */
     static readonly current: Resource;
-    static get(...args: any[]): any;
-    static getByName(...args: any[]): any;
-    config: any;
-    dependants: any;
-    dependencies: any;
-    exports: any;
-    isStarted: any;
-    main: any;
-    name: any;
-    optionalPermissions: any;
+    /** A new snapshot of the resource of that name (name, path, main, type, a copy of its config, started, exports, dependencies, dependants); null for an unknown one. */
+    static get(resourceName: string): Resource | null;
+    /** The same as Resource.get. */
+    static getByName(resourceName: string): Resource | null;
+    /** A copy of its resource.toml [config] table, a field of the snapshot, fixed when it was taken. */
+    config: Record<string, any>;
+    /** Names of the known resources that list it as a dependency. */
+    dependants: string[];
+    /** Names of the resources it depends on (resource.toml). */
+    dependencies: string[];
+    /** What the resource's main file exports (module.exports), as it was when this object was made; an empty object for a resource that is not running. */
+    exports: Record<string, any>;
+    /** The same as started. */
+    isStarted: boolean;
+    /** The absolute path of its main file. */
+    main: string;
+    /** The resource's name. */
+    name: string;
+    /** A copy of optional-permissions from its [config] table, [] without one. Informational only: neither the server nor the client asks a player for these or checks them; a client script asks with requestPermission. */
+    optionalPermissions: string[];
+    /** The absolute path of the resource's folder on the server; a field of the snapshot, so assigning it changes nothing else. */
     path: string;
-    requiredPermissions: any;
-    started: any;
-    type: any;
-    valid: any;
+    /** A copy of required-permissions from its [config] table, [] without one. Informational only: neither the server nor the client asks a player for these or checks them; a client script asks with requestPermission. */
+    requiredPermissions: string[];
+    /** Whether it ran: a field of the snapshot, fixed when it was taken. */
+    started: boolean;
+    /** Its type as resource.toml gives it ("js" by default). */
+    type: string;
+    /** Whether the resource is still loaded as the instance this snapshot saw: false once it stops or loads again (take a new snapshot then), and for a snapshot of a resource that was not loaded. Unlike the other fields it is read live. */
+    readonly valid: boolean;
 }
 
 export const SortOrderEnum: {
@@ -4982,398 +5872,746 @@ export const SortOrderEnum: {
 };
 
 export class TextLabel {
-    constructor(...args: any[]);
-    color: any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    dimension: any;
-    font: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    id: any;
-    isGlobal: any;
-    readonly kind: any;
-    outline: any;
-    pos: any;
-    scale: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    text: any;
-    readonly type: any;
-    readonly valid: any;
+    /** Creates a text label: `new TextLabel(options)` is `varion.createTextLabel(options)` (`text`, `pos`, `scale`, `font`, `color`, `outline`, `dimension`), and both make a `TextLabel`. A non-object argument throws a `TypeError`. Players see it by its dimension (0 by default), as every world object. */
+    private constructor(options?: { text?: string; pos?: Vector3Like; x?: number; y?: number; z?: number; scale?: number; font?: number; color?: RGBALike; outline?: boolean; dimension?: number; [option: string]: any });
+    /** Every valid text label of every resource, from new TextLabel and createTextLabel alike; a new array on each read. */
+    static readonly all: TextLabel[];
+    /** How many text labels TextLabel.all holds now. */
+    static readonly count: number;
+    /** The valid text label with that id; null for none. */
+    static getByID(id: number): TextLabel | null;
+    /** Text colour, white (255, 255, 255, 255) by default. Assigning takes { r, g, b, a }; each component is rounded and kept to 0..255, as clients take it, and a missing alpha is 255. */
+    get color(): RGBA;
+    set color(value: RGBALike);
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the text label from every client; valid turns false and baseObjectRemove fires. After it its setters change and send nothing; later calls do nothing, and a resource's text labels go when it stops. */
+    destroy(): void;
+    /** Clients draw it for players whose dimension sees it, as every world object: in this dimension, 0 by default; in every one at -2147483648 (isGlobal); and at 0 also for players in a negative dimension. Assigning truncates to an integer (NaN is 0). */
+    dimension: number;
+    /** GTA font index, 0 by default; truncated to an integer. */
+    font: number;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Whether it is in every dimension (-2147483648), where every player sees it. Assigning true sets that dimension, false sets dimension 0. */
+    isGlobal: boolean;
+    /** Always "textlabel". */
+    readonly kind: "textlabel";
+    /** Draws an outline around the text; false by default. */
+    outline: boolean;
+    /** Where the text is drawn: clients draw it whenever that point is on their screen, with no distance or line-of-sight check. Assigning moves it; a non-finite component becomes 0. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Text size: clients draw it at 0.35 × scale, kept within 0.1..2.0; 1 by default. The size does not change with distance. */
+    scale: number;
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected player, later ones included (getSyncedMeta and syncedMetaChange there); syncedMetaChange fires here and an object sets each of its keys. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** The text drawn at pos; an empty or missing value becomes ' '. Quotes, backslashes and line breaks reach the clients as they are. */
+    text: string;
+    /** BaseObjectType.TextLabel (23). */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
 }
 
 export const Utils: {
-    assert(...args: any[]): any;
-    ConsoleCommand(...args: any[]): any;
-    EveryTick(...args: any[]): any;
-    getClosestPlayer(...args: any[]): any;
-    getClosestVehicle(...args: any[]): any;
-    inspect(...args: any[]): any;
-    Interval(...args: any[]): any;
-    NextTick(...args: any[]): any;
-    Timeout(...args: any[]): any;
-    Timer(...args: any[]): any;
-    wait(...args: any[]): any;
-    waitFor(...args: any[]): any;
+    /** Throws Error(message), or Error("Assertion failed"), when the value is falsy. */
+    assert(assertion: any, message?: string): void;
+    readonly ConsoleCommand: typeof UtilsConsoleCommand;
+    readonly EveryTick: typeof UtilsEveryTick;
+    /** The player nearest to pos (0, 0, 0 when missing) within range metres (0 or missing: any distance), in any dimension; null for none. */
+    getClosestPlayer(options?: { pos?: Vector3Like; range?: number }): Player | null;
+    /** The vehicle (either path) nearest to pos (0, 0, 0 when missing) within range metres (0 or missing: any distance), in any dimension; null for none. */
+    getClosestVehicle(options?: { pos?: Vector3Like; range?: number }): Vehicle | NativeVehicle | null;
+    /** A readable text of any value: Node's util.inspect. */
+    inspect(value: any, options?: object): string;
+    readonly Interval: typeof UtilsInterval;
+    readonly NextTick: typeof UtilsNextTick;
+    readonly Timeout: typeof UtilsTimeout;
+    readonly Timer: typeof UtilsTimer;
+    /** Resolves after the milliseconds (negative or not a number: 0). */
+    wait(milliseconds: number): Promise<void>;
+    /** Checks the condition now and every 10 ms; resolves once it returns a truthy value, rejects with Error("waitFor timed out") after timeout ms (2000 by default) or with what it throws. A non-function rejects with TypeError. */
+    waitFor(condition: () => any, timeout?: number): Promise<void>;
 };
 
 /** Runtime path: `varion.Utils.ConsoleCommand` */
 export class UtilsConsoleCommand {
+    /** Registers a server console command: `callback` gets the words after the name as strings. The name is trimmed and compared in lower case; an empty name or a callback that is not a function throws a `TypeError`. */
+    constructor(name: string, callback: (...args: string[]) => void);
+    /** Stops answering the command; calling it again does nothing. */
+    destroy(): void;
+    /** The command name, trimmed and in lower case; assigning another lower-case name makes it answer that one. */
+    name: string;
+}
+
+/** Runtime path: `varion.Utils.EveryTick` */
+export class UtilsEveryTick {
     constructor(...args: any[]);
-    destroy(...args: any[]): any;
-    name: any;
+    /** Stops the calls every 16 ms; later calls do nothing. */
+    destroy(): void;
+    /** A number of its own, counted from 1 across every Utils timer of the server. */
+    id: number;
+}
+
+/** Runtime path: `varion.Utils.Interval` */
+export class UtilsInterval {
+    constructor(...args: any[]);
+    /** Stops the repeated calls; later calls do nothing. */
+    destroy(): void;
+    /** A number of its own, counted from 1 across every Utils timer of the server; not a handle for clearInterval. */
+    id: number;
+}
+
+/** Runtime path: `varion.Utils.NextTick` */
+export class UtilsNextTick {
+    constructor(...args: any[]);
+    /** Cancels the call if it has not run yet; later calls do nothing. */
+    destroy(): void;
+    /** A number of its own, counted from 1 across every Utils timer of the server. */
+    id: number;
+}
+
+/** Runtime path: `varion.Utils.Timeout` */
+export class UtilsTimeout {
+    constructor(...args: any[]);
+    /** Cancels the call if it has not run yet; later calls do nothing. */
+    destroy(): void;
+    /** A number of its own, counted from 1 across every Utils timer of the server; not a handle for clearTimeout. */
+    id: number;
 }
 
 /** Runtime path: `varion.Utils.Timer` */
 export class UtilsTimer {
-    constructor(...args: any[]);
-    destroy(...args: any[]): any;
-    id: any;
+    /** Starts a timer that calls `callback` every `milliseconds` ms, or once when `once` is true; `destroy()` or the resource stopping ends it. A callback that is not a function throws a `TypeError`. */
+    constructor(callback: () => void, milliseconds: number, once?: boolean);
+    /** Stops the timer; calling it again does nothing. */
+    destroy(): void;
+    /** A number from 1, unique among the timers of the host. */
+    id: number;
 }
 
 export class Vector2 {
-    constructor(...args: any[]);
-    static readonly down: any;
-    static readonly left: any;
-    static readonly negativeInfinity: any;
-    static readonly one: any;
-    static readonly positiveInfinity: any;
-    static readonly right: any;
-    static readonly up: any;
-    static readonly zero: any;
-    add(...args: any[]): any;
-    angleTo(...args: any[]): any;
-    angleToDegrees(...args: any[]): any;
-    distanceTo(...args: any[]): any;
-    distanceToSquared(...args: any[]): any;
-    div(...args: any[]): any;
-    dot(...args: any[]): any;
-    inverse(...args: any[]): any;
-    isInRange(...args: any[]): any;
-    readonly length: any;
-    lerp(...args: any[]): any;
-    mul(...args: any[]): any;
-    negative(...args: any[]): any;
-    normalize(...args: any[]): any;
-    sub(...args: any[]): any;
-    toArray(...args: any[]): any;
-    toDegrees(...args: any[]): any;
-    toFixed(...args: any[]): any;
-    toRadians(...args: any[]): any;
-    toString(...args: any[]): any;
-    x: any;
-    y: any;
+    /** Creates a 2D vector from two numbers, an array, an object with x, y, or one number for both; a missing or non-numeric component is 0, so `new Vector2()` is 0, 0. */
+    constructor(x: number, y: number);
+    constructor(value?: number);
+    constructor(xy: number[]);
+    constructor(v: { x: number; y: number });
+    /** (0, -1) as a new Vector2 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly down: Vector2;
+    /** (-1, 0) as a new Vector2 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly left: Vector2;
+    /** (-Infinity on both axes) as a new Vector2 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly negativeInfinity: Vector2;
+    /** (1, 1) as a new Vector2 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly one: Vector2;
+    /** (Infinity on both axes) as a new Vector2 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly positiveInfinity: Vector2;
+    /** (1, 0) as a new Vector2 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly right: Vector2;
+    /** (0, 1) as a new Vector2 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly up: Vector2;
+    /** (0, 0) as a new Vector2 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly zero: Vector2;
+    /** A new Vector2: this plus (x, y), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. */
+    add(x: number, y: number): Vector2;
+    add(value: { x: number; y: number } | number[] | number): Vector2;
+    /** The angle to another vector in radians, 0–π; 0 when either has zero length. */
+    angleTo(value: { x: number; y: number } | number[]): number;
+    /** The angle to another vector in degrees, 0–180; 0 when either has zero length. */
+    angleToDegrees(value: { x: number; y: number } | number[]): number;
+    /** The distance to a vector or array. */
+    distanceTo(value: { x: number; y: number } | number[]): number;
+    /** The squared distance to a vector or array, cheaper than distanceTo. */
+    distanceToSquared(value: { x: number; y: number } | number[]): number;
+    /** A new Vector2: this divided by (x, y), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. Division by 0 gives Infinity or NaN. */
+    div(x: number, y: number): Vector2;
+    div(value: { x: number; y: number } | number[] | number): Vector2;
+    /** The dot product with (x, y), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. */
+    dot(x: number, y: number): number;
+    dot(value: { x: number; y: number } | number[] | number): number;
+    /** A new Vector2 of the reciprocals (1/x, 1/y); a zero component gives Infinity. Not the negation. */
+    inverse(): Vector2;
+    /** Whether the distance to the vector is at most range (converted with Number; a negative range counts as its absolute value). */
+    isInRange(value: { x: number; y: number } | number[], range: number): boolean;
+    /** The Euclidean length. */
+    readonly length: number;
+    /** A new Vector2 ratio of the way from this to the other: 0 this, 1 the other; ratio is not clamped. */
+    lerp(value: { x: number; y: number } | number[], ratio: number): Vector2;
+    /** A new Vector2: this times (x, y), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. */
+    mul(x: number, y: number): Vector2;
+    mul(value: { x: number; y: number } | number[] | number): Vector2;
+    /** A new Vector2 with every component negated. */
+    negative(): Vector2;
+    /** A new Vector2 of length 1 in the same direction; for a zero vector a new (0, 0). */
+    normalize(): Vector2;
+    /** A new Vector2: this minus (x, y), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. */
+    sub(x: number, y: number): Vector2;
+    sub(value: { x: number; y: number } | number[] | number): Vector2;
+    /** [x, y] as a new array. */
+    toArray(): [number, number];
+    /** A new Vector2: every component multiplied by 180/π. */
+    toDegrees(): Vector2;
+    /** A new Vector2 with every component rounded to precision decimals (4 by default; outside 0–100 throws RangeError). */
+    toFixed(precision?: number): Vector2;
+    /** A new Vector2: every component multiplied by π/180. */
+    toRadians(): Vector2;
+    /** Text such as "Vector2{ x: 1, y: 2 }". */
+    toString(): string;
+    /** A plain field: assigning stores the value as given (the constructor turns NaN into 0). */
+    x: number;
+    /** A plain field: assigning stores the value as given (the constructor turns NaN into 0). */
+    y: number;
 }
 
 export class Vector3 {
-    constructor(...args: any[]);
-    static readonly back: any;
-    static readonly down: any;
-    static readonly forward: any;
-    static readonly left: any;
-    static readonly negativeInfinity: any;
-    static readonly one: any;
-    static readonly positiveInfinity: any;
-    static readonly right: any;
-    static readonly up: any;
-    static readonly zero: any;
-    add(...args: any[]): any;
-    angleTo(...args: any[]): any;
-    angleToDegrees(...args: any[]): any;
-    cross(...args: any[]): any;
-    distanceTo(...args: any[]): any;
-    distanceToSquared(...args: any[]): any;
-    div(...args: any[]): any;
-    dot(...args: any[]): any;
-    inverse(...args: any[]): any;
-    isInRange(...args: any[]): any;
-    readonly length: any;
-    lerp(...args: any[]): any;
-    mul(...args: any[]): any;
-    negative(...args: any[]): any;
-    normalize(...args: any[]): any;
-    sub(...args: any[]): any;
-    toArray(...args: any[]): any;
-    toDegrees(...args: any[]): any;
-    toFixed(...args: any[]): any;
-    toRadians(...args: any[]): any;
-    toString(...args: any[]): any;
-    x: any;
-    y: any;
-    z: any;
+    /** Creates a 3D vector from three numbers, an array, an object with x, y, z (another Vector3 among them), or one number for all three; a missing or non-numeric component is 0, so `new Vector3()` is 0, 0, 0. */
+    constructor(x: number, y: number, z?: number);
+    constructor(value?: number);
+    constructor(xyz: number[]);
+    constructor(v: Vector3Like);
+    /** (0, -1, 0) as a new Vector3 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly back: Vector3;
+    /** (0, 0, -1) as a new Vector3 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly down: Vector3;
+    /** (0, 1, 0) as a new Vector3 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly forward: Vector3;
+    /** (-1, 0, 0) as a new Vector3 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly left: Vector3;
+    /** (-Infinity on every axis) as a new Vector3 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly negativeInfinity: Vector3;
+    /** (1, 1, 1) as a new Vector3 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly one: Vector3;
+    /** (Infinity on every axis) as a new Vector3 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly positiveInfinity: Vector3;
+    /** (1, 0, 0) as a new Vector3 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly right: Vector3;
+    /** (0, 0, 1) as a new Vector3 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly up: Vector3;
+    /** (0, 0, 0) as a new Vector3 on every read, so changing it affects nothing else; the property itself is read-only. */
+    static readonly zero: Vector3;
+    /** A new Vector3: this plus (x, y, z), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. */
+    add(x: number, y: number, z?: number): Vector3;
+    add(value: Vector3Like | number[] | number): Vector3;
+    /** The angle to another vector in radians, 0–π; 0 when either has zero length. */
+    angleTo(value: Vector3Like | number[]): number;
+    /** The angle to another vector in degrees, 0–180; 0 when either has zero length. */
+    angleToDegrees(value: Vector3Like | number[]): number;
+    /** A new Vector3: the cross product of this and (x, y, z), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. */
+    cross(x: number, y: number, z?: number): Vector3;
+    cross(value: Vector3Like | number[] | number): Vector3;
+    /** The distance to a vector or array. */
+    distanceTo(value: Vector3Like | number[]): number;
+    /** The squared distance to a vector or array, cheaper than distanceTo. */
+    distanceToSquared(value: Vector3Like | number[]): number;
+    /** A new Vector3: this divided by (x, y, z), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. Division by 0 gives Infinity or NaN. */
+    div(x: number, y: number, z?: number): Vector3;
+    div(value: Vector3Like | number[] | number): Vector3;
+    /** The dot product with (x, y, z), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. */
+    dot(x: number, y: number, z?: number): number;
+    dot(value: Vector3Like | number[] | number): number;
+    /** A new Vector3 of the reciprocals (1/x, 1/y, 1/z); a zero component gives Infinity. Not the negation. */
+    inverse(): Vector3;
+    /** Whether the distance to the vector is at most range (converted with Number; a negative range counts as its absolute value). */
+    isInRange(value: Vector3Like | number[], range: number): boolean;
+    /** The Euclidean length. */
+    readonly length: number;
+    /** A new Vector3 ratio of the way from this to the other: 0 this, 1 the other; ratio is not clamped. */
+    lerp(value: Vector3Like | number[], ratio: number): Vector3;
+    /** A new Vector3: this times (x, y, z), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. */
+    mul(x: number, y: number, z?: number): Vector3;
+    mul(value: Vector3Like | number[] | number): Vector3;
+    /** A new Vector3 with every component negated. */
+    negative(): Vector3;
+    /** A new Vector3 of length 1 in the same direction; for a zero vector a new (0, 0, 0). */
+    normalize(): Vector3;
+    /** A new Vector3: this minus (x, y, z), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. */
+    sub(x: number, y: number, z?: number): Vector3;
+    sub(value: Vector3Like | number[] | number): Vector3;
+    /** [x, y, z] as a new array. */
+    toArray(): [number, number, number];
+    /** A new Vector3: every component multiplied by 180/π. */
+    toDegrees(): Vector3;
+    /** A new Vector3 with every component rounded to precision decimals (4 by default; outside 0–100 throws RangeError). */
+    toFixed(precision?: number): Vector3;
+    /** A new Vector3: every component multiplied by π/180. */
+    toRadians(): Vector3;
+    /** Text such as "Vector3{ x: 1, y: 2, z: 3 }". */
+    toString(): string;
+    /** A plain field: assigning stores the value as given (the constructor turns NaN into 0). */
+    x: number;
+    /** A plain field: assigning stores the value as given (the constructor turns NaN into 0). */
+    y: number;
+    /** A plain field: assigning stores the value as given (the constructor turns NaN into 0). */
+    z: number;
 }
 
 export class Vehicle {
-    /** Throws: use `await varion.createNativeVehicle(model, pos, heading)`, a vehicle GTA syncs (alt:V's `new alt.Vehicle`); `varion.createVehicle` is the old path, where nobody else sees its driver seated. */
-    constructor(...args: never[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly accelerationLevel: any;
-    activeRadioStation: any;
-    readonly attached: any;
-    readonly attachedTo: any;
-    /** Varion's form: GTA's bone index of the parent, offset in metres, rotation in degrees. alt:V's seven arguments (told by the third, a bone): rot in radians (turned into degrees), noFixedRotation the opposite of fixedRotation. Bone names, an own bone other than 0 (the root) and a ped parent's bone id other than 0 reject: not supported yet. Rejects for an invalid entity or parent, a native vehicle or NPC as parent, or the server's refusal. */
+    /** Runtime-created vehicle. Use `await varion.createNativeVehicle(model, pos, heading)` to create a networked vehicle. */
+    private constructor();
+    /** instanceof Vehicle holds for every Vehicle and every NativeVehicle. */
+    static [Symbol.hasInstance](value: unknown): value is Vehicle | NativeVehicle;
+    /** Every valid old-path vehicle, then every native vehicle the host mirrors. A new array on each read. */
+    static readonly all: (Vehicle | NativeVehicle)[];
+    /** How many vehicles Vehicle.all holds now, native ones included. */
+    static readonly count: number;
+    /** The valid old-path vehicle of that network id, else the native vehicle of that script id; null for none. */
+    static getByID(id: number): Vehicle | NativeVehicle | null;
+    /** Throttle 0..1 as its owner's client reports it: the drive force of its wheels, averaged; 0 until reported, and not reported by a client that cannot read the wheels. */
+    readonly accelerationLevel: number;
+    /** Integer station index 0..18, or 255 to disable the radio. */
+    activeRadioStation: number;
+    /** The old-path vehicle that attachTo attached to this one, by this host's record; null for none. Not a boolean, unlike attached on players, peds and objects: whether this vehicle is attached itself reads attachedTo. */
+    readonly attached: Vehicle | null;
+    /** The parent attachTo attached it to, of any kind (a player, vehicle, ped or object), while it is attached: null before an attach, after detach() and once that parent is gone (the server then detaches it itself). */
+    readonly attachedTo: Player | Vehicle | Ped | Object | null;
+    /** Five arguments: GTA's bone index of the parent, offset in metres, rotation in degrees. Seven arguments (told by the third, a bone): rot in radians (turned into degrees), noFixedRotation the opposite of fixedRotation. Bone names, an own bone other than 0 (the root) and a ped parent's bone id other than 0 reject: not supported yet. Rejects for an invalid entity or parent, a native vehicle or NPC as parent, or the server's refusal. */
     attachTo(parent: Entity, boneIndex?: number, offset?: Vector3Like, rotation?: Vector3Like, useSoftPinning?: boolean, collision?: boolean, fixedRotation?: boolean): Promise<boolean>;
     attachTo(parent: Entity, entityBone: number, ownBone: number, pos: Vector3Like, rot: Vector3Like, enableCollisions: boolean, noFixedRotation: boolean): Promise<boolean>;
-    boatAnchorActive: any;
-    bodyAdditionalHealth: any;
-    bodyHealth: any;
-    readonly brakeLevel: any;
-    collision: any;
-    counterMeasureCount: any;
-    customPrimaryColor: any;
-    customSecondaryColor: any;
-    customTires: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    darkness: any;
-    dashboardColor: any;
-    daylightOn: any;
-    deleteMeta(...args: any[]): any;
-    deleteStreamSyncedMeta(...args: any[]): any;
-    deleteStreamSyncedMetaData(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    deleteSyncedMetaData(...args: any[]): any;
-    destroy(): void;
-    readonly destroyed: any;
-    detach(...args: any[]): any;
-    dimension: any;
-    dirtLevel: any;
-    doesWheelHasTire(...args: any[]): any;
-    driftModeEnabled: any;
+    /** Whether its boat anchor is down, by the server's record (false by default); assigning sends it to the clients that have it (SET_BOAT_ANCHOR). Only scripts change it: an owner's sync keeps it. */
+    boatAnchorActive: boolean;
+    /** Requires a finite value, clamped to 0..1000 and truncated to an integer. */
+    bodyAdditionalHealth: number;
+    /** Requires a finite value, clamped to 0..1000 and truncated to an integer. */
+    bodyHealth: number;
+    /** Brake 0..1 as its owner's client reports it: the brake pressure of its wheels, averaged; 0 until reported. */
+    readonly brakeLevel: number;
+    /** Whether it collides, by the server's record (true by default). Assigning sends it to the clients that have it; for one that is gone it throws. */
+    collision: boolean;
+    /** Requires a finite value, clamped to 0..255 and truncated to an integer. */
+    counterMeasureCount: number;
+    /** Its custom primary colour, alpha 255; null while it has none. Assigning {r, g, b} (each clamped to 0..255 and rounded, alpha ignored) sets it on the clients that have it, and null clears it. */
+    get customPrimaryColor(): RGBA | null;
+    set customPrimaryColor(value: RGBALike | null);
+    /** Its custom secondary colour, alpha 255; null while it has none. Assigning {r, g, b} (each clamped to 0..255 and rounded, alpha ignored) sets it on the clients that have it, and null clears it. */
+    get customSecondaryColor(): RGBA | null;
+    set customSecondaryColor(value: RGBALike | null);
+    /** Whether it has custom tyres (false by default), as its appearance on the server says: its owner's report or a script's change. Assigning sends it to the clients that have it with its appearance. */
+    customTires: boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Requires a finite value, clamped to 0..65535 and truncated to an integer. */
+    darkness: number;
+    /** Dashboard palette colour; assigning sends it to the clients that have it, the server clamping it to 0..255 (the fraction is dropped). */
+    dashboardColor: number;
+    /** Whether its lights are on, as its owner reports them; assigning makes the clients that have it force the lights on or off (SET_VEHICLE_LIGHTS) until the owner's next sync reports GTA's state. */
+    daylightOn: boolean;
+    /** Removes the key from this host's own metadata: true, and metaChange fires with the value undefined; false when the key was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the stream-synced key: clients lose it and streamSyncedMetaChange fires with undefined; false when the key was not there. Once the entity is gone only this host's copy goes. */
+    deleteStreamSyncedMeta(key: string): boolean;
+    /** Another name of deleteStreamSyncedMeta: the same function. */
+    deleteStreamSyncedMetaData(key: string): boolean;
+    /** Removes the synced key: clients lose it and syncedMetaChange fires with undefined; false when the key was not there. Once the object is gone only this host's copy goes. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Another name of deleteSyncedMeta: the same function. */
+    deleteSyncedMetaData(key: string): boolean;
+    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on, and vehicleDestroy, removeEntity and baseObjectRemove follow. While its removal queue is full the server refuses: then it resolves false and the vehicle is valid again. A second call, or one on a removed vehicle, resolves false. */
+    destroy(): Promise<boolean>;
+    /** Whether it is wrecked, by the server's record: set once its owner reports engine health -4000 or body health 0, cleared only by repair(). */
+    readonly destroyed: boolean;
+    /** Detaches it and resolves true once the server started the detach; false when it was not attached on the server or is invalid. On true this host's record (attached, attachedTo) clears; rejects when the server does not answer in 5 s. */
+    detach(): Promise<boolean>;
+    /** The dimension it is in (0 by default). Assigning a 32-bit integer (else a RangeError; the fraction is dropped) moves it there: its occupants are put out and it loses its owner. */
+    dimension: number;
+    /** Dirt level 0..15 (0 by default); an assigned value is clamped to 0..15 (a non-number reads 0) and sent to the clients that have it (SET_VEHICLE_DIRT_LEVEL). */
+    dirtLevel: number;
+    /** Index must be an integer from 0 to 7. */
+    doesWheelHasTire(index: number): boolean;
+    /** Drift mode (reduced grip: SET_VEHICLE_REDUCE_GRIP on the clients that have it), by the server's record, false by default. Only scripts change it: an owner's sync keeps it. */
+    driftModeEnabled: boolean;
+    /** The connected player in seat 1 by the server's record of confirmed entries; null when nobody drives. */
     readonly driver: Player | null;
-    engineHealth: any;
-    engineOn: any;
-    readonly flamethrowerActive: any;
-    readonly frontWheels: any;
-    frozen: any;
-    readonly gear: any;
-    getAppearanceDataBase64(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    getArmoredWindowHealth(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    getArmoredWindowShootCount(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    getBumperDamageLevel(...args: any[]): any;
-    getDamageStatusBase64(...args: any[]): any;
-    getDoorState(...args: any[]): any;
-    getExtra(...args: any[]): any;
-    getGamestateDataBase64(...args: any[]): any;
-    getHealthDataBase64(...args: any[]): any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getMod(...args: any[]): any;
-    getModsCount(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    getPartBulletHoles(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    getPartDamageLevel(...args: any[]): any;
-    getScriptDataBase64(...args: any[]): any;
-    getStreamSyncedMeta(...args: any[]): any;
-    getStreamSyncedMetaData(...args: any[]): any;
-    getStreamSyncedMetaDataKeys(...args: any[]): any;
-    getStreamSyncedMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaData(...args: any[]): any;
-    getSyncedMetaDataKeys(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    getWeaponCapacity(...args: any[]): any;
-    getWheelCamber(...args: any[]): any;
-    getWheelHealth(...args: any[]): any;
-    getWheelHeight(...args: any[]): any;
-    getWheelRimRadius(...args: any[]): any;
-    getWheelTrackWidth(...args: any[]): any;
-    getWheelTyreRadius(...args: any[]): any;
-    getWheelTyreWidth(...args: any[]): any;
-    handbrakeActive: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    readonly hasArmoredWindows: any;
-    hasMeta(...args: any[]): any;
-    hasStreamSyncedMeta(...args: any[]): any;
-    hasStreamSyncedMetaData(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    hasSyncedMetaData(...args: any[]): any;
-    readonly hasTimedExplosion: any;
-    headlightColor: any;
-    readonly heliMainRotorHealth: any;
-    readonly heliTailRotorHealth: any;
-    hornActive: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    hybridExtraActive: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    hybridExtraState: any;
-    id: number;
-    /** Its turn indicators: 0 off, 1 left, 2 right, 3 both (hazard lights), as alt:V's VehicleIndicatorLights.BlinkLeft and BlinkRight. GTA does not send them, Varion does: every player whose GTA has the car sees the same blink. Its owner's client reports what the car shows (its driver, a client script, GTA's driving task); assigning sets it on every copy at once, the owner's included. Anything but 0..3 throws a RangeError. */
+    /** Requires a finite value, clamped to -4000..1000 and truncated to an integer. */
+    engineHealth: number;
+    /** Whether its engine runs, as its owner reports it (GET_IS_VEHICLE_ENGINE_RUNNING); assigning sets it on the clients that have it (SET_VEHICLE_ENGINE_ON) until the owner's next sync. */
+    engineOn: boolean;
+    /** Always false: nothing sets it, neither a script (there is no setter) nor its owner's sync, and GTA has no native that reads it. */
+    readonly flamethrowerActive: boolean;
+    /** The front wheel mod index (mod slot 23) as its owner reports it, -1 for stock or unknown; setMod(23, ...) and setWheels change it too. */
+    readonly frontWheels: number;
+    /** Whether it is frozen in place, by the server's record (false by default); assigning sends it to the clients that have it, and throws for a removed one. */
+    frozen: boolean;
+    /** Its gear as its owner reports it (0..15); 0 until reported. */
+    readonly gear: number;
+    /** Its colours, plate, mods, extras, liveries, tint, neon, tyre smoke and dirt by the server's record, as base64 of Varion's own JSON (not GTA's format); setAppearanceDataBase64 takes it back. */
+    getAppearanceDataBase64(): string;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. */
+    getArmoredWindowHealth(index: number): number;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. */
+    getArmoredWindowShootCount(index: number): number;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 1. */
+    getBumperDamageLevel(index: number): number;
+    /** Its light, window, bumper and part damage and armoured windows by the server's record, as base64 of Varion's own JSON (not GTA's format); setDamageStatusBase64 takes it back. */
+    getDamageStatusBase64(): string;
+    /** True while door 0..7 is open by the server's record, which only setDoorState and repair() change (a door opened in GTA does not); a door outside 0..7 throws a RangeError. */
+    getDoorState(door: number): boolean;
+    /** Whether extra 0..15 is on by the server's record (setExtra, or its owner's appearance report); false for one never reported. Outside 0..15 throws a RangeError. */
+    getExtra(extraId: number): boolean;
+    /** Engine, siren, handbrake, roof, lights, lock state, lights multiplier, headlight colour, radio, light state and horn by the server's record, as base64 of Varion's own JSON (not GTA's format); setGamestateDataBase64 takes it back. */
+    getGamestateDataBase64(): string;
+    /** Engine, petrol tank and body health, wheel health and the tyre, detached and on-fire wheel masks by the server's record, as base64 of Varion's own JSON (not GTA's format); setHealthDataBase64 takes it back. */
+    getHealthDataBase64(): string;
+    /** The value setMeta stored under the key, undefined for none: this host's own metadata, which no client sees. */
+    getMeta(key: string): any;
+    /** The keys of this host's own metadata (setMeta); getMetaKeys returns the same. */
+    getMetaDataKeys(): string[];
+    /** The keys of this host's own metadata (setMeta), as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The mod index in slot 0..49 by the server's record (setMod, or its owner's appearance report); -1 for stock or unknown. A slot outside 0..49 throws a RangeError. */
+    getMod(slot: number): number;
+    /** How many mods its model has in slot 0..49 (GET_NUM_VEHICLE_MODS on its owner's client); 0 until reported. A slot outside 0..49 throws a RangeError. */
+    getModsCount(slot: number): number;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 5. */
+    getPartBulletHoles(index: number): number;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 5. */
+    getPartDamageLevel(index: number): number;
+    /** Manual engine control, drift mode, boat anchor, script max speed, countermeasures, weapon capacities and the hybrid and rocket values by the server's record, as base64 of Varion's own JSON (not GTA's format); setScriptDataBase64 takes it back. */
+    getScriptDataBase64(): string;
+    /** The value setStreamSyncedMeta stored under the key, as the script set it (an entity stays that entity); undefined for none. On a player or old-path entity a change a C# resource made arrives through the server, its entity references turned into this host's objects. */
+    getStreamSyncedMeta(key: string): any;
+    /** Another name of getStreamSyncedMeta: the same function. */
+    getStreamSyncedMetaData(key: string): any;
+    /** Another name of getStreamSyncedMetaKeys: the same function. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** The keys setStreamSyncedMeta stored, as this host keeps them. */
+    getStreamSyncedMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script set it (an entity stays that entity); undefined for none. On a player or old-path entity a change a C# resource made arrives through the server, its entity references turned into this host's objects. */
+    getSyncedMeta(key: string): any;
+    /** Another name of getSyncedMeta: the same function. */
+    getSyncedMetaData(key: string): any;
+    /** Another name of getSyncedMetaKeys: the same function. */
+    getSyncedMetaDataKeys(): string[];
+    /** The keys setSyncedMeta stored, as this host keeps them. */
+    getSyncedMetaKeys(): string[];
+    /** Index must be an integer from 0 to 7. */
+    getWeaponCapacity(index: number): number;
+    /** Wheel index must be an integer from 0 to 7. */
+    getWheelCamber(wheel: number): number;
+    /** Wheel index must be an integer from 0 to 7. */
+    getWheelHealth(wheel: number): number;
+    /** Wheel index must be an integer from 0 to 7. */
+    getWheelHeight(wheel: number): number;
+    /** Wheel index must be an integer from 0 to 7. */
+    getWheelRimRadius(wheel: number): number;
+    /** Wheel index must be an integer from 0 to 7. */
+    getWheelTrackWidth(wheel: number): number;
+    /** Wheel index must be an integer from 0 to 7. */
+    getWheelTyreRadius(wheel: number): number;
+    /** Wheel index must be an integer from 0 to 7. */
+    getWheelTyreWidth(wheel: number): number;
+    /** Whether its handbrake is on, as its owner's client reports it: whether the player who drives it holds the handbrake control (false for a vehicle nobody of that client drives). Assigning sets it on the clients that have it (SET_VEHICLE_HANDBRAKE) until the owner's next sync reports it again. */
+    handbrakeActive: boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. */
+    readonly hasArmoredWindows: boolean;
+    /** Whether this host's own metadata (setMeta) holds the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setStreamSyncedMeta stored a value under the key, as this host keeps them. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** Another name of hasStreamSyncedMeta: the same function. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key, as this host keeps them. */
+    hasSyncedMeta(key: string): boolean;
+    /** Another name of hasSyncedMeta: the same function. */
+    hasSyncedMetaData(key: string): boolean;
+    /** True after setTimedExplosion(true, ...) until it is set false; the server holds it, its owner does not report it. */
+    readonly hasTimedExplosion: boolean;
+    /** Requires a finite value, clamped to 0..255 and truncated to an integer. */
+    headlightColor: number;
+    /** Main rotor health as its owner reports it, 1000 by default. The server takes only lower values from the owner; repair() sets it back to 1000. A vehicle that is no helicopter reads 0 once its owner synced. */
+    readonly heliMainRotorHealth: number;
+    /** Tail rotor health as its owner reports it, 1000 by default. The server takes only lower values from the owner; repair() sets it back to 1000. A vehicle that is no helicopter reads 0 once its owner synced. */
+    readonly heliTailRotorHealth: number;
+    /** Whether its horn sounds, as the server holds it; assigning true makes the other clients that have it sound the horn in short pulses until it is false. */
+    hornActive: boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Only the server's record: no client applies it to GTA. */
+    hybridExtraActive: boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Requires a finite value, clamped to -2147483648..2147483647 and truncated to an integer. */
+    hybridExtraState: number;
+    /** Its network id, which clients know it by; after it is removed, a new entity may get the same id. */
+    readonly id: number;
+    /** Its turn indicators: 0 off, 1 left, 2 right, 3 both (hazard lights), as VehicleIndicatorLights.BlinkLeft and BlinkRight. GTA does not send them, Varion does: every player whose GTA has the car sees the same blink. Its owner's client reports what the car shows (its driver, a client script, GTA's driving task); assigning sets it on every copy at once, the owner's included. Anything but 0..3 throws a RangeError. */
     indicatorLights: number;
-    interiorColor: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    isLightDamaged(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    isMissionTrain: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    isSpecialLightDamaged(...args: any[]): any;
-    /** A vehicle of the old path (varion.createVehicle) with no owner and no migration: the server alone places it, as alt:V's static entity. Assigning true takes its owner away for good (resetNetOwner(true)), false lets the nearest player own it again. An owner kept with setNetOwner(player, true) is not static. */
+    /** Interior palette colour; assigning sends it to the clients that have it, the server clamping it to 0..255 (the fraction is dropped). */
+    interiorColor: number;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. */
+    isLightDamaged(index: number): boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Whether it is a mission train, false by default. Only the server's record: no client applies it to GTA, where a train is a mission train from its creation (CREATE_MISSION_TRAIN). */
+    isMissionTrain: boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. */
+    isSpecialLightDamaged(index: number): boolean;
+    /** A vehicle of the old path (varion.createVehicle) with no owner and no migration: the server alone places it, a static entity. Assigning true takes its owner away for good (resetNetOwner(true)), false lets the nearest player own it again. An owner kept with setNetOwner(player, true) is not static. */
     isStaticEntity: boolean;
-    isToggleModOn(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    isTrainCaboose: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    isTrainEngine: any;
-    isWheelBurst(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    isWheelDetached(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    isWheelOnFire(...args: any[]): any;
-    isWindowDamaged(...args: any[]): any;
-    isWindowOpened(...args: any[]): any;
-    readonly kind: any;
-    readonly landingGearState: any;
-    lightsMultiplier: any;
-    lightState: any;
-    livery: any;
-    lockState: any;
-    manualEngineControl: any;
-    model: any;
-    modKit: any;
-    readonly modKitsCount: any;
-    neon: any;
-    neonColor: any;
-    readonly netOwner: any;
-    readonly netOwnershipDisabled: any;
-    nightlightOn: any;
-    numberPlateIndex: any;
-    numberPlateText: any;
+    /** Whether the toggle mod of slot 0..49 is on (turbo 18, tyre smoke 20, xenon 22) by the server's record (toggleMod, or its owner's report); false when unknown. A slot outside 0..49 throws a RangeError. */
+    isToggleModOn(slot: number): boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Whether it is the last carriage of a train, false by default. Only the server's record: no client applies it to GTA, which fixes a train's carriages when it creates it. */
+    isTrainCaboose: boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Whether it is a train's engine, false by default. Only the server's record: no client applies it to GTA, which fixes a train's carriages when it creates it. */
+    isTrainEngine: boolean;
+    /** Whether the tyre of wheel 0..7 is burst: its owner's GTA or setWheelBurst bursts one, and only setWheelBurst(wheel, false), setWheelFixed or repair() fix it. A wheel outside 0..7 throws a RangeError. */
+    isWheelBurst(wheel: number): boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. */
+    isWheelDetached(index: number): boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. */
+    isWheelOnFire(index: number): boolean;
+    /** Whether window 0..7 is smashed by the server's record, which only setWindowDamaged and repair() change (a window broken in GTA does not). A window outside 0..7 throws a RangeError. */
+    isWindowDamaged(window: number): boolean;
+    /** Whether window 0..7 is rolled down by the server's record, which only setWindowOpened and repair() change. A window outside 0..7 throws a RangeError. */
+    isWindowOpened(window: number): boolean;
+    /** Always "vehicle", a native vehicle's too. */
+    readonly kind: "vehicle";
+    /** Landing gear state 0..4 as its owner reports it (GET_LANDING_GEAR_STATE); 0 for a vehicle without landing gear or until reported. */
+    readonly landingGearState: number;
+    /** Requires a finite value, clamped to 0..100 with float32 precision. */
+    lightsMultiplier: number;
+    /** Requires a finite value, clamped to 0..255 and truncated to an integer. */
+    lightState: number;
+    /** Livery index, -1 for none (the default); assigning sends it to the clients that have it (a negative value is none, the server caps others at 254). */
+    livery: number;
+    /** Requires a finite value, clamped to 0..10 and truncated to an integer. */
+    lockState: number;
+    /** The server's record only (false by default): no client applies it. Only scripts change it: an owner's sync keeps it. */
+    manualEngineControl: boolean;
+    /** Its model hash. Assigning a name (hashed) or a 32-bit hash makes the clients that have it get it anew with the new model; an empty name or a non-integer throws a TypeError, 0 a RangeError, and nothing changes. */
+    get model(): number;
+    set model(value: number | string);
+    /** Mod kit index, 0 by default, -1 for none; assigning sends it to the clients that have it (a negative value is none, the server caps others at 255). */
+    modKit: number;
+    /** How many mod kits its model has (GET_NUM_MOD_KITS on its owner's client, at most 2); 0 until reported. */
+    readonly modKitsCount: number;
+    /** Its four neon tubes 0..3 by the server's record, as a copy. Assigning takes an array of at least four (else a TypeError) and sends each to the clients that have it. */
+    get neon(): [boolean, boolean, boolean, boolean];
+    set neon(value: boolean[]);
+    /** Neon colour, white by default, alpha 255. Assigning {r, g, b} (each clamped to 0..255 and rounded; a missing one is 0) sends it to the clients that have it. */
+    get neonColor(): RGBA;
+    set neonColor(value: RGBALike);
+    /** The player whose client simulates it, by the server's last record; null with none. It changes when the server hands it over (netOwnerChange; setNetOwner does not change it before that) and at once with resetNetOwner. */
+    readonly netOwner: Player | null;
+    /** True while a script keeps its owner from changing (setNetOwner or resetNetOwner with disableMigration), by the server's record. */
+    readonly netOwnershipDisabled: boolean;
+    /** Whether its high beams are on, as its owner reports them; assigning sets them on the clients that have it (SET_VEHICLE_FULLBEAM) until the owner's next sync. */
+    nightlightOn: boolean;
+    /** Number plate style, -1 by default; assigning sends it to the clients that have it (a negative value is none, the server caps others at 255). */
+    numberPlateIndex: number;
+    /** Its plate text, up to 8 characters. Assigning cuts the text to 8 (a falsy value is empty), and the server turns characters outside printable ASCII into "?". */
+    numberPlateText: string;
     /** Seat -> player for every occupied seat, the driver (seat 1) included. */
     readonly passengers: { [seat: number]: Player };
-    pearlColor: any;
-    petrolTankHealth: any;
+    /** Pearlescent palette colour; assigning sends it to the clients that have it, the server clamping it to 0..255 (the fraction is dropped). */
+    pearlColor: number;
+    /** Requires a finite value, clamped to -1000..1000 and truncated to an integer. */
+    petrolTankHealth: number;
+    /** Its position as the server last synced it. Assigning moves it on the server and every client; a component that is not a finite number throws a TypeError, and a point beyond 100000 m is ignored. */
     get pos(): Vector3;
     set pos(value: Vector3Like);
-    primaryColor: any;
-    quaternion: any;
-    readonly rearWheels: any;
-    repair(...args: any[]): any;
-    readonly repairsCount: any;
-    resetNetOwner(...args: any[]): any;
-    rocketRefuelSpeed: any;
-    roofClosed: any;
-    roofLivery: any;
-    roofState: any;
-    rot: any;
-    rotation: any;
-    readonly rpm: any;
-    scriptMaxSpeed: any;
-    secondaryColor: any;
-    setAppearanceDataBase64(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setArmoredWindowHealth(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setArmoredWindowShootCount(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setBumperDamageLevel(...args: any[]): any;
-    setDamageStatusBase64(...args: any[]): any;
-    setDoorState(...args: any[]): any;
-    setExtra(...args: any[]): any;
-    setGamestateDataBase64(...args: any[]): any;
-    setHealthDataBase64(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setLightDamaged(...args: any[]): any;
-    setMeta(...args: any[]): any;
-    setMod(...args: any[]): any;
-    setNetOwner(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setPartBulletHoles(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setPartDamageLevel(...args: any[]): any;
-    setRearWheels(...args: any[]): any;
-    setScriptDataBase64(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setSearchLightTo(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setSpecialLightDamaged(...args: any[]): any;
-    setStreamSyncedMeta(...args: any[]): any;
-    setStreamSyncedMetaData(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    setSyncedMetaData(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setTimedExplosion(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setTrainEngineId(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setTrainLinkedToBackwardId(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setTrainLinkedToForwardId(...args: any[]): any;
-    setWeaponCapacity(...args: any[]): any;
-    setWheelBurst(...args: any[]): any;
-    setWheelCamber(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setWheelDetached(...args: any[]): any;
-    setWheelFixed(...args: any[]): any;
-    setWheelHasTire(...args: any[]): any;
-    setWheelHealth(...args: any[]): any;
-    setWheelHeight(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    setWheelOnFire(...args: any[]): any;
-    setWheelRimRadius(...args: any[]): any;
-    setWheels(...args: any[]): any;
-    setWheelTrackWidth(...args: any[]): any;
-    setWheelTyreRadius(...args: any[]): any;
-    setWheelTyreWidth(...args: any[]): any;
-    setWindowDamaged(...args: any[]): any;
-    setWindowOpened(...args: any[]): any;
-    sirenActive: any;
-    steeringAngle: any;
-    streamed: any;
-    streamingDistance: any;
-    readonly timedExplosionCulprit: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    readonly timedExplosionTime: any;
-    readonly timestamp: any;
-    tireSmokeColor: any;
-    toggleMod(...args: any[]): any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    trainCarriageConfigIndex: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    trainConfigIndex: any;
-    trainCruiseSpeed: any;
-    trainDirection: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    trainDistanceFromEngine: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    readonly trainEngineId: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    trainForceDoorsOpen: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    readonly trainLinkedToBackwardId: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    readonly trainLinkedToForwardId: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    trainPassengerCarriages: any;
-    trainRenderDerailed: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    trainTrackId: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    trainUnk1: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    trainUnk2: any;
-    /** Partial in Varion: the member exists, but not every case of it is applied or reported as in alt:V yet -- check it in the game before relying on it. */
-    trainUnk3: any;
-    readonly type: any;
+    /** Primary palette colour; assigning sends it to the clients that have it, the server clamping it to 0..255 (the fraction is dropped). */
+    primaryColor: number;
+    /** Its rotation as a quaternion, computed from rot (degrees). Assigning converts the quaternion (normalised; a zero one is no rotation) to degrees and assigns rot. */
+    get quaternion(): Quaternion;
+    set quaternion(value: { x: number; y: number; z: number; w: number });
+    /** The rear wheel mod index (mod slot 24) as its owner reports it, -1 for stock or unknown; setMod(24, ...) and setRearWheels change it too. */
+    readonly rearWheels: number;
+    /** Fixes it on every client that has it (SET_VEHICLE_FIXED) and in the server's state: health 1000, doors shut, tyres, wheels, lights and bodywork whole, windows whole and up. repairsCount goes up (at most 255), and damage its owner reports in the next 1.5 s is ignored. */
+    repair(): void;
+    /** How many times repair() fixed it, at most 255; the server counts it. */
+    readonly repairsCount: number;
+    /** Takes its owner away: without disableMigration the ordinary hand-overs give it to a player again, with it the server alone places it. netOwner reads null at once; a removed entity is ignored. */
+    resetNetOwner(disableMigration?: boolean): void;
+    /** Requires a finite value, clamped to 0..10000 with float32 precision. */
+    rocketRefuelSpeed: number;
+    /** Whether its convertible roof is up, by the server's record (false by default); assigning raises or lowers it on the clients that have it. Only scripts change it: an owner's sync keeps it. */
+    roofClosed: boolean;
+    /** Roof livery index, -1 for none (the default); assigning sends it to the clients that have it (a negative value is none, the server caps others at 255). */
+    roofLivery: number;
+    /** The same as roofClosed: reading gives it, assigning assigns it. */
+    roofState: boolean;
+    /** Its rotation in degrees, as the server last synced it. Assigning sets it on the server and the clients that have it: non-finite components become 0, and the server ignores a rotation with a component beyond 36000. */
+    get rot(): Vector3;
+    set rot(value: Vector3Like);
+    /** The same as rot (degrees): reading gives rot, assigning assigns it. */
+    get rotation(): Vector3;
+    set rotation(value: Vector3Like);
+    /** Engine rpm 0..1 as its owner reports it; 0 until reported. */
+    readonly rpm: number;
+    /** Requires a finite value, clamped to 0..10000 with float32 precision. */
+    scriptMaxSpeed: number;
+    /** Secondary palette colour; assigning sends it to the clients that have it, the server clamping it to 0..255 (the fraction is dropped). */
+    secondaryColor: number;
+    /** Applies what getAppearanceDataBase64 returned through the setters, each of which may throw as it would; invalid base64 or JSON, or a payload of another kind, throws a TypeError. */
+    setAppearanceDataBase64(data: string): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. Finite values are clamped to 0..65535 and truncated. */
+    setArmoredWindowHealth(index: number, value: number): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. Finite values are clamped to 0..255 and truncated. */
+    setArmoredWindowShootCount(index: number, value: number): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 1. Finite values are clamped to 0..2 and truncated. */
+    setBumperDamageLevel(index: number, value: number): void;
+    /** Applies what getDamageStatusBase64 returned through the setters; invalid base64 or JSON, or a payload of another kind, throws a TypeError. Armoured window values are applied only from a vehicle with armoured windows (they then mark this one as having them); an older payload without that flag counts as such with a value above zero. */
+    setDamageStatusBase64(data: string): void;
+    /** Opens (SET_VEHICLE_DOOR_OPEN) or shuts door 0..7 on every client that has it; the server keeps the state. A door outside 0..7 throws a RangeError. */
+    setDoorState(door: number, open: boolean): void;
+    /** Turns extra 0..15 on or off on every client that has it, and for those that get it later. Outside 0..15 throws a RangeError. */
+    setExtra(extraId: number, enabled: boolean): void;
+    /** Applies what getGamestateDataBase64 returned through the setters, each of which may throw as it would; invalid base64 or JSON, or a payload of another kind, throws a TypeError. */
+    setGamestateDataBase64(data: string): void;
+    /** Applies what getHealthDataBase64 returned through the setters, each of which may throw as it would (the tyre, detached and fire masks go to all 8 wheels); invalid base64 or JSON, or a payload of another kind, throws a TypeError. */
+    setHealthDataBase64(data: string): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. */
+    setLightDamaged(index: number, state: boolean): void;
+    /** Stores a value under the key in this host's own metadata, which no client sees; an object alone sets each of its keys. metaChange fires unless the value is the same (Object.is); the key is turned into a string. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Sets the mod of slot 0..49 on every client that has it: -1 (stock) to 254, clamped and truncated. A slot outside 0..49 throws a RangeError, a non-finite value a TypeError. */
+    setMod(slot: number, value: number): void;
+    /** Asks the server to make the player its owner; with disableMigration it then stays with that player. Returns nothing: netOwner and netOwnershipDisabled change when the server hands it over (netOwnerChange), at once for the player who owns it already, and not at all when the server passes the player over (out of range, another dimension, not spawned, dead). Throws for a removed entity or an invalid player. */
+    setNetOwner(player: Player, disableMigration?: boolean): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 5. Finite values are clamped to 0..255 and truncated. */
+    setPartBulletHoles(index: number, value: number): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 5. Finite values are clamped to 0..3 and truncated. */
+    setPartDamageLevel(index: number, value: number): void;
+    /** setMod(24, wheelId): the rear wheel mod; wheelId is truncated to an integer. */
+    setRearWheels(wheelId: number): void;
+    /** Applies what getScriptDataBase64 returned through the setters, each of which may throw as it would; invalid base64 or JSON, or a payload of another kind, throws a TypeError. */
+    setScriptDataBase64(data: string): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Turns its searchlight on or off on the clients that have it (SET_VEHICLE_SEARCHLIGHT). The entity must be valid or null (else a TypeError; a native one too) but is not used: GTA's searchlight takes no target, so the light is not aimed at it. */
+    setSearchLightTo(entity: Player | Vehicle | Ped | Object | null, state: boolean): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. */
+    setSpecialLightDamaged(index: number, state: boolean): void;
+    /** Stream-synced metadata the clients that have it streamed in get (getStreamSyncedMeta there); streamSyncedMetaChange fires here unless the value is the same. The key must be 1..1024 UTF-8 bytes (RangeError) and the value serializable within 512 KiB (TypeError, RangeError); once the entity is gone only this host's copy changes. */
+    setStreamSyncedMeta(key: string, value: any): void;
+    setStreamSyncedMeta(values: { [key: string]: any }): void;
+    /** Another name of setStreamSyncedMeta: the same function. */
+    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData(values: { [key: string]: any }): void;
+    /** Synced metadata every connected client gets (getSyncedMeta there); syncedMetaChange fires here unless the value is the same. The key must be 1..1024 UTF-8 bytes (RangeError) and the value serializable within 512 KiB (TypeError, RangeError); once the entity is gone only this host's copy changes. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Another name of setSyncedMeta: the same function. */
+    setSyncedMetaData(key: string, value: any): void;
+    setSyncedMetaData(values: { [key: string]: any }): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Enabling requires a valid player. Finite time is clamped to 0..4294967295 and truncated. Applying the configured delay in GTA remains partial. */
+    setTimedExplosion(state: boolean, culprit?: Player | null, time?: number): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Names its train's engine in the server's record: a valid old-path vehicle (else a TypeError; a native one too) or null. Takes a vehicle despite the name; no client applies it, as GTA links carriages only when it creates a train. */
+    setTrainEngineId(vehicle: Vehicle | null): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Names the carriage behind it in the server's record: a valid old-path vehicle (else a TypeError; a native one too) or null. Takes a vehicle despite the name; no client applies it, as GTA links carriages only when it creates a train. */
+    setTrainLinkedToBackwardId(vehicle: Vehicle | null): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Names the carriage in front of it in the server's record: a valid old-path vehicle (else a TypeError; a native one too) or null. Takes a vehicle despite the name; no client applies it, as GTA links carriages only when it creates a train. */
+    setTrainLinkedToForwardId(vehicle: Vehicle | null): void;
+    /** Index must be an integer from 0 to 7. Finite values are clamped to 0..65535 and truncated. */
+    setWeaponCapacity(index: number, value: number): void;
+    /** Bursts the tyre of wheel 0..7 to the rim (SET_VEHICLE_TYRE_BURST) on every client that has it, or with burst false fixes it; burst defaults to true. A wheel outside 0..7 throws a RangeError. */
+    setWheelBurst(wheel: number, burst?: boolean): void;
+    /** Wheel index must be an integer from 0 to 7. Finite values are clamped to -10..10 and stored as float32. */
+    setWheelCamber(wheel: number, value: number): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. */
+    setWheelDetached(index: number, state: boolean): void;
+    /** setWheelBurst(wheel, false): fixes the burst tyre of wheel 0..7 (SET_VEHICLE_TYRE_FIXED). Wheel health, a missing tyre or a detached wheel stay as they are; repair() restores those. */
+    setWheelFixed(wheel: number): void;
+    /** Index must be an integer from 0 to 7. */
+    setWheelHasTire(index: number, state: boolean): void;
+    /** Wheel index must be an integer from 0 to 7. Finite values are clamped to -100000..100000 and stored as float32. */
+    setWheelHealth(wheel: number, value: number): void;
+    /** Wheel index must be an integer from 0 to 7. Finite values are clamped to -10..10 and stored as float32. */
+    setWheelHeight(wheel: number, value: number): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Index must be an integer from 0 to 7. */
+    setWheelOnFire(index: number, state: boolean): void;
+    /** Wheel index must be an integer from 0 to 7. Finite values are clamped to 0..10 and stored as float32. */
+    setWheelRimRadius(wheel: number, value: number): void;
+    /** Sets wheelType and the front wheel mod (setMod(23, wheelId)); both are truncated to integers. */
+    setWheels(wheelType: number, wheelId: number): void;
+    /** Wheel index must be an integer from 0 to 7. Finite values are clamped to -10..10 and stored as float32. */
+    setWheelTrackWidth(wheel: number, value: number): void;
+    /** Wheel index must be an integer from 0 to 7. Finite values are clamped to 0..10 and stored as float32. */
+    setWheelTyreRadius(wheel: number, value: number): void;
+    /** Wheel index must be an integer from 0 to 7. Finite values are clamped to 0..10 and stored as float32. */
+    setWheelTyreWidth(wheel: number, value: number): void;
+    /** Smashes window 0..7 (SMASH_VEHICLE_WINDOW) on every client that has it, or with false repairs it (FIX_VEHICLE_WINDOW); damaged defaults to true. A window outside 0..7 throws a RangeError. */
+    setWindowDamaged(window: number, damaged?: boolean): void;
+    /** Rolls window 0..7 down (ROLL_DOWN_WINDOW) on every client that has it, or with false up again (ROLL_UP_WINDOW); opened defaults to true. A window outside 0..7 throws a RangeError. */
+    setWindowOpened(window: number, opened?: boolean): void;
+    /** Whether its siren is on, as its owner reports it (IS_VEHICLE_SIREN_ON); assigning sets it on the clients that have it (SET_VEHICLE_SIREN) until the owner's next sync. */
+    sirenActive: boolean;
+    /** Requires a finite value, clamped to -180..180 with float32 precision. */
+    steeringAngle: number;
+    /** Whether clients may have it at all (true by default). Assigning false takes it from every client, puts its occupants out and takes its owner away; true lets clients in range get it again; an equal value sends nothing. */
+    streamed: boolean;
+    /** Metres within which clients get it; 0 (the default) is the server's distance. Assigning is clamped to 0..20000 with the fraction dropped; an equal value sends nothing. */
+    streamingDistance: number;
+    /** The player setTimedExplosion named, while connected; null for none. */
+    readonly timedExplosionCulprit: Player | null;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. */
+    readonly timedExplosionTime: number;
+    /** The server's time in milliseconds (unsigned 32-bit) of the last state the host got for it; 0 until the first one. */
+    readonly timestamp: number;
+    /** Tyre smoke colour, white by default, alpha 255. Assigning {r, g, b} (each clamped to 0..255 and rounded; a missing one is 0) sends it to the clients that have it. */
+    get tireSmokeColor(): RGBA;
+    set tireSmokeColor(value: RGBALike);
+    /** Turns the toggle mod of slot 0..49 on or off on every client that has it (turbo 18, tyre smoke 20, xenon 22). A slot outside 0..49 throws a RangeError. */
+    toggleMod(slot: number, enabled: boolean): void;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Requires a finite value, clamped to 0..255 and truncated to an integer. */
+    trainCarriageConfigIndex: number;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Requires a finite value, clamped to 1..25 and truncated to an integer. */
+    trainConfigIndex: number;
+    /** Requires a finite value, clamped to -1000..1000 with float32 precision. */
+    trainCruiseSpeed: number;
+    /** The server's record (false by default); while it is true, clients apply trainCruiseSpeed as a negative speed. */
+    trainDirection: boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Requires a finite value, clamped to -3.4028234663852886e+38..3.4028234663852886e+38 with float32 precision. */
+    trainDistanceFromEngine: number;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. The vehicle setTrainEngineId named as its train's engine, while it is a valid vehicle; null for none. Despite the name a Vehicle, not an id; only the server's record, no client applies it. */
+    readonly trainEngineId: Vehicle | null;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Whether its train doors are forced open, false by default. Only the server's record: no client applies it to GTA. */
+    trainForceDoorsOpen: boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. The vehicle setTrainLinkedToBackwardId named as the carriage behind it, while it is a valid vehicle; null for none. Despite the name a Vehicle, not an id; only the server's record, no client applies it. */
+    readonly trainLinkedToBackwardId: Vehicle | null;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. The vehicle setTrainLinkedToForwardId named as the carriage in front of it, while it is a valid vehicle; null for none. Despite the name a Vehicle, not an id; only the server's record, no client applies it. */
+    readonly trainLinkedToForwardId: Vehicle | null;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Whether it has passenger carriages, false by default. Only the server's record: no client applies it to GTA. */
+    trainPassengerCarriages: boolean;
+    /** Whether clients draw it as a derailed train (SET_RENDER_TRAIN_AS_DERAILED), by the server's record; false by default. */
+    trainRenderDerailed: boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. Requires a finite value, clamped to 0..11 and truncated to an integer. */
+    trainTrackId: number;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. An unnamed train flag, false by default. Only the server's record: no client applies it to GTA. */
+    trainUnk1: boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. An unnamed train flag, false by default. Only the server's record: no client applies it to GTA. */
+    trainUnk2: boolean;
+    /** Partially implemented in VARION; some behavior is not applied or reported by the runtime. An unnamed train flag, false by default. Only the server's record: no client applies it to GTA. */
+    trainUnk3: boolean;
+    /** BaseObjectType.Vehicle (1), a native vehicle's too. */
+    readonly type: number;
+    /** False from destroy() on, and once the server removed it. Its setters and methods throw then: its id may name another entity already. */
     readonly valid: boolean;
-    velocity: any;
-    visible: any;
-    wheelColor: any;
-    readonly wheelsCount: any;
-    wheelType: any;
-    windowTint: any;
+    /** Its velocity as its owner's GTA reports it (GET_ENTITY_VELOCITY). Assigning: non-finite components become 0, the server clamps each to -500..500, and the clients that have it apply it (SET_ENTITY_VELOCITY) until its owner's next sync. */
+    get velocity(): Vector3;
+    set velocity(value: Vector3Like);
+    /** Whether clients show it, by the server's record (true by default); assigning sends it to the clients that have it, and throws for a removed one. */
+    visible: boolean;
+    /** Wheel palette colour; assigning sends it to the clients that have it, the server clamping it to 0..255 (the fraction is dropped). */
+    wheelColor: number;
+    /** How many wheels it has, at most 8, as its owner's client reads them from GTA; 0 until reported. A per-wheel setter other than setWheelBurst raises it to that wheel's index + 1. */
+    readonly wheelsCount: number;
+    /** Wheel type, -1 by default; assigning sends it to the clients that have it (a negative value is none, the server caps others at 255). */
+    wheelType: number;
+    /** Window tint index, -1 for none (the default); assigning sends it to the clients that have it (a negative value is none, the server caps others at 255). */
+    windowTint: number;
 }
 
 export const VehicleBumper: {
@@ -5549,8 +6787,10 @@ export const VehicleModType: {
 };
 
 export const VehicleModelInfo: {
-    get(...args: any[]): any;
-    readonly loadedVehicleModels: any;
+    /** A vehicle of the built-in GTA catalog by hash or name (hashed): its ModelType, default colours, mod kits, extras as bit masks (extra ids 1–31), bones and handling hash. Throws Error for a model the catalog lacks, add-on vehicles included. */
+    get(model: number | string): { readonly model: number; readonly modelHash: number; readonly title: string; readonly modelType: number; readonly wheelsCount: number; readonly hasArmoredWindows: boolean; readonly primaryColor: number; readonly secondaryColor: number; readonly pearlColor: number; readonly wheelsColor: number; readonly interiorColor: number; readonly dashboardColor: number; readonly modkits: readonly [boolean, boolean]; readonly extras: number; readonly defaultExtras: number; readonly hasAutoAttachTrailer: boolean; readonly bones: ReadonlyArray<{ readonly id: number; readonly index: number; readonly name: string }>; readonly canAttachCars: boolean; readonly handlingNameHash: number; doesExtraExist(extraId: number): boolean; isExtraDefault(extraId: number): boolean };
+    /** Not what the server loaded: the model hashes of every vehicle in the built-in catalog of GTA's own vehicles, sorted ascending; the same frozen array on each read. Add-on vehicles of server packs are not in it. */
+    readonly loadedVehicleModels: ReadonlyArray<number>;
 };
 
 export const VehiclePart: {
@@ -5580,123 +6820,249 @@ export const VehiclePartDamage: {
 };
 
 export class VirtualEntity {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly attached: any;
-    readonly attachedTo: any;
-    attachTo(...args: any[]): any;
-    collision: any;
-    deleteMeta(...args: any[]): any;
-    deleteStreamSyncedMeta(...args: any[]): any;
-    deleteStreamSyncedMetaData(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    deleteSyncedMetaData(...args: any[]): any;
-    destroy(...args: any[]): any;
-    detach(...args: any[]): any;
-    dimension: any;
-    frozen: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getStreamSyncedMeta(...args: any[]): any;
-    getStreamSyncedMetaData(...args: any[]): any;
-    getStreamSyncedMetaDataKeys(...args: any[]): any;
-    getStreamSyncedMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaData(...args: any[]): any;
-    getSyncedMetaDataKeys(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    readonly group: any;
-    hasMeta(...args: any[]): any;
-    hasStreamSyncedMeta(...args: any[]): any;
-    hasStreamSyncedMetaData(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    hasSyncedMetaData(...args: any[]): any;
-    id: any;
-    readonly kind: any;
-    model: any;
-    readonly netOwner: any;
-    readonly netOwnershipDisabled: any;
-    pos: any;
-    resetNetOwner(...args: any[]): any;
-    rot: any;
-    rotation: any;
-    setMeta(...args: any[]): any;
-    setNetOwner(...args: any[]): any;
-    setStreamSyncedMeta(...args: any[]): any;
-    setStreamSyncedMetaData(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    setSyncedMetaData(...args: any[]): any;
-    readonly streamed: any;
-    readonly streamingDistance: any;
-    readonly timestamp: any;
-    readonly type: any;
-    readonly valid: any;
-    visible: any;
+    /** Instances are created by the VARION runtime and cannot be constructed directly. */
+    private constructor();
+    /** Every valid virtual entity of every resource; a new array on each read. */
+    static readonly all: VirtualEntity[];
+    /** How many virtual entities VirtualEntity.all holds now. */
+    static readonly count: number;
+    /** The valid virtual entity with that id; null for none. */
+    static getByID(id: number): VirtualEntity | null;
+    /** Always false: the server attaches players, vehicles, peds and objects only. */
+    readonly attached: boolean;
+    /** Always null: the server attaches players, vehicles, peds and objects only. */
+    readonly attachedTo: Player | Vehicle | Ped | Object | null;
+    /** Rejects at once with an Error, without asking the server: it attaches players, vehicles, peds and objects only. */
+    attachTo(parent: Entity, boneIndex?: number, offset?: Vector3Like, rotation?: Vector3Like, useSoftPinning?: boolean, collision?: boolean, fixedRotation?: boolean): Promise<boolean>;
+    attachTo(parent: Entity, entityBone: number, ownBone: number, pos: Vector3Like, rot: Vector3Like, enableCollisions: boolean, noFixedRotation: boolean): Promise<boolean>;
+    /** Kept on the server only, false for a virtual entity: clients do not use it. A destroyed entity throws. */
+    collision: boolean;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the stream-synced key here and on the clients: true, and streamSyncedMetaChange fires with the value undefined; false when it was not there. On a destroyed entity only this host's copy goes. */
+    deleteStreamSyncedMeta(key: string): boolean;
+    /** Removes the stream-synced key here and on the clients: true, and streamSyncedMetaChange fires with the value undefined; false when it was not there. On a destroyed entity only this host's copy goes. The same function as deleteStreamSyncedMeta. */
+    deleteStreamSyncedMetaData(key: string): boolean;
+    /** Removes the synced key here and on the clients: true, and syncedMetaChange fires with the value undefined; false when it was not there. On a destroyed entity only this host's copy goes. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the synced key here and on the clients: true, and syncedMetaChange fires with the value undefined; false when it was not there. On a destroyed entity only this host's copy goes. The same function as deleteSyncedMeta. */
+    deleteSyncedMetaData(key: string): boolean;
+    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on, and removeEntity and baseObjectRemove follow. While the server's removal queue is full it resolves false and the entity is valid again; a second call, or one on a removed entity, resolves false. */
+    destroy(): Promise<boolean>;
+    /** Resolves false at once: a virtual entity is never attached. */
+    detach(): Promise<boolean>;
+    /** Players whose dimension sees it stream it: those in the same dimension, everyone for -2147483648, and a player in a negative dimension also sees dimension 0. Assigning needs a 32-bit integer (RangeError otherwise; truncated), and a destroyed entity throws. */
+    dimension: number;
+    /** Kept on the server only, false by default: a virtual entity has nothing to freeze and clients do not use it. A destroyed entity throws. */
+    frozen: boolean;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value under the key: the script's own until the server confirms it, then the copy as sent (an entity as a reference object, a Vector3 as a plain object); undefined for none. */
+    getStreamSyncedMeta(key: string): any;
+    /** The value under the key: the script's own until the server confirms it, then the copy as sent (an entity as a reference object, a Vector3 as a plain object); undefined for none. The same function as getStreamSyncedMeta. */
+    getStreamSyncedMetaData(key: string): any;
+    /** The keys setStreamSyncedMeta stored. The same function as getStreamSyncedMetaKeys. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** The keys setStreamSyncedMeta stored. */
+    getStreamSyncedMetaKeys(): string[];
+    /** The value under the key: the script's own until the server confirms it, then the copy as sent (an entity as a reference object, a Vector3 as a plain object); undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The value under the key: the script's own until the server confirms it, then the copy as sent (an entity as a reference object, a Vector3 as a plain object); undefined for none. The same function as getSyncedMeta. */
+    getSyncedMetaData(key: string): any;
+    /** The keys setSyncedMeta stored. The same function as getSyncedMetaKeys. */
+    getSyncedMetaDataKeys(): string[];
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** The group it was created in. */
+    readonly group: VirtualEntityGroup;
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setStreamSyncedMeta stored a value under the key. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** Whether setStreamSyncedMeta stored a value under the key. The same function as hasStreamSyncedMeta. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. The same function as hasSyncedMeta. */
+    hasSyncedMetaData(key: string): boolean;
+    /** Its network id, from the range players, vehicles, peds and objects share; the server may give it to another entity once this one is gone. */
+    readonly id: number;
+    /** Always "virtualEntity". */
+    readonly kind: "virtualEntity";
+    /** A model hash kept on the server, 0 by default; clients never get it. Assigning takes a name (hashed as varion.hash) or a hash; 0, an empty name or another type throws. Players who have the entity streamed in keep it. */
+    get model(): number;
+    set model(value: number | string);
+    /** Always null: the server gives a virtual entity no owner, and setNetOwner does not change it. */
+    readonly netOwner: Player | null;
+    /** Always false: the server keeps no owner for a virtual entity, and setNetOwner and resetNetOwner do not change it. */
+    readonly netOwnershipDisabled: boolean;
+    /** Its position. Assigning moves it on the server and for the players who have it streamed in; a non-finite component throws a TypeError, a destroyed entity throws, and a component beyond 100000 m is ignored by the server. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Does nothing and sends nothing: the server gives a virtual entity no owner. */
+    resetNetOwner(disableMigration?: boolean): void;
+    /** Rotation in degrees, data for client scripts (a virtual entity has no GTA entity). Assigning sends it to the players who have it streamed in; a non-finite component becomes 0, one beyond 36000 is ignored by the server, and a destroyed entity throws. */
+    get rot(): Vector3;
+    set rot(value: Vector3Like);
+    /** The same as rot. */
+    get rotation(): Vector3;
+    set rotation(value: Vector3Like);
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Changes nothing and sends nothing: the server gives a virtual entity no owner. Throws an Error for a destroyed entity and a TypeError for a player who is not connected. */
+    setNetOwner(player: Player, disableMigration?: boolean): void;
+    /** Metadata the players who have it streamed in get (getStreamSyncedMeta, streamSyncedMetaChange there); one that streams it in later gets it then. streamSyncedMetaChange fires here and an object sets each of its keys. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent; on a destroyed entity only this host's copy changes. */
+    setStreamSyncedMeta(key: string, value: any): void;
+    setStreamSyncedMeta(values: { [key: string]: any }): void;
+    /** Metadata the players who have it streamed in get (getStreamSyncedMeta, streamSyncedMetaChange there); one that streams it in later gets it then. streamSyncedMetaChange fires here and an object sets each of its keys. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent; on a destroyed entity only this host's copy changes. The same function as setStreamSyncedMeta. */
+    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected client; one that streams it in later gets it then. syncedMetaChange fires here and an object sets each of its keys. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent; on a destroyed entity only this host's copy changes. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Metadata the server sends to every connected client; one that streams it in later gets it then. syncedMetaChange fires here and an object sets each of its keys. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent; on a destroyed entity only this host's copy changes. The same function as setSyncedMeta. */
+    setSyncedMetaData(key: string, value: any): void;
+    setSyncedMetaData(values: { [key: string]: any }): void;
+    /** Always true for a virtual entity: it does not tell whether any player has it streamed in. */
+    readonly streamed: boolean;
+    /** Its streaming distance in metres as created: 1 up to its group's maxStreamingDistance, 1 when not given. A player whose dimension sees it streams it within that 3D distance, up to the group's per-player limit. */
+    readonly streamingDistance: number;
+    /** Always 0 for a virtual entity: no state update carries one. */
+    readonly timestamp: number;
+    /** BaseObjectType.VirtualEntity (20). */
+    readonly type: number;
+    /** False from destroy() on and once the server removed it (its group destroyed, its resource stopped); true again if the server refused the removal. */
+    readonly valid: boolean;
+    /** A flag client scripts read (visible there), true by default; a virtual entity has nothing to show or hide. A change reaches only players who stream it in later: the server's property broadcast skips virtual entities. A destroyed entity throws. */
+    visible: boolean;
 }
 
 export class VirtualEntityGroup {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    id: any;
-    readonly kind: any;
-    readonly maxEntitiesInStream: any;
-    readonly maxStreamingDistance: any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly type: any;
-    readonly valid: any;
+    /** Instances are created by the VARION runtime and cannot be constructed directly. */
+    private constructor();
+    /** Every valid virtual entity group of every resource; a new array on each read. */
+    static readonly all: VirtualEntityGroup[];
+    /** How many groups VirtualEntityGroup.all holds now. */
+    static readonly count: number;
+    /** The group with that id while it is valid; null for none. */
+    static getByID(id: number): VirtualEntityGroup | null;
+    /** Removes the key: true, and metaChange fires with the value undefined; false when it was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the key: true, and syncedMetaChange fires with the value undefined; false when it was not there. No client is involved. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Destroys every virtual entity in it (each through its destroy()) and then the group; valid turns false and baseObjectRemove fires. Later calls do nothing; a resource's groups go when it stops. */
+    destroy(): void;
+    /** The value setMeta stored under the key; undefined for none. */
+    getMeta(key: string): any;
+    /** The keys setMeta stored, as getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys setMeta stored, as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script gave it; undefined for none. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored. */
+    getSyncedMetaKeys(): string[];
+    /** Whether setMeta stored a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Its group id from the server; ids are not reused while the server runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** Always "virtualEntityGroup". */
+    readonly kind: "virtualEntityGroup";
+    /** How many of its entities one player streams at most: the number asked for at creation (truncated, 1 when not given), kept to 1–512, the server's cap per group; by default a player streams at most 1024 virtual entities over all groups. */
+    readonly maxEntitiesInStream: number;
+    /** The largest streaming distance of its entities in metres: 1..20000, truncated, 20000 by default; createVirtualEntity caps an entity's distance by it. */
+    readonly maxStreamingDistance: number;
+    /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Kept on this host only: no client gets it; syncedMetaChange fires here and an object sets each of its keys. Throws a RangeError for a key outside 1..1024 UTF-8 bytes or a value over 512 KiB as JSON, a TypeError for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** BaseObjectType.VirtualEntityGroup (21). */
+    readonly type: number;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
 }
 
 export class VoiceChannel {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    addPlayer(...args: any[]): any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    destroy(...args: any[]): any;
-    filter: any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasPlayer(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    id: any;
-    isPlayerInChannel(...args: any[]): any;
-    isPlayerMuted(...args: any[]): any;
-    readonly isSpatial: any;
-    readonly kind: any;
-    readonly maxDistance: any;
-    mutePlayer(...args: any[]): any;
-    readonly playerCount: any;
-    readonly players: any;
-    priority: any;
-    removePlayer(...args: any[]): any;
-    setFilter(...args: any[]): any;
-    setMeta(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    readonly type: any;
-    unmutePlayer(...args: any[]): any;
-    readonly valid: any;
+    /** Creates a voice channel of the resource for the players added with `addPlayer`; a spatial one (`isSpatial` true) has a range of `maxDistance` metres (50 when that is not a positive number), a non-spatial one 0. Outside a resource it throws an `Error`; it is removed when the resource stops. */
+    constructor(isSpatial?: boolean, maxDistance?: number);
+    /** Every live voice channel, of any resource; a new array on each read. */
+    static readonly all: VoiceChannel[];
+    /** How many live voice channels there are. */
+    static readonly count: number;
+    /** The live channel with this id (of any resource), or null. */
+    static getByID(id: number): VoiceChannel | null;
+    /** Adds a player (or a player id 1–65534) to the channel; nothing for a destroyed channel, a member, a bad id or a player already in 32 channels of this host, whom the server refuses too. */
+    addPlayer(player: Player | number): void;
+    /** Removes a key of its own metadata; false when it was not set. metaChange fires with value undefined. */
+    deleteMeta(key: string): boolean;
+    /** Removes a key setSyncedMeta set; false when it was not set. syncedMetaChange fires with value undefined. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes the channel for every member; baseObjectRemove fires. Calling it again does nothing. */
+    destroy(): void;
+    /** The audio filter members hear the channel through, as a hash (0: none); assigning takes a name (hashed: 'walkietalkie', 'phone', 'underwater') or a hash. Ignored after destroy. */
+    get filter(): number;
+    set filter(value: number | string);
+    /** A value of its own metadata; undefined when unset. */
+    getMeta(key: string): any;
+    /** Another name for getMetaKeys. */
+    getMetaDataKeys(): string[];
+    /** The keys of its own metadata. */
+    getMetaKeys(): string[];
+    /** A value set by setSyncedMeta; undefined when unset. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta set. */
+    getSyncedMetaKeys(): string[];
+    /** Whether its own metadata has the key. */
+    hasMeta(key: string): boolean;
+    /** Whether the player (or id) is a member. */
+    hasPlayer(player: Player | number): boolean;
+    /** Whether setSyncedMeta set the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** A number from 1, unique while the host runs; channels of every resource share the counter. Read-only: assigning changes nothing (a TypeError in strict mode). */
+    readonly id: number;
+    /** The same as hasPlayer. */
+    isPlayerInChannel(player: Player | number): boolean;
+    /** Whether the member is muted in this channel. */
+    isPlayerMuted(player: Player | number): boolean;
+    /** True when members hear each other only within maxDistance and in the same dimension; false: every member hears all. */
+    readonly isSpatial: boolean;
+    /** Always "voiceChannel". */
+    readonly kind: "voiceChannel";
+    /** Metres within which members of a spatial channel hear each other, as the server keeps it: 1–10000 (a smaller positive value reads 1, a larger one 10000), 50 when not given or not above 0.01; 0 for a non-spatial one. */
+    readonly maxDistance: number;
+    /** Mutes a member in this channel, so the others do not hear him through it; muted false unmutes. Nothing for a non-member or a destroyed channel. */
+    mutePlayer(player: Player | number, muted?: boolean): void;
+    /** How many members the channel has. */
+    readonly playerCount: number;
+    /** The connected members; a new array on each read. */
+    readonly players: Player[];
+    /** When a speaker and a listener share several channels, the one with the highest priority carries the voice (ties: non-spatial first, then the lower id). Assigning truncates to an integer; ignored after destroy. */
+    priority: number;
+    /** Takes a member out of the channel (and out of its muted list); nothing for a non-member or a destroyed channel. */
+    removePlayer(player: Player | number): void;
+    /** The same as assigning filter. */
+    setFilter(filter: number | string): void;
+    /** This host's own data on the channel; metaChange fires on a change (not for the same value). */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Kept on this host only: no client receives it (a voice channel has no metadata path to clients); syncedMetaChange fires here and an object sets each of its keys. Key 1–1024 UTF-8 bytes, value up to 512 KiB as JSON; throws for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** BaseObjectType.VoiceChannel (6). */
+    readonly type: number;
+    /** Lets the other members hear a muted member again; nothing when he is not muted or the channel is destroyed. */
+    unmutePlayer(player: Player | number): void;
+    /** False once destroyed (destroy, or its resource stopped). */
+    readonly valid: boolean;
 }
 
 export const VoiceConnectionState: {
@@ -5706,7 +7072,8 @@ export const VoiceConnectionState: {
 };
 
 export const WeaponModelInfo: {
-    get(...args: any[]): any;
+    /** A weapon of the built-in GTA catalog by hash or name (hashed): its model, ammo type and model, the online maximum ammo by skill, and damage type. Throws Error for a weapon the catalog lacks. */
+    get(weapon: number | string): { readonly hash: number; readonly name: string; readonly model: string; readonly modelHash: number; readonly ammoTypeHash: number; readonly ammoType: string; readonly ammoModelName: string; readonly ammoModelHash: number; readonly defaultMaxAmmoMp: number; readonly skillAbove50MaxAmmoMp: number; readonly maxSkillMaxAmmoMp: number; readonly bonusMaxAmmoMp: number; readonly damageType: string };
 };
 
 export const WeatherType: {
@@ -5760,219 +7127,52 @@ export const WindowTint: {
 };
 
 export class WorldObject {
-    constructor(...args: any[]);
-    static readonly all: any;
-    static readonly count: any;
-    static getByID(...args: any[]): any;
-    readonly accelerationLevel: any;
-    activeRadioStation: any;
-    readonly attached: any;
-    readonly attachedTo: any;
-    attachTo(...args: any[]): any;
-    boatAnchorActive: any;
-    bodyAdditionalHealth: any;
-    bodyHealth: any;
-    readonly brakeLevel: any;
-    collision: any;
-    counterMeasureCount: any;
-    customPrimaryColor: any;
-    customSecondaryColor: any;
-    customTires: any;
-    darkness: any;
-    dashboardColor: any;
-    daylightOn: any;
-    deleteMeta(...args: any[]): any;
-    deleteStreamSyncedMeta(...args: any[]): any;
-    deleteStreamSyncedMetaData(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    deleteSyncedMetaData(...args: any[]): any;
-    destroy(...args: any[]): any;
-    readonly destroyed: any;
-    detach(...args: any[]): any;
-    dimension: any;
-    dirtLevel: any;
-    doesWheelHasTire(...args: any[]): any;
-    driftModeEnabled: any;
-    readonly driver: any;
-    engineHealth: any;
-    engineOn: any;
-    readonly flamethrowerActive: any;
-    readonly frontWheels: any;
-    frozen: any;
-    readonly gear: any;
-    getAppearanceDataBase64(...args: any[]): any;
-    getArmoredWindowHealth(...args: any[]): any;
-    getArmoredWindowShootCount(...args: any[]): any;
-    getBumperDamageLevel(...args: any[]): any;
-    getDamageStatusBase64(...args: any[]): any;
-    getDoorState(...args: any[]): any;
-    getExtra(...args: any[]): any;
-    getGamestateDataBase64(...args: any[]): any;
-    getHealthDataBase64(...args: any[]): any;
-    getMeta(...args: any[]): any;
-    getMetaDataKeys(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    getMod(...args: any[]): any;
-    getModsCount(...args: any[]): any;
-    getPartBulletHoles(...args: any[]): any;
-    getPartDamageLevel(...args: any[]): any;
-    getScriptDataBase64(...args: any[]): any;
-    getStreamSyncedMeta(...args: any[]): any;
-    getStreamSyncedMetaData(...args: any[]): any;
-    getStreamSyncedMetaDataKeys(...args: any[]): any;
-    getStreamSyncedMetaKeys(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaData(...args: any[]): any;
-    getSyncedMetaDataKeys(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    getWeaponCapacity(...args: any[]): any;
-    getWheelCamber(...args: any[]): any;
-    getWheelHealth(...args: any[]): any;
-    getWheelHeight(...args: any[]): any;
-    getWheelRimRadius(...args: any[]): any;
-    getWheelTrackWidth(...args: any[]): any;
-    getWheelTyreRadius(...args: any[]): any;
-    getWheelTyreWidth(...args: any[]): any;
-    handbrakeActive: any;
-    readonly hasArmoredWindows: any;
-    hasMeta(...args: any[]): any;
-    hasStreamSyncedMeta(...args: any[]): any;
-    hasStreamSyncedMetaData(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    hasSyncedMetaData(...args: any[]): any;
-    readonly hasTimedExplosion: any;
-    headlightColor: any;
-    readonly heliMainRotorHealth: any;
-    readonly heliTailRotorHealth: any;
-    hornActive: any;
-    hybridExtraActive: any;
-    hybridExtraState: any;
-    id: any;
-    indicatorLights: any;
-    interiorColor: any;
-    isLightDamaged(...args: any[]): any;
-    isMissionTrain: any;
-    isSpecialLightDamaged(...args: any[]): any;
-    isStaticEntity: any;
-    isToggleModOn(...args: any[]): any;
-    isTrainCaboose: any;
-    isTrainEngine: any;
-    isWheelBurst(...args: any[]): any;
-    isWheelDetached(...args: any[]): any;
-    isWheelOnFire(...args: any[]): any;
-    isWindowDamaged(...args: any[]): any;
-    isWindowOpened(...args: any[]): any;
-    readonly kind: any;
-    readonly landingGearState: any;
-    lightsMultiplier: any;
-    lightState: any;
-    livery: any;
-    lockState: any;
-    manualEngineControl: any;
-    model: any;
-    modKit: any;
-    readonly modKitsCount: any;
-    neon: any;
-    neonColor: any;
-    readonly netOwner: any;
-    readonly netOwnershipDisabled: any;
-    nightlightOn: any;
-    numberPlateIndex: any;
-    numberPlateText: any;
-    readonly passengers: any;
-    pearlColor: any;
-    petrolTankHealth: any;
-    pos: any;
-    primaryColor: any;
-    quaternion: any;
-    readonly rearWheels: any;
-    repair(...args: any[]): any;
-    readonly repairsCount: any;
-    resetNetOwner(...args: any[]): any;
-    rocketRefuelSpeed: any;
-    roofClosed: any;
-    roofLivery: any;
-    roofState: any;
-    rot: any;
-    rotation: any;
-    readonly rpm: any;
-    scriptMaxSpeed: any;
-    secondaryColor: any;
-    setAppearanceDataBase64(...args: any[]): any;
-    setArmoredWindowHealth(...args: any[]): any;
-    setArmoredWindowShootCount(...args: any[]): any;
-    setBumperDamageLevel(...args: any[]): any;
-    setDamageStatusBase64(...args: any[]): any;
-    setDoorState(...args: any[]): any;
-    setExtra(...args: any[]): any;
-    setGamestateDataBase64(...args: any[]): any;
-    setHealthDataBase64(...args: any[]): any;
-    setLightDamaged(...args: any[]): any;
-    setMeta(...args: any[]): any;
-    setMod(...args: any[]): any;
-    setNetOwner(...args: any[]): any;
-    setPartBulletHoles(...args: any[]): any;
-    setPartDamageLevel(...args: any[]): any;
-    setRearWheels(...args: any[]): any;
-    setScriptDataBase64(...args: any[]): any;
-    setSearchLightTo(...args: any[]): any;
-    setSpecialLightDamaged(...args: any[]): any;
-    setStreamSyncedMeta(...args: any[]): any;
-    setStreamSyncedMetaData(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    setSyncedMetaData(...args: any[]): any;
-    setTimedExplosion(...args: any[]): any;
-    setTrainEngineId(...args: any[]): any;
-    setTrainLinkedToBackwardId(...args: any[]): any;
-    setTrainLinkedToForwardId(...args: any[]): any;
-    setWeaponCapacity(...args: any[]): any;
-    setWheelBurst(...args: any[]): any;
-    setWheelCamber(...args: any[]): any;
-    setWheelDetached(...args: any[]): any;
-    setWheelFixed(...args: any[]): any;
-    setWheelHasTire(...args: any[]): any;
-    setWheelHealth(...args: any[]): any;
-    setWheelHeight(...args: any[]): any;
-    setWheelOnFire(...args: any[]): any;
-    setWheelRimRadius(...args: any[]): any;
-    setWheels(...args: any[]): any;
-    setWheelTrackWidth(...args: any[]): any;
-    setWheelTyreRadius(...args: any[]): any;
-    setWheelTyreWidth(...args: any[]): any;
-    setWindowDamaged(...args: any[]): any;
-    setWindowOpened(...args: any[]): any;
-    sirenActive: any;
-    steeringAngle: any;
-    streamed: any;
-    streamingDistance: any;
-    readonly timedExplosionCulprit: any;
-    readonly timedExplosionTime: any;
-    readonly timestamp: any;
-    tireSmokeColor: any;
-    toggleMod(...args: any[]): any;
-    trainCarriageConfigIndex: any;
-    trainConfigIndex: any;
-    trainCruiseSpeed: any;
-    trainDirection: any;
-    trainDistanceFromEngine: any;
-    readonly trainEngineId: any;
-    trainForceDoorsOpen: any;
-    readonly trainLinkedToBackwardId: any;
-    readonly trainLinkedToForwardId: any;
-    trainPassengerCarriages: any;
-    trainRenderDerailed: any;
-    trainTrackId: any;
-    trainUnk1: any;
-    trainUnk2: any;
-    trainUnk3: any;
-    readonly type: any;
-    readonly valid: any;
-    velocity: any;
-    visible: any;
-    wheelColor: any;
-    readonly wheelsCount: any;
-    wheelType: any;
-    windowTint: any;
+    /** Instances are created by the VARION runtime and cannot be constructed directly. */
+    private constructor();
+    /** Every valid object with a place in the world: players, old-path vehicles, peds, objects and virtual entities, blips, markers, colshapes, checkpoints, text labels, then native vehicles and NPCs. No voice channels or virtual entity groups. A new array on each read. */
+    static readonly all: WorldObject[];
+    /** How many objects WorldObject.all holds now. */
+    static readonly count: number;
+    /** BaseObject.getByID, but only a WorldObject: with a type, a voice channel or a virtual entity group reads null; with an id alone, the player, old-path entity or native vehicle or NPC of that id. Null for none. */
+    static getByID(type: number, id: number): WorldObject | null;
+    static getByID(id: number): WorldObject | null;
+    /** Removes the key from this host's own metadata: true, and metaChange fires with the value undefined; false when the key was not there. */
+    deleteMeta(key: string): boolean;
+    /** Removes the synced key: clients lose it and syncedMetaChange fires with undefined; false when the key was not there. Once the object is gone only this host's copy goes. */
+    deleteSyncedMeta(key: string): boolean;
+    /** The dimension it is in (0 by default); assigning moves it there. Old-path entities take a 32-bit integer (else a RangeError; the fraction is dropped) and lose their owner, a vehicle its occupants too; native ones go through setDimension; blips, markers and colshapes truncate the value. */
+    dimension: number;
+    /** The value setMeta stored under the key, undefined for none: this host's own metadata, which no client sees. */
+    getMeta(key: string): any;
+    /** The keys of this host's own metadata (setMeta); getMetaKeys returns the same. */
+    getMetaDataKeys(): string[];
+    /** The keys of this host's own metadata (setMeta), as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** The value setSyncedMeta stored under the key, as the script set it (an entity stays that entity); undefined for none. On a player or old-path entity a change a C# resource made arrives through the server, its entity references turned into this host's objects. */
+    getSyncedMeta(key: string): any;
+    /** The keys setSyncedMeta stored, as this host keeps them. */
+    getSyncedMetaKeys(): string[];
+    /** Whether this host's own metadata (setMeta) holds the key. */
+    hasMeta(key: string): boolean;
+    /** Whether setSyncedMeta stored a value under the key, as this host keeps them. */
+    hasSyncedMeta(key: string): boolean;
+    /** Its id within its kind: the network id of a player or old-path entity (a removed one's id is reused), the script id of a native vehicle or NPC (from 65536); blips, markers, colshapes, checkpoints and text labels share one counter, voice channels have their own. Ids of different kinds can be equal. */
+    readonly id: number;
+    /** Its kind by name; native vehicles and NPCs read "vehicle" and "ped". "entity" only while the server has not named an entity's kind yet. */
+    readonly kind: "player" | "vehicle" | "ped" | "object" | "virtualEntity" | "blip" | "marker" | "colshape" | "checkpoint" | "textlabel" | "voiceChannel" | "virtualEntityGroup" | "entity";
+    /** Its position. Assigning moves it: a player or old-path entity throws a TypeError for a non-finite component and the server ignores a point beyond 100000 m; a native vehicle is teleported through its owner; a blip, marker or colshape moves at once (non-finite components become 0). A native NPC's cannot be assigned. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** Stores a value under the key in this host's own metadata, which no client sees; an object alone sets each of its keys. metaChange fires unless the value is the same (Object.is); the key is turned into a string. */
+    setMeta(key: string, value: any): void;
+    setMeta(values: { [key: string]: any }): void;
+    /** Synced metadata the clients get with it (getSyncedMeta there); syncedMetaChange fires here unless the value is the same. The key must be 1..1024 UTF-8 bytes (RangeError) and the value serializable within 512 KiB (TypeError, RangeError); once the object is gone only this host's copy changes. A voice channel's or virtual entity group's stays on this host. */
+    setSyncedMeta(key: string, value: any): void;
+    setSyncedMeta(values: { [key: string]: any }): void;
+    /** Its BaseObjectType: Player 0, Vehicle 1, Ped 2, Object 3, Blip 4, VoiceChannel 6, Colshape 7, Checkpoint 8, VirtualEntity 20, VirtualEntityGroup 21, Marker 22, TextLabel 23; -1 while the server has not named an entity's kind. */
+    readonly type: number;
+    /** False once it is gone: a player left, an old-path entity from its destroy() on (true again if the server refused the removal), a blip, marker, colshape, voice channel or group once destroyed or its resource stopped, a native vehicle or NPC once the server removed it. */
+    readonly valid: boolean;
 }
 
 export const WorldPropState: {
@@ -6076,51 +7276,148 @@ export type VarionEventName =
 
 /** Handler parameters of the documented events. */
 export interface VarionEvents {
-    /** A base object appeared, as in alt:V. Also a native vehicle (just before nativeVehicleCreated) and an NPC createNativePed made (as the call resolves). */
+    /** A resource threw an uncaught error or failed to start. Every loaded resource hears it; the failed one gets resourceError with the details first. */
+    anyResourceError(resourceName: string): void;
+    /** A resource started. Running resources hear it, the started one too. */
+    anyResourceStart(resourceName: string): void;
+    /** A resource stopped. Running resources hear it, the stopped one too. */
+    anyResourceStop(resourceName: string): void;
+    /** A base object appeared. Also a native vehicle (just before nativeVehicleCreated) and an NPC createNativePed made (as the call resolves). */
     baseObjectCreate(baseObject: BaseObject | NativeVehicle | NativePed): void;
-    /** A base object went, as in alt:V; it is still readable in the handler. Also a native vehicle (just before nativeVehicleRemoved) and an NPC createNativePed made, once the host learns it is gone (destroyNativePed, the mirror or fetch()). */
+    /** A base object went; it is still readable in the handler. Also a native vehicle (just before nativeVehicleRemoved) and an NPC createNativePed made, once the host learns it is gone (destroyNativePed, the mirror or fetch()). */
     baseObjectRemove(baseObject: BaseObject | NativeVehicle | NativePed): void;
-    /** A client created a networked car, NPC or object (FiveM entityCreating). Nobody else has it yet: return false from a handler (synchronously) to cancel it -- the server removes it, at its owner too. With no verdict within 1 s it goes through. Only while a resource host runs; the entity lockdown (setEntityLockdown) has refused some before this. */
+    /** Only with `connectionQueue = true` in server.toml: a client waits to be let in. Answer with `info.accept()` or `info.decline(reason)`. */
+    connectionQueueAdd(info: ConnectionInfo): void;
+    /** The client left the queue: accepted, declined or disconnected. `info` stops being valid after the handlers. */
+    connectionQueueRemove(info: ConnectionInfo): void;
+    /** A line typed in the server console: the command and the words after it. The built-in `restart`, `start` and `stop <resource>` come here too. */
+    consoleCommand(name: string, ...args: string[]): void;
+    /** A client created a networked car, NPC or object; nobody else has it yet: return false from a handler (synchronously) to cancel it -- the server removes it, at its owner too. With no verdict within 1 s it goes through. Only while a resource host runs; the entity lockdown (setEntityLockdown) has refused some before this. */
     entityCreating(entity: EntityCreatingInfo): void;
-    /** Players, vehicles, peds and objects, as in alt:V; players only when `colshape.playersOnly` is true (default false). */
+    /** Players, vehicles, peds and objects; players only when `colshape.playersOnly` is true (default false). */
     entityEnterColshape(colshape: Colshape, entity: Player | Vehicle | Ped | Object): void;
-    /** Players, vehicles, peds and objects, as in alt:V; players only when `colshape.playersOnly` is true (default false). A vehicle, ped or object that is destroyed inside leaves without this event. */
+    /** Players, vehicles, peds and objects; players only when `colshape.playersOnly` is true (default false). A vehicle, ped or object that is destroyed inside leaves without this event. */
     entityLeaveColshape(colshape: Colshape, entity: Player | Vehicle | Ped | Object): void;
     /** GTA on `player`'s client cannot show `entity` -- or, when `entity` is `player`, cannot take the model the server gave it. `reason`: `not-in-game` (GTA has no such model: not one of GTA's and not declared by any pack the client mounted), `wrong-type` (not a vehicle or ped model, as the entity needs) or `not-loaded` (GTA has it but did not load it in 15 s: a pack that declares it without its files). Once per player, entity and model; the entity itself does not change. */
     entityModelMissing(entity: Player | Vehicle | Ped | Object, player: Player, model: number, reason: "not-in-game" | "wrong-type" | "not-loaded"): void;
-    /** A native vehicle appeared: one a client script made (when the server first reports it), or one createNativeVehicle made (at once, still without an owner). FiveM entityCreated / serverEntityCreated. One made and removed within 50 ms is never reported. */
+    /** The client of player `playerId` now streams an entity. Ids, not objects: the entity id and its type (0 player, 1 vehicle, 2 ped, 3 object). */
+    entityStreamIn(playerId: number, entityId: number, entityType: number): void;
+    /** The client of player `playerId` no longer streams an entity. Ids, not objects: the entity id and its type (0 player, 1 vehicle, 2 ped, 3 object). */
+    entityStreamOut(playerId: number, entityId: number, entityType: number): void;
+    /** A client reports an explosion: GTA's explosion type and effect hash. Return false (synchronously) and other players do not get it. `target` is null for an entity scripts do not know. */
+    explosion(source: Player, type: number, pos: Vector3, fx: number, target: BaseObject | NativeVehicle | NativePed | null): void;
+    /** A client gives a task to an NPC another client simulates. Return false (synchronously) to refuse. */
+    givePedScriptedTask(source: Player, target: Ped | NativePed, taskType: number): void;
+    /** A script changed `varion.setMeta` data; `value` is undefined after a delete. */
+    globalMetaChange(key: string, value: any, oldValue: any): void;
+    /** A script changed `varion.setSyncedMeta` data; `value` is undefined after a delete. */
+    globalSyncedMetaChange(key: string, value: any, oldValue: any): void;
+    /** A script changed `player.setLocalMeta` data; `value` is undefined after a delete. */
+    localMetaChange(player: Player, key: string, value: any, oldValue: any): void;
+    /** A script changed `entity.setMeta` data; `value` is undefined after a delete. */
+    metaChange(entity: BaseObject | NativeVehicle | NativePed, key: string, value: any, oldValue: any): void;
+    /** A native vehicle appeared: one a client script made (when the server first reports it), or one createNativeVehicle made (at once, still without an owner). One made and removed within 50 ms is never reported. */
     nativeVehicleCreated(vehicle: NativeVehicle): void;
-    /** Another client simulates the vehicle: a car the server made got its first owner (oldOwner null), or the server handed it over (its owner left or went out of its range). As alt:V netOwnerChange, which comes first with the same arguments. */
+    /** Another client simulates the vehicle: a car the server made got its first owner (oldOwner null), or the server handed it over (its owner left or went out of its range). netOwnerChange comes first with the same arguments. */
     nativeVehicleOwnerChanged(vehicle: NativeVehicle, owner: Player | null, oldOwner: Player | null): void;
-    /** A native vehicle went: its owner or a script deleted it, or its owner left and nobody could take it over. The vehicle is still readable in the handler. FiveM entityRemoved. */
+    /** A native vehicle went: its owner or a script deleted it, or its owner left and nobody could take it over. The vehicle is still readable in the handler. */
     nativeVehicleRemoved(vehicle: NativeVehicle): void;
-    /** Another client simulates the entity, as alt:V. Also for a native vehicle (before nativeVehicleOwnerChanged) and for an NPC the server made (the NPC already reads the new owner). `owner` null: nobody simulates it now. */
+    /** Another client simulates the entity. Also for a native vehicle (before nativeVehicleOwnerChanged) and for an NPC the server made (the NPC already reads the new owner). `owner` null: nobody simulates it now. */
     netOwnerChange(entity: Entity | NativeVehicle | NativePed, owner: Player | null, oldOwner: Player | null): void;
+    /** A player hit an NPC of the old path. Return false (synchronously) to cancel the hit. */
+    pedDamage(ped: Ped, attacker: Player, healthDamage: number, armourDamage: number, weaponHash: number): void;
+    /** The hit kills an NPC of the old path. Return false (synchronously) to cancel it. */
+    pedDeath(ped: Ped, killer: Player, weaponHash: number): void;
+    /** An NPC of the old path got health or armour back. */
+    pedHeal(ped: Ped, oldHealth: number, newHealth: number, oldArmour: number, newArmour: number): void;
+    /** The animation the player plays changed: hashes of the old and new dictionary and name. */
+    playerAnimationChange(player: Player, oldAnimDict: number, newAnimDict: number, oldAnimName: number, newAnimName: number): void;
     /** Seats: 1 = driver, 2 = front passenger, 3-4 = rear. */
     playerChangedNativeVehicleSeat(player: Player, vehicle: NativeVehicle, oldSeat: number, newSeat: number): void;
     /** Seats: 1 = driver, 2 = front passenger, 3-4 = rear. Also for a native vehicle, before playerChangedNativeVehicleSeat. */
     playerChangedVehicleSeat(player: Player, vehicle: Vehicle | NativeVehicle, oldSeat: number, newSeat: number): void;
+    /** The low-level twin of playerChangedVehicleSeat: the vehicle id and GTA's seat indexes (-1 = driver, 0 = front passenger). */
+    playerChangeVehicleSeat(player: Player, vehicleId: number, oldSeat: number, newSeat: number): void;
     playerConnect(player: Player): void;
+    /** The server refused a connection before admission; `reason` is a ConnectDeniedReason. `discordId` is the Discord id as text, empty without one. */
+    playerConnectDenied(reason: number, name: string, ip: string, passwordHash: string, isDebug: boolean, branch: string, clientBuild: number, cdnUrl: string, discordId: string): void;
+    /** The player lost health or armour. `attacker` is null when the server does not know who did it. */
+    playerDamage(player: Player, attacker: Player | null, healthDamage: number, armourDamage: number, weaponHash: number): void;
     /** `killer` is null when nobody killed the player. */
     playerDeath(victim: Player, killer: Player | null, weaponHash: number): void;
+    /** The player moved to another dimension. */
+    playerDimensionChange(player: Player, oldDimension: number, newDimension: number): void;
     playerDisconnect(player: Player, reason: string): void;
-    /** From the player's own native tree (CPedGameStateDataNode). Seats as FiveM reads that node: 1 = driver, 2 = front passenger, 3-4 = rear. */
+    /** From the player's own native tree (CPedGameStateDataNode). Seats as that node holds them: 1 = driver, 2 = front passenger, 3-4 = rear. */
     playerEnteredNativeVehicle(player: Player, vehicle: NativeVehicle, seat: number): void;
     /** Seats: 1 = driver, 2 = front passenger, 3-4 = rear. Also for a native vehicle, before playerEnteredNativeVehicle; player.vehicle and seat already read the new ones. */
     playerEnteredVehicle(player: Player, vehicle: Vehicle | NativeVehicle, seat: number): void;
+    /** The player started getting into a vehicle of the old path. Seats: 1 = driver, 2 = front passenger, 3-4 = rear. */
+    playerEnteringVehicle(player: Player, vehicle: Vehicle, seat: number): void;
+    /** The low-level twin of playerEnteredVehicle: the vehicle id and GTA's seat index (-1 = driver, 0 = front passenger). */
+    playerEnterVehicle(player: Player, vehicleId: number, seat: number): void;
+    /** Health or armour went up. */
+    playerHeal(player: Player, oldHealth: number, newHealth: number, oldArmour: number, newArmour: number): void;
+    /** Interior ids from GTA; 0 is outside. */
+    playerInteriorChange(player: Player, oldInterior: number, newInterior: number): void;
+    /** The low-level twin of playerLeftVehicle: the vehicle id and GTA's seat index (-1 = driver, 0 = front passenger). */
+    playerLeaveVehicle(player: Player, vehicleId: number, seat: number): void;
     /** Seats: 1 = driver, 2 = front passenger, 3-4 = rear. Also when the vehicle goes with the player in it (before nativeVehicleRemoved); not when the player leaves the server. */
     playerLeftNativeVehicle(player: Player, vehicle: NativeVehicle, seat: number): void;
     /** Seats: 1 = driver, 2 = front passenger, 3-4 = rear. Also for a native vehicle, before playerLeftNativeVehicle; not for a player who left the server. */
     playerLeftVehicle(player: Player, vehicle: Vehicle | NativeVehicle, seat: number): void;
     playerReady(player: Player): void;
+    /** A client asks to control an entity another client simulates. Return false (synchronously) to refuse. */
+    playerRequestControl(player: Player, target: BaseObject | NativeVehicle | NativePed): void;
+    /** The server carried out `player.spawn`: position, model and health already read the new values. Before the client shows the character. */
+    playerSpawn(player: Player): void;
+    /** The player switched weapons; the hashes, 0 for none. */
+    playerWeaponChange(player: Player, oldWeapon: number, newWeapon: number): void;
+    /** An entity of the old path went; it is still readable in the handler. Before baseObjectRemove. */
+    removeEntity(entity: BaseObject): void;
+    /** A client asks for a synchronised scene. Every handler must return true (synchronously), or the scene is refused; with no handler it is refused as well. */
+    requestSyncedScene(source: Player, sceneId: number): void;
     /** `error` is the thrown value, usually an Error. */
     resourceError(error: any, file: string, line: number, stack: string): void;
     resourceStart(): void;
     resourceStop(): void;
+    /** Once, after the resources of server.toml started. */
+    serverStarted(): void;
+    /** A client started fires. Return false (synchronously) and other players do not get them. */
+    startFire(source: Player, fires: { pos: Vector3; weapon: number }[]): void;
+    /** A client fired a projectile, such as a rocket or a grenade. Return false (synchronously) and other players do not get it. */
+    startProjectile(player: Player, pos: Vector3, dir: Vector3, ammoHash: number, weaponHash: number): void;
+    /** Refused unless every handler returns true (synchronously). `entity` is null for one scripts do not know. */
+    startSyncedScene(source: Player, sceneId: number, pos: Vector3, rot: Vector3, animDictHash: number, entities: { entity: BaseObject | NativeVehicle | NativePed | null; animHash: number }[]): void;
+    /** Refused unless every handler returns true (synchronously). */
+    stopSyncedScene(source: Player, sceneId: number): void;
+    /** A script changed `entity.setStreamSyncedMeta` data; `value` is undefined after a delete. */
+    streamSyncedMetaChange(entity: BaseObject | NativeVehicle | NativePed, key: string, value: any, oldValue: any): void;
+    /** A script changed `entity.setSyncedMeta` data; `value` is undefined after a delete. */
+    syncedMetaChange(entity: BaseObject | NativeVehicle | NativePed, key: string, value: any, oldValue: any): void;
+    /** Refused unless every handler returns true (synchronously). */
+    updateSyncedScene(source: Player, rate: number, sceneId: number): void;
+    /** A vehicle took another in tow, such as a truck and its trailer. */
+    vehicleAttach(vehicle: Vehicle, attachedVehicle: Vehicle): void;
+    /** A vehicle of the old path lost health: how much its body, extra body, engine and fuel tank lost. The server does not know who did it: `attacker` is always null and `weaponHash` 0. */
+    vehicleDamage(vehicle: Vehicle, attacker: BaseObject | null, bodyDamage: number, additionalBodyDamage: number, engineDamage: number, petrolTankDamage: number, weaponHash: number): void;
+    /** A vehicle of the old path was removed: deleted, not wrecked. Before removeEntity. */
+    vehicleDestroy(vehicle: Vehicle): void;
+    /** A vehicle let go of the one it towed. */
+    vehicleDetach(vehicle: Vehicle, detachedVehicle: Vehicle): void;
+    /** A driver pressed or released the horn. Return false (synchronously) and other players do not hear it. */
+    vehicleHorn(vehicle: Vehicle, player: Player, state: boolean): void;
+    /** A vehicle of the old path turned its siren on or off. */
+    vehicleSiren(vehicle: Vehicle, state: boolean): void;
+    /** The voice service state, a VoiceConnectionState: 2 once the resource host is ready, 0 when the server shuts down. */
+    voiceConnection(state: number): void;
+    /** A player hit someone. Return false (synchronously) to cancel the hit or a number to set its damage. `target` is null for an entity scripts do not know. */
+    weaponDamage(source: Player, target: Player | Ped | NativeVehicle | NativePed | null, weaponHash: number, damage: number, offset: Vector3, bodyPart: number, sourceEntity: Player): void;
 }
 
-declare const vari: {
-    addClientConfigKey(...args: any[]): any;
+declare const varion: {
+    /** Lets clients read this key of the resource's [config]; a key the config does not have is refused (logged). Throws outside a resource's code, and TypeError for an empty key, one over 256 bytes or with control characters. */
+    addClientConfigKey(key: string): void;
     AmmoSpecialType: typeof AmmoSpecialType;
     AreaBlip: typeof AreaBlip;
     AudioCategories: typeof AudioCategories;
@@ -6133,15 +7430,22 @@ declare const vari: {
     BlipSprite: typeof BlipSprite;
     BlipType: typeof BlipType;
     BodyPart: typeof BodyPart;
-    readonly branch: any;
+    /** The engine's release channel, such as "rc". */
+    readonly branch: string;
     Checkpoint: typeof Checkpoint;
     CheckpointType: typeof CheckpointType;
-    clearEveryTick(...args: any[]): any;
+    /** Stops a handler everyTick started; the same function as clearInterval. */
+    clearEveryTick(handle: any): void;
+    /** Stops a timer setInterval returned, of any resource; Node's clearInterval underneath, so a setTimeout handle works too and anything else is ignored. */
     clearInterval(handle: any): void;
-    clearNextTick(...args: any[]): any;
+    /** Cancels a callback nextTick queued, if it has not run yet. */
+    clearNextTick(handle: any): void;
+    /** Stops a timer setTimeout returned, of any resource; Node's clearTimeout underneath, so an interval handle works too and anything else is ignored. */
     clearTimeout(handle: any): void;
-    clearTimer(...args: any[]): any;
-    clearWorldState(...args: any[]): any;
+    /** Cancels a timeout, an interval or a nextTick callback, whichever the handle is. */
+    clearTimer(handle: any): void;
+    /** Removes the state a door or prop got at that place (setDoorState, setPropState); kind "door"/"prop" or 1/3, subject a model name or hash. Throws for glass (use the Rayfire calls), subject 0, a bad position or dimension. */
+    clearWorldState(kind: number | string, subject: number | string, position: Vector3Like, dimension?: number): void;
     CloudAuthResult: typeof CloudAuthResult;
     Colshape: typeof Colshape;
     ColshapeBox: typeof ColshapeBox;
@@ -6154,138 +7458,226 @@ declare const vari: {
     ColShapeType: typeof ColShapeType;
     ConnectDeniedReason: typeof ConnectDeniedReason;
     ConnectionInfo: typeof ConnectionInfo;
-    createAreaBlip(...args: any[]): any;
+    /** An area blip of width × height metres (100 each when missing) centred on the point; color is a BlipColor, dimension 0 by default. Removed when the resource stops. */
+    createAreaBlip(x: number, y: number, z: number, width: number, height: number, color?: number, dimension?: number): AreaBlip;
+    /** A blip of the calling resource, removed when it stops: kind "radius" makes a RadiusBlip, "area" an AreaBlip, anything else a PointBlip. By default sprite 1, colour 0, scale 1, short-range and in dimension 0 (-2147483648: every dimension), and every player sees it; with global false only its targets do. */
     createBlip(options: BlipOptions): PointBlip | RadiusBlip | AreaBlip;
-    createCheckpoint(...args: any[]): any;
-    createColshape(...args: any[]): any;
-    createColshapeBox(...args: any[]): any;
-    createColshapeCircle(...args: any[]): any;
-    createColshapeCylinder(...args: any[]): any;
-    createColshapePolygon(...args: any[]): any;
-    createColshapeRectangle(...args: any[]): any;
+    /** A checkpoint: by default CheckpointType 0, radius 2 m, height 1 m, colour 255, 200, 0, 180, visible, dimension 0. It is also a colshape: entering and leaving it fire entityEnterColshape and entityLeaveColshape. */
+    createCheckpoint(options: { pos?: Vector3Like; x?: number; y?: number; z?: number; type?: number; radius?: number; height?: number; color?: RGBALike; streamingDistance?: number; visible?: boolean; dimension?: number; [option: string]: any }): Checkpoint;
+    /** A colshape of that kind, matched without regard to case and handed to the server in lower case (a sphere by default and for an unknown kind): radius 2, half sizes 1, height 2, minZ 0, maxZ 2, dimension 0 unless given. It reports every entity kind unless playersOnly is true. */
+    createColshape(options: { kind?: "sphere" | "box" | "cylinder" | "circle" | "rectangle" | "polygon"; pos?: Vector3Like; x?: number; y?: number; z?: number; radius?: number; halfX?: number; halfY?: number; halfZ?: number; height?: number; minZ?: number; maxZ?: number; points?: ({ x: number; y: number } | number)[]; playersOnly?: boolean; dimension?: number; [option: string]: any }): ColshapeSphere | ColshapeBox | ColshapeCylinder | ColshapeCircle | ColshapeRectangle | ColshapePolygon;
+    /** A box centred on the point with half sizes along x, y and z in metres (1 for a missing one); dimension 0 by default. */
+    createColshapeBox(x: number, y: number, z: number, halfX: number, halfY: number, halfZ: number, dimension?: number): ColshapeBox;
+    /** A circle on the map: any height counts as inside. Radius in metres (2 when missing); dimension 0 by default. */
+    createColshapeCircle(x: number, y: number, radius: number, dimension?: number): ColshapeCircle;
+    /** A cylinder standing on the point, from z up to z + height: radius and height in metres (2 each when missing); dimension 0 by default. */
+    createColshapeCylinder(x: number, y: number, z: number, radius: number, height: number, dimension?: number): ColshapeCylinder;
+    /** A polygon of x, y points (objects, or a flat list of numbers) between minZ and maxZ (0 and 2 when missing); dimension 0 by default. */
+    createColshapePolygon(points: ({ x: number; y: number } | number)[], minZ: number, maxZ: number, dimension?: number): ColshapePolygon;
+    /** A rectangle centred on x, y with half sizes in metres (1 when missing); any height counts as inside. Unlike new ColshapeRectangle(x1, y1, x2, y2), which takes two corners. */
+    createColshapeRectangle(x: number, y: number, halfX: number, halfY: number, dimension?: number): ColshapeRectangle;
+    /** A sphere colshape of the calling resource, removed when it stops: entityEnterColshape and entityLeaveColshape fire for players, vehicles, peds and objects in its dimension (0 by default, -2147483648 every one), checked every colShapeTickRate ms (150 by default). */
     createColshapeSphere(x: number, y: number, z: number, radius: number, dimension?: number): ColshapeSphere;
+    /** A marker of the calling resource, removed when it stops; by default type 1, scale 1, white at alpha 120 and in dimension 0 (-2147483648: every dimension). Every player in its dimension sees it, or only `target` (a player) when one is given. */
     createMarker(options: MarkerOptions): Marker;
-    /** An NPC on the native path (as FiveM CreatePed): the nearest player in range that can own one creates it as its own and runs its tasks; until then it waits without an owner. When its last owner leaves with nobody in range, it waits where it was left and the next player near gets it with its health, armour, clothes and weapons, on foot and without a task: a new netId (fetch()) means a new lifetime, give it its task again. Resolves to its NativePed, null when refused. Destroyed when the resource stops. */
+    /** An NPC on the native path: the nearest player in range that can own one creates it as its own and runs its tasks; until then it waits without an owner. When its last owner leaves with nobody in range, it waits where it was left and the next player near gets it with its health, armour, clothes and weapons, on foot and without a task: a new netId (fetch()) means a new lifetime, give it its task again. Resolves to its NativePed, null when refused. Destroyed when the resource stops. */
     createNativePed(model: number | string, pos: Vector3Like, heading?: number, dimension?: number): Promise<NativePed | null>;
-    /** A train on the native path (FiveM has a client make it, CREATE_MISSION_TRAIN): the nearest player in range of pos, in that dimension, that can own native vehicles makes the engine and every carriage of GTA's train config `variation` (trains.xml: 0..28 in the base game; 0 a freight engine with two cars, 28 the metro) on the nearest train track node, and owns it; the train changes owner as one. Resolves to the engine's NativeVehicle (its carriages: engine.train.carriages); null when no such player is in range now, or its GTA could not make the train. Destroyed when the resource stops. */
+    /** A train on the native path (a client makes it, CREATE_MISSION_TRAIN): the nearest player in range of pos, in that dimension, that can own native vehicles makes the engine and every carriage of GTA's train config `variation` (trains.xml: 0..28 in the base game; 0 a freight engine with two cars, 28 the metro) on the nearest train track node, and owns it; the train changes owner as one. Resolves to the engine's NativeVehicle (its carriages: engine.train.carriages); null when no such player is in range now, or its GTA could not make the train. Destroyed when the resource stops. */
     createNativeTrain(variation: number, pos: Vector3Like, direction?: boolean, dimension?: number): Promise<NativeVehicle | null>;
-    /** A car on the native path (as FiveM CreateVehicle): the nearest player in range that can own it creates it as its own; until then it waits without an owner. When its last owner leaves with nobody in range, it waits where it was left and the next player near gets it as that owner left it: engine, locks, colours, plate, mods, damage and health (a new netId: a new lifetime of the same vehicle). Resolves to its NativeVehicle, null when refused (the vehicle also reads as its id). Destroyed when the resource stops. */
+    /** A car on the native path: the nearest player in range that can own it creates it as its own; until then it waits without an owner. When its last owner leaves with nobody in range, it waits where it was left and the next player near gets it as that owner left it: engine, locks, colours, plate, mods, damage and health (a new netId: a new lifetime of the same vehicle). Resolves to its NativeVehicle, which also reads as its id number; null when refused. Destroyed when the resource stops. */
     createNativeVehicle(model: number | string, pos: Vector3Like, heading?: number, dimension?: number): Promise<NativeVehicle | null>;
-    createObject(...args: any[]): any;
-    createPed(...args: any[]): any;
-    createRadiusBlip(...args: any[]): any;
-    createTextLabel(...args: any[]): any;
-    /** The model is a name (hashed as varion.hash) or a hash; an int32 hash is its uint32, a hash written as text ("0x705E61F2", "1885233650") that hash. 0, an empty name or another type throws. */
+    /** An object of the old path, created without an owner in dimension 0; rot in degrees, a non-finite coordinate counts as 0. A bad model throws at once; when the server creates none (its entity pool is full) the promise rejects with Error. It is removed when the resource stops. */
+    createObject(model: number | string, pos: Vector3Like, rot?: Vector3Like): Promise<Object>;
+    /** An NPC of the old path, created without an owner in dimension 0; rot in degrees, a non-finite coordinate counts as 0. A bad model throws at once; when the server creates none (its entity pool is full) the promise rejects with Error. createNativePed makes an NPC GTA syncs. */
+    createPed(model: number | string, pos: Vector3Like, rot?: Vector3Like): Promise<Ped>;
+    /** A radius blip of radius metres (50 when missing) around the point; color is a BlipColor, dimension 0 by default. Removed when the resource stops. */
+    createRadiusBlip(x: number, y: number, z: number, radius: number, color?: number, dimension?: number): RadiusBlip;
+    /** A 3D text label at the point: by default scale 1, font 0, white, no outline, dimension 0; empty text becomes a space. Removed when the resource stops. */
+    createTextLabel(options: { text?: string; pos?: Vector3Like; x?: number; y?: number; z?: number; scale?: number; font?: number; color?: RGBALike; outline?: boolean; dimension?: number; [option: string]: any }): TextLabel;
+    /** The model is a name (hashed as varion.hash) or a hash; an int32 hash is its uint32, a hash written as text ("0x705E61F2", "1885233650") that hash. 0, an empty name or another type throws. Rejects when the server does not create it (its entity pool is full). */
     createVehicle(model: number | string, pos: Vector3Like, rot?: Vector3Like): Promise<Vehicle>;
-    createVirtualEntity(...args: any[]): any;
-    createVirtualEntityGroup(...args: any[]): any;
-    createVoiceChannel(...args: any[]): any;
-    readonly debug: any;
-    readonly defaultDimension: any;
-    deleteGlobalMeta(...args: any[]): any;
-    deleteMeta(...args: any[]): any;
-    deleteSyncedMeta(...args: any[]): any;
-    /** Removes an NPC createNativePed made, for everyone (as FiveM DELETE_ENTITY): its owner lets its copy go, the others remove the clone. False when it is gone, or when its owner's client did not negotiate owner migration. */
+    /** A virtual entity of the group in dimension 0: streamingDistance is truncated and clamped to 1..group.maxStreamingDistance, data becomes its stream-synced metadata. Rejects with TypeError for an invalid group, and with Error when the server creates none (its entity pool is full, or it no longer has the group). Removed when the resource stops. */
+    createVirtualEntity(group: VirtualEntityGroup, pos: Vector3Like, streamingDistance: number, data?: { [key: string]: any }): Promise<VirtualEntity>;
+    /** A group of virtual entities: a player streams at most maxEntitiesInStream of them (truncated, 1–512, the server's cap per group; 0 or missing: 1) within maxStreamingDistance metres (truncated, 1–20000, 20000 by default), and at most 1024 virtual entities over all groups. Rejects with Error when the server creates none. Destroyed with its entities when the resource stops. */
+    createVirtualEntityGroup(maxEntitiesInStream: number, maxStreamingDistance?: number): Promise<VirtualEntityGroup>;
+    /** A voice channel of this resource: in a spatial one members hear each other within maxDistance metres (50 when missing or not positive; the server keeps it to 1–10000), in a non-spatial one every member hears all. Throws outside a resource's code; destroyed when the resource stops. */
+    createVoiceChannel(spatial: boolean, maxDistance?: number): VoiceChannel;
+    /** True when this resource's [config] table sets debug = true (exactly true); logDebug writes only then. Not server.toml's debug. */
+    readonly debug: boolean;
+    /** Always 0: the dimension players and created entities start in. */
+    readonly defaultDimension: number;
+    /** Another name for deleteSyncedMeta: removes the key from every client; false when it was not set. */
+    deleteGlobalMeta(key: string): boolean;
+    /** Removes a key of the server's own global metadata; false when it was not set. globalMetaChange fires with value undefined. */
+    deleteMeta(key: string): boolean;
+    /** Removes a key of the global synced metadata, from every client too; false when it was not set. globalSyncedMetaChange fires with value undefined. */
+    deleteSyncedMeta(key: string): boolean;
+    /** Removes an NPC createNativePed made, for everyone (DELETE_ENTITY): its owner lets its copy go, the others remove the clone. False when it is gone, or when its owner's client did not negotiate owner migration. */
     destroyNativePed(ped: NativePed | number): Promise<boolean>;
-    /** Removes any native vehicle for everyone, a client script's too (as FiveM DELETE_ENTITY): its owner lets its copy go, the others remove the clone. False when it is gone, or when its owner's client did not negotiate owner migration. A train's engine takes every carriage of its train with it; a carriage behind its engine is not removed alone (false), as FiveM's DeleteEntity. */
+    /** Removes any native vehicle for everyone, a client script's too (DELETE_ENTITY): its owner lets its copy go, the others remove the clone. False when it is gone, or when its owner's client did not negotiate owner migration. A train's engine takes every carriage of its train with it; a carriage behind its engine is not removed alone (false). */
     destroyNativeVehicle(vehicle: NativeVehicle | number): Promise<boolean>;
-    emit(...args: any[]): any;
+    /** A local event for this server's own handlers (varion.on); it does not reach clients. */
+    emit(eventName: string, ...args: any[]): void;
     /** A Player, Vehicle, Ped or Object among the arguments (or inside them) reaches each client as its own object of that id, null where it has none; a value that cannot be sent (a cycle, a BigInt beyond 2^53, binary data, a Map or Set, nesting past 32 levels) throws here. */
     emitAllClients(eventName: string, ...args: any[]): void;
-    /** Not alt:V's raw events: the same path as emitAllClients (JSON with entity references). alt:V's raw codec is not supported, so a Map or Set, binary data or a BigInt beyond 2^53 throws here instead of arriving changed. */
+    /** The same path as emitAllClients (JSON with entity references); there is no separate raw codec, so a Map or Set, binary data or a BigInt beyond 2^53 throws here instead of arriving changed. */
     emitAllClientsRaw(eventName: string, ...args: any[]): void;
-    emitAllClientsUnreliable(...args: any[]): any;
-    emitClient(...args: any[]): any;
-    /** Not alt:V's raw events: the same path as emitClient (JSON with entity references). alt:V's raw codec is not supported, so a Map or Set, binary data or a BigInt beyond 2^53 throws here instead of arriving changed. */
+    /** As emitAllClients, but over the unreliable channel: an event may be lost or arrive out of order. One larger than server.toml maxServerScriptEventSize is not sent (logged). */
+    emitAllClientsUnreliable(eventName: string, ...args: any[]): void;
+    /** Sends an event to one player or to each player of a list; a player who left is skipped. To reach every player use emitAllClients: a null target sends to nobody. */
+    emitClient(target: Player | Player[], eventName: string, ...args: any[]): void;
+    /** The same path as emitClient (JSON with entity references); there is no separate raw codec, so a Map or Set, binary data or a BigInt beyond 2^53 throws here instead of arriving changed. */
     emitClientRaw(target: Player | Player[], eventName: string, ...args: any[]): void;
-    emitClientUnreliable(...args: any[]): any;
-    emitRaw(...args: any[]): any;
+    /** As emitClient, but over the unreliable channel: the event may be lost or arrive out of order. Duplicates and ids outside 1..65534 are skipped; arguments that cannot be sent throw. */
+    emitClientUnreliable(target: Player | Player[], eventName: string, ...args: any[]): void;
+    /** Behaves exactly as emit: a local event for this server's own handlers, values handed over as given. emit copies and serializes nothing either, so there is nothing raw to add; nothing goes to clients. */
+    emitRaw(eventName: string, ...args: any[]): void;
     Entity: typeof Entity;
-    everyTick(...args: any[]): any;
+    /** Calls the handler every 16 ms; clearEveryTick stops it. */
+    everyTick(handler: () => void): any;
     ExplosionType: typeof ExplosionType;
     /** The server's current list: it publishes every change to the mirror first, then answers. */
     fetchNativeVehicles(): Promise<NativeVehicle[]>;
     File: typeof File;
     FileEncoding: typeof FileEncoding;
-    getAllResources(...args: any[]): any;
-    getAmmoHashForWeaponHash(...args: any[]): any;
-    getClosestEntities(...args: any[]): any;
-    getColShapeTickRate(...args: any[]): any;
-    getEntities(...args: any[]): any;
-    getEntitiesInDimension(...args: any[]): any;
-    getEntitiesInRange(...args: any[]): any;
-    /** The entity lockdown of the server, or of one dimension (its own, else the server's): which cars, NPCs and objects a client may create. As FiveM sv_entityLockdown / SetRoutingBucketEntityLockdownMode; server.toml entityLockdown. */
+    /** A new snapshot of every resource the server knows, started or not (as Resource.get gives one). */
+    getAllResources(): Resource[];
+    /** The ammo type hash of a weapon from GTA's weapon data; 0 for a weapon without ammo (melee) or one the table lacks. The hash is read as uint32. */
+    getAmmoHashForWeaponHash(weaponHash: number): number;
+    /** The limit entities nearest to the position (negative or missing limit: all) within range metres (0 or less: everywhere) in the dimension (globalDimension: any), filtered by BaseObjectFilterType bits. sortOrder only orders them: SortOrderEnum.Ascending or Descending by distance; the default NoSorting keeps the order of the entity list. */
+    getClosestEntities(position: Vector3Like, range: number, dimension: number, limit: number, allowedTypes?: number, sortOrder?: number): (Player | Vehicle | Ped | Object | VirtualEntity | NativeVehicle | NativePed)[];
+    /** Milliseconds between the server's colshape checks (server.toml colShapeTickRate, 150 by default). */
+    getColShapeTickRate(): number;
+    /** Every valid entity: players, the old path's vehicles, NPCs, objects and virtual entities, then native vehicles and NPCs. A new array on each call. */
+    getEntities(): (Player | Vehicle | Ped | Object | VirtualEntity | NativeVehicle | NativePed)[];
+    /** Every entity in that dimension (globalDimension: in any), filtered by BaseObjectFilterType bits (all by default); unsorted. */
+    getEntitiesInDimension(dimension: number, allowedTypes?: number): (Player | Vehicle | Ped | Object | VirtualEntity | NativeVehicle | NativePed)[];
+    /** Entities within range metres of the position (0 or less: everywhere) in the dimension (globalDimension: any), filtered by BaseObjectFilterType bits (all by default); unsorted. */
+    getEntitiesInRange(position: Vector3Like, range: number, dimension: number, allowedTypes?: number): (Player | Vehicle | Ped | Object | VirtualEntity | NativeVehicle | NativePed)[];
+    /** The entity lockdown of the server, or of one dimension (its own, else the server's): which cars, NPCs and objects a client may create; server.toml entityLockdown. */
     getEntityLockdown(dimension?: number): EntityLockdownMode;
-    getEventListeners(...args: any[]): any;
-    getGlobalMeta(...args: any[]): any;
-    getGlobalMetaKeys(...args: any[]): any;
-    getLoadedVehicleModels(...args: any[]): any;
-    getMaxStreamingObjects(...args: any[]): any;
-    getMaxStreamingPeds(...args: any[]): any;
-    getMaxStreamingPlayers(...args: any[]): any;
-    getMaxStreamingVehicles(...args: any[]): any;
-    getMeta(...args: any[]): any;
-    getMetaKeys(...args: any[]): any;
-    /** The legacy path's migration distance (server.toml migrationDistance, 150 m by default): a legacy vehicle's network owner moves to a nearer player when it is farther than this. Native vehicles and NPCs do not use it: they change owner as FiveM's OneSync does, when the owner no longer sees them (their streaming distance and the stream-out margin) or changes dimension; setNetOwner chooses one. */
+    /** The handlers of a server event this resource registered (null or none: the generic ones of on(handler)); outside a resource's code, every resource's. */
+    getEventListeners(eventName?: string | null): ((...args: any[]) => any)[];
+    /** Another name for getSyncedMeta. */
+    getGlobalMeta(key: string): any;
+    /** Another name for getSyncedMetaKeys. */
+    getGlobalMetaKeys(): string[];
+    /** Not what the server loaded: the model hashes of every vehicle in the built-in catalog of GTA's own vehicles, sorted ascending; a new array on each call. Add-on vehicles of server packs are not in it. */
+    getLoadedVehicleModels(): number[];
+    /** The most objects of the old path one player streams at once (server.toml maxStreamingObjects, 512 by default). */
+    getMaxStreamingObjects(): number;
+    /** The most NPCs of the old path one player streams at once (server.toml maxStreamingPeds, 512 by default). */
+    getMaxStreamingPeds(): number;
+    /** The most other players one player streams at once (server.toml maxStreamingPlayers, 128 by default). */
+    getMaxStreamingPlayers(): number;
+    /** The most vehicles of the old path one player streams at once (server.toml maxStreamingVehicles, 512 by default). */
+    getMaxStreamingVehicles(): number;
+    /** A value of the server's own global metadata (setMeta); undefined when unset. No client sees it. */
+    getMeta(key: string): any;
+    /** The keys of the server's own global metadata. */
+    getMetaKeys(): string[];
+    /** The legacy path's migration distance (server.toml migrationDistance, 150 m by default): a legacy vehicle's network owner moves to a nearer player when it is farther than this. Native vehicles and NPCs do not use it: they change owner when the owner no longer sees them (their streaming distance and the stream-out margin) or changes dimension; setNetOwner chooses one. */
     getMigrationDistance(): number;
-    getMigrationTickRate(...args: any[]): any;
+    /** Milliseconds between the server's ownership passes on the old path (server.toml migrationTickRate, 100 by default). */
+    getMigrationTickRate(): number;
     /** Every NPC createNativePed made that this host still holds as valid. */
     getNativePeds(): NativePed[];
     /** Every native vehicle, as the host mirrors them (owner and occupant changes at once, positions at most every 100 ms). */
     getNativeVehicles(): NativeVehicle[];
-    getNetTime(...args: any[]): any;
-    getObjects(...args: any[]): any;
-    getPedModelInfoByHash(...args: any[]): any;
-    getPeds(...args: any[]): any;
-    getPlayer(...args: any[]): any;
+    /** The server's network time: milliseconds since it started. Rejects after 5 s without an answer. */
+    getNetTime(): Promise<number>;
+    /** Every valid object of the old path (createObject). A new array on each call. */
+    getObjects(): Object[];
+    /** The same as PedModelInfo.get: a ped model of the built-in GTA catalog by hash or name. Throws Error for a model the catalog lacks. */
+    getPedModelInfoByHash(model: number | string): { readonly hash: number; readonly name: string; readonly type: string; readonly dlcName: string; readonly defaultUnarmedWeapon: string; readonly movementClipSet: string; readonly bones: ReadonlyArray<{ readonly id: number; readonly index: number; readonly name: string }> };
+    /** Every valid NPC: the old path's, then those createNativePed made. A new array on each call. */
+    getPeds(): (Ped | NativePed)[];
+    /** The connected player with this id, or null. */
+    getPlayer(id: number): Player | null;
+    /** How many players are connected now, as getPlayers().length. */
     getPlayerCount(): number;
+    /** Every connected player, ready or not (isReady), from playerConnect through playerDisconnect; a new array on each call. */
     getPlayers(): Player[];
-    getPlayersInDimension(...args: any[]): any;
-    getRemoteEventListeners(...args: any[]): any;
+    /** The connected players whose dimension equals it exactly (truncated to a 32-bit integer); globalDimension finds only players in that very dimension. */
+    getPlayersInDimension(dimension: number): Player[];
+    /** The handlers of a client event (onClient) this resource registered; null or none: the generic ones. Outside a resource's code, every resource's. */
+    getRemoteEventListeners(eventName?: string | null): ((...args: any[]) => any)[];
     /** The [config] table of resource.toml (a copy); {} for an unknown resource. */
     getResourceConfig(resourceName?: string): Record<string, any>;
-    getServerConfig(...args: any[]): any;
-    getStreamingDistance(...args: any[]): any;
-    getStreamingTickRate(...args: any[]): any;
-    getSyncedMeta(...args: any[]): any;
-    getSyncedMetaKeys(...args: any[]): any;
-    getVehicleModelInfoByHash(...args: any[]): any;
-    getVehicles(...args: any[]): any;
-    getVirtualEntities(...args: any[]): any;
-    getVoiceConnectionState(...args: any[]): any;
-    getWeaponModelInfoByHash(...args: any[]): any;
-    readonly globalDimension: any;
-    hasGlobalMeta(...args: any[]): any;
+    /** A copy of the running server configuration. */
+    getServerConfig(): Record<string, any>;
+    /** The server's streaming distance in metres (server.toml streamingDistance, 300 by default). */
+    getStreamingDistance(): number;
+    /** Milliseconds between the server's streaming passes, which decide who sees what (server.toml streamingTickRate, 50 by default). */
+    getStreamingTickRate(): number;
+    /** A value of the global synced metadata, as this host set it; undefined when unset. */
+    getSyncedMeta(key: string): any;
+    /** The keys of the global synced metadata. */
+    getSyncedMetaKeys(): string[];
+    /** A vehicle of the built-in GTA catalog by hash or name (hashed), in older field names than VehicleModelInfo.get (type is a ModelType). Throws Error for a model the catalog lacks, add-on vehicles included. */
+    getVehicleModelInfoByHash(model: number | string): { readonly modelHash: number; readonly title: string; readonly type: number; readonly wheelsCount: number; readonly hasArmoredWindows: boolean; readonly primaryColor: number; readonly secondaryColor: number; readonly pearlColor: number; readonly wheelsColor: number; readonly interiorColor: number; readonly dashboardColor: number; readonly hasAutoAttachTrailer: boolean; readonly availableModkits: readonly [boolean, boolean]; hasExtra(extraId: number): boolean; hasDefaultExtra(extraId: number): boolean; readonly bones: ReadonlyArray<{ readonly id: number; readonly index: number; readonly name: string }>; readonly canAttachCars: boolean; readonly handlingNameHash: number };
+    /** Every valid vehicle: the old path's, then native ones. A new array on each call. */
+    getVehicles(): (Vehicle | NativeVehicle)[];
+    /** Every valid virtual entity. A new array on each call. */
+    getVirtualEntities(): VirtualEntity[];
+    /** The voice service state, a VoiceConnectionState: 1 (connecting) until the server reports it ready (2); 0 once the server shuts down. */
+    getVoiceConnectionState(): number;
+    /** A weapon of the built-in GTA catalog by hash or name, as WeaponModelInfo.get but with modelName for its model. Throws Error for a weapon the catalog lacks. */
+    getWeaponModelInfoByHash(weapon: number | string): { readonly hash: number; readonly name: string; readonly modelName: string; readonly modelHash: number; readonly ammoTypeHash: number; readonly ammoType: string; readonly ammoModelName: string; readonly ammoModelHash: number; readonly defaultMaxAmmoMp: number; readonly skillAbove50MaxAmmoMp: number; readonly maxSkillMaxAmmoMp: number; readonly bonusMaxAmmoMp: number; readonly damageType: string };
+    /** The dimension every player sees, -2147483648. */
+    readonly globalDimension: number;
+    /** Another name for hasSyncedMeta. */
+    hasGlobalMeta(key: string): boolean;
+    /** GTA's joaat hash of the text in lower case, as an unsigned 32-bit number (GET_HASH_KEY for an ASCII name); anything else is turned into text first. */
     hash(name: string): number;
-    hashServerPassword(...args: any[]): any;
-    hasMeta(...args: any[]): any;
-    hasResource(...args: any[]): any;
-    hasSyncedMeta(...args: any[]): any;
-    readonly isClient: any;
-    readonly isServer: any;
+    /** SHA-256 of the text as 64 lowercase hex characters, the same as stringToSHA256. Not comparable with a ConnectionInfo passwordHash or the hash in playerConnectDenied: the client binds those to its connection's transport key, which scripts do not get. The server checks its password itself: a connection scripts see has passed it, a wrong one arrives as playerConnectDenied. */
+    hashServerPassword(password: string): string;
+    /** Whether the server's own global metadata has the key. */
+    hasMeta(key: string): boolean;
+    /** Whether the server knows a resource of that name, started or not. */
+    hasResource(resourceName: string): boolean;
+    /** Whether the global synced metadata has the key. */
+    hasSyncedMeta(key: string): boolean;
+    /** Always false on the server. */
+    readonly isClient: boolean;
+    /** Always true on the server. */
+    readonly isServer: boolean;
     KeyCode: typeof KeyCode;
+    /** Writes one line to the server console at info level: each argument through String() (an object reads [object Object]), joined by spaces; a line over 8192 bytes is cut. */
     log(...args: any[]): void;
-    logDebug(...args: any[]): any;
+    /** Writes a debug line formatted as console.log formats it (util.format), only while this resource's [config] sets debug = true. */
+    logDebug(...args: any[]): void;
+    /** As log, at error level. */
     logError(...args: any[]): void;
+    /** As log, at warning level. */
     logWarning(...args: any[]): void;
     Marker: typeof Marker;
     MarkerType: typeof MarkerType;
     ModelType: typeof ModelType;
     NativePed: typeof NativePed;
     NativeVehicle: typeof NativeVehicle;
-    nextTick(...args: any[]): any;
+    /** Runs the handler once with the extra arguments after the current work of the event loop (setImmediate); clearNextTick cancels it. It does not run after the resource stopped. */
+    nextTick(handler: (...args: any[]) => void, ...args: any[]): any;
     NumberPlateStyle: typeof NumberPlateStyle;
     Object: typeof Object;
+    /** Removes this resource's registrations of the handler for the event, once() ones included; off(handler) removes one that on(handler) registered for every event. Another resource's handlers are never touched. */
     off<E extends VarionEventName>(event: E, handler: VarionEventHandler<E>): void;
     off(handler: (event: string, ...args: any[]) => void): void;
+    /** Removes this resource's onClient registrations of the handler for the event; offClient(handler) removes one registered for every client event. Another resource's handlers are never touched. */
     offClient(eventName: string, handler: (player: Player, ...args: any[]) => void): void;
     offClient(handler: (eventName: string, player: Player, ...args: any[]) => void): void;
-    offRpc(...args: any[]): any;
+    /** Removes the RPC handler of that name if this resource registered it (with a handler: only if it is that one). There is one handler per name. */
+    offRpc(rpcName: string, handler?: (player: Player, ...args: any[]) => any): void;
+    /** Calls the handler on each such event, from the server or varion.emit; on(handler) gets every event, its name first. It runs only while its resource runs and goes when it stops, a throw in it is logged, and registering outside a resource's code throws. */
     on<E extends VarionEventName>(event: E, handler: VarionEventHandler<E>): void;
     on(handler: (event: string, ...args: any[]) => void): void;
+    /** As on, but the handler is removed before its first call. */
     once<E extends VarionEventName>(event: E, handler: VarionEventHandler<E>): void;
     once(handler: (event: string, ...args: any[]) => void): void;
-    onceClient(...args: any[]): any;
+    /** As onClient, but the handler is removed after its first call. Throws outside a resource's code; a non-function handler is ignored. */
+    onceClient(eventName: string, handler: (player: Player, ...args: any[]) => void): void;
+    onceClient(handler: (eventName: string, player: Player, ...args: any[]) => void): void;
+    /** Calls the handler with the sending player and the arguments when a client sends the event (emitServer there); onClient(handler) gets every client event, its name first. Entity references arrive as this server's objects (null where it has none); registering outside a resource's code throws. */
     onClient(eventName: string, handler: (player: Player, ...args: any[]) => void): void;
     onClient(handler: (eventName: string, player: Player, ...args: any[]) => void): void;
     /** The handler's result (or the value its Promise resolves to) is the client's answer; a throw rejects the client's callServer. */
@@ -6299,55 +7691,100 @@ declare const vari: {
     Quaternion: typeof Quaternion;
     RadioStation: typeof RadioStation;
     RadiusBlip: typeof RadiusBlip;
-    registerRayfireTarget(...args: any[]): any;
-    registerWorldStateTarget(...args: any[]): any;
-    readonly Resource: typeof Resource;
-    readonly resourceName: any;
-    restartResource(...args: any[]): any;
+    /** Registers a Rayfire map object (such as breakable glass) by its exact GTA name at a place, radius 0.25–10 m (3 by default); with allowReports clients' reports of it are accepted. Names: 1–63 of A–Z a–z 0–9 _ . -; a bad name, radius, position, dimension or non-boolean allowReports throws. */
+    registerRayfireTarget(exactName: string, position: Vector3Like, radius?: number, dimension?: number, allowReports?: boolean): void;
+    /** Registers a door ("door", 1) or prop ("prop", 3) of a model name or hash at a place as a world-state target; with allowClientReports clients' reports of its state are accepted. Throws for glass, subject 0, coordinates beyond ±100000, a non-integer dimension or a non-boolean allowClientReports. */
+    registerWorldStateTarget(kind: number | string, subject: number | string, position: Vector3Like, dimension?: number, allowClientReports?: boolean): void;
+    Resource: typeof Resource;
+    /** The name of the resource whose code is running. */
+    readonly resourceName: string;
+    /** Stops and starts a resource. Queued. */
+    restartResource(resourceName: string): void;
     RGBA: typeof RGBA;
-    readonly rootDir: any;
-    readonly sdkVersion: any;
-    setAmbientPopulation(...args: any[]): any;
-    setBlackout(...args: any[]): any;
-    setClockRate(...args: any[]): any;
-    setColShapeTickRate(...args: any[]): any;
-    setDateTime(...args: any[]): any;
-    setDoorState(...args: any[]): any;
-    /** Sets the entity lockdown of the server, or of one dimension (FiveM SetRoutingBucketEntityLockdownMode); null with a dimension gives it the server's mode again. A client's new entity is judged by its owner's dimension; one the mode refuses is removed at once, at its owner too. */
-    setEntityLockdown(mode: EntityLockdownMode | null, dimension?: number): void;
-    setGlassState(...args: any[]): any;
-    setGlobalMeta(...args: any[]): any;
-    setGravity(...args: any[]): any;
+    /** The server's root folder (the folder of server.toml) when the core names it to the script host; otherwise the host's working directory (process.cwd()), which is the server's root on Linux and the bundled Node runtime's folder on Windows. */
+    readonly rootDir: string;
+    /** The same text as version, the engine version: the engine's SDK (types and client runtime) carries the engine's version. It is not the version of the varion command-line tools. */
+    readonly sdkVersion: string;
+    /** "local" (or 1): each GTA makes its own ambient NPCs and cars at these densities, 0–1 (1 by default; scenarioPeds follows peds, parkedVehicles follows vehicles), not synced between players. Any other mode: only server entities, random events suppressed; a density outside 0–1 makes the server ignore the call. */
+    setAmbientPopulation(mode?: "server" | "local" | 0 | 1, densities?: { peds?: number; scenarioPeds?: number; vehicles?: number; parkedVehicles?: number }): void;
+    /** Turns the city's artificial lights off for every player (SET_ARTIFICIAL_LIGHTS_STATE); affectsVehicles (true by default) takes vehicle lights too. */
+    setBlackout(enabled: boolean, affectsVehicles?: boolean): void;
+    /** How fast the world clock runs for every player: game seconds per real second, 0–3600; another value is ignored. */
+    setClockRate(gameSecondsPerRealSecond: number): void;
+    /** Sets the milliseconds between the server's colshape checks: truncated and clamped to 1–60000; a value that is not a finite number keeps the current one. */
+    setColShapeTickRate(rate: number): void;
+    /** Sets the world date and time for every player: month 0–11 (0 is January), day 1–31 within that month, year 1–9999, values truncated to integers. An invalid date is ignored. */
+    setDateTime(day: number, month: number, year: number, hour: number, minute: number, second?: number): void;
+    /** Sets a map door's door-system state (an integer 0–6) and, when given, its open ratio (-1 to 1) for the players of the dimension (worldStateGlobalDimension: all). A bad door, state, ratio, position or dimension throws. */
+    setDoorState(doorHash: number | string, position: Vector3Like, systemState: number, openRatio?: number | null, dimension?: number): void;
+    /** Sets the entity lockdown of the server, or of one dimension; null with a dimension gives it the server's mode again. A client's new entity is judged by its owner's dimension; one the mode refuses is removed at once, at its owner too. */
+    setEntityLockdown(mode: EntityLockdownMode): void;
+    setEntityLockdown(mode: EntityLockdownMode | null, dimension: number): void;
+    /** Breaks (true, the default) or mends (false) the glass of a Rayfire target that registerRayfireTarget made under the same exact name, position and dimension, for the players of the dimension; the server ignores a target it does not have. A bad name, position or dimension, or a non-boolean broken throws. */
+    setGlassState(exactName: string, position: Vector3Like, broken?: boolean, dimension?: number): void;
+    /** Another name for setSyncedMeta: every client reads the value. Key 1–1024 UTF-8 bytes, value up to 512 KiB as JSON; throws for a value that cannot be sent. */
+    setGlobalMeta(key: string, value: any): void;
+    setGlobalMeta(values: { [key: string]: any }): void;
+    /** GTA's gravity preset for every player (SET_GRAVITY_LEVEL), 0–3, truncated to an integer; another value is ignored. */
+    setGravity(level: number): void;
+    /** Node's setInterval for the calling resource: the handler runs in its context every delay ms with the extra arguments (a throw is logged, the timer goes on) until clearInterval or the resource stops. Returns Node's Timeout handle. */
     setInterval(handler: (...args: any[]) => void, delay?: number, ...args: any[]): any;
-    setMapObjectDestroyed(...args: any[]): any;
-    setMaxStreamingObjects(...args: any[]): any;
-    setMaxStreamingPeds(...args: any[]): any;
-    setMaxStreamingPlayers(...args: any[]): any;
-    setMaxStreamingVehicles(...args: any[]): any;
-    setMeta(...args: any[]): any;
+    /** Marks a static map object of that model within radius metres (0.05–50, 1 by default) of the position as destroyed, or restores it with destroyed false, for every player, later ones too. A bad call (model 0, radius or coordinates out of range, over 4096 objects) is logged and ignored. */
+    setMapObjectDestroyed(model: number | string, position: Vector3Like, radius?: number, destroyed?: boolean): void;
+    /** Sets how many objects of the old path one player streams at most: truncated and clamped to 0–512; a value that is not a finite number keeps the current one. */
+    setMaxStreamingObjects(limit: number): void;
+    /** Sets how many NPCs of the old path one player streams at most: truncated and clamped to 0–512; a value that is not a finite number keeps the current one. */
+    setMaxStreamingPeds(limit: number): void;
+    /** Sets how many other players one player streams at most: truncated and clamped to 0–128 (0 counts as 1); a value that is not a finite number keeps the current one. */
+    setMaxStreamingPlayers(limit: number): void;
+    /** Sets how many vehicles of the old path one player streams at most: truncated and clamped to 0–512; a value that is not a finite number keeps the current one. */
+    setMaxStreamingVehicles(limit: number): void;
+    /** The server's own global metadata: no client sees it; globalMetaChange fires on a change. */
+    setMeta(key: string, value: any): void;
     /** Sets the legacy path's migration distance (1..20000 m); native vehicles and NPCs do not use it (getMigrationDistance). */
     setMigrationDistance(distance: number): void;
-    setMigrationTickRate(...args: any[]): any;
-    setPassword(...args: any[]): any;
-    setPropState(...args: any[]): any;
-    setRandomEventsSuppressed(...args: any[]): any;
-    setStreamingDistance(...args: any[]): any;
-    setStreamingTickRate(...args: any[]): any;
-    setSyncedMeta(...args: any[]): any;
-    setTime(...args: any[]): any;
+    /** Sets the milliseconds between the server's ownership passes on the old path: truncated and clamped to 1–60000; a value that is not a finite number keeps the current one. */
+    setMigrationTickRate(rate: number): void;
+    /** Sets the server password for the next connections; an empty string turns it off. Throws TypeError for a non-string and RangeError past 1024 UTF-8 bytes. */
+    setPassword(password: string): void;
+    /** Deletes a map prop of that model at the position for the players of the dimension (worldStateGlobalDimension: all). flags must be WorldPropState.Deleted (2), the default; another flag, a bad model, position or dimension throws. */
+    setPropState(model: number | string, position: Vector3Like, flags?: number, dimension?: number): void;
+    /** Turns GTA's random events off (true) or back on for every player; turning them on works only in setAmbientPopulation("local"). */
+    setRandomEventsSuppressed(suppressed: boolean): void;
+    /** Sets the server's streaming distance: truncated and clamped to 1–20000 m; a value that is not a finite number keeps the current one. */
+    setStreamingDistance(distance: number): void;
+    /** Sets the milliseconds between the server's streaming passes, which decide who sees what: truncated and clamped to 1–60000; a value that is not a finite number keeps the current one. */
+    setStreamingTickRate(rate: number): void;
+    /** Global synced metadata: every client reads it (getSyncedMeta there); globalSyncedMetaChange fires on a change. Throws for a value that cannot be sent. */
+    setSyncedMeta(key: string, value: any): void;
+    /** Sets the world clock for every player: hour 0–23, minute and second 0–59, each truncated to an integer; a call with a value out of range is ignored. */
+    setTime(hour: number, minute: number, second?: number): void;
+    /** Node's setTimeout for the calling resource: the handler runs once in its context after delay ms with the extra arguments (a throw is logged), unless clearTimeout or the resource's stop comes first. Returns Node's Timeout handle. */
     setTimeout(handler: (...args: any[]) => void, delay?: number, ...args: any[]): any;
-    setTimeScale(...args: any[]): any;
-    setTrafficLightCycle(...args: any[]): any;
-    setTrafficLightsAuthoritative(...args: any[]): any;
-    setWeather(...args: any[]): any;
+    /** The game speed for every player, 0.05–1 (1 is normal); another value is ignored. */
+    setTimeScale(scale: number): void;
+    /** The server's traffic-light cycle, restarted now: green 1000–120000 ms, yellow 500–30000 ms, truncated; out of range is ignored. Clients follow it while setTrafficLightsAuthoritative(true). */
+    setTrafficLightCycle(greenMs: number, yellowMs: number): void;
+    /** True: each client drives the traffic lights near it by the server's cycle (setTrafficLightCycle), so every player sees the same lights; false gives them back to GTA. */
+    setTrafficLightsAuthoritative(enabled: boolean): void;
+    /** A WeatherType value; transitionMs blends from the current weather (0: at once). */
+    setWeather(weather: number, transitionMs?: number): void;
     SortOrderEnum: typeof SortOrderEnum;
-    startResource(...args: any[]): any;
-    stopResource(...args: any[]): any;
-    stopServer(...args: any[]): any;
-    stringToSHA256(...args: any[]): any;
-    time(...args: any[]): any;
-    timeEnd(...args: any[]): any;
-    unregisterRayfireTarget(...args: any[]): any;
+    /** Starts a resource. Queued: resourceStart follows when it runs. */
+    startResource(resourceName: string): void;
+    /** Stops a resource. Queued: resourceStop follows when it stops. */
+    stopResource(resourceName: string): void;
+    /** Asks the server to shut down in order; it stops at its next tick. */
+    stopServer(): void;
+    /** SHA-256 of the text in UTF-8, as 64 lowercase hex characters; a non-string is converted with String. */
+    stringToSHA256(value: string): string;
+    TextLabel: typeof TextLabel;
+    /** Starts a timer under the label ("default" by default); timeEnd logs it. Labels are shared by every resource of the host. */
+    time(label?: string): void;
+    /** Logs "label: N.NNNms" since time(label) and forgets the label; does nothing for a label time did not start. */
+    timeEnd(label?: string): void;
+    /** Removes a Rayfire target that registerRayfireTarget made, with its state. Throws for a bad name, position or dimension. */
+    unregisterRayfireTarget(exactName: string, position: Vector3Like, dimension?: number): void;
     Utils: typeof Utils;
     Vector2: typeof Vector2;
     Vector3: typeof Vector3;
@@ -6361,7 +7798,8 @@ declare const vari: {
     VehicleModType: typeof VehicleModType;
     VehiclePart: typeof VehiclePart;
     VehiclePartDamage: typeof VehiclePartDamage;
-    readonly version: any;
+    /** The engine version as "major.minor.patch" text. */
+    readonly version: string;
     VirtualEntity: typeof VirtualEntity;
     VirtualEntityGroup: typeof VirtualEntityGroup;
     VoiceChannel: typeof VoiceChannel;
@@ -6372,21 +7810,17 @@ declare const vari: {
     WorldObject: typeof WorldObject;
     worldObjects: typeof worldObjects;
     WorldPropState: typeof WorldPropState;
-    worldStateGlobalDimension: any;
+    /** -2147483648: the dimension to give setDoorState, setPropState and the Rayfire calls for a state every dimension shares. */
+    worldStateGlobalDimension: number;
     WorldStateKind: typeof WorldStateKind;
 };
 
-/** Same-reference compatibility aliases exposed by the runtime. */
-declare const varion: typeof vari;
-declare const alt: typeof vari;
-/** The type of the API object; vari, varion and alt are the same object. */
-export type VarionApi = typeof vari;
-export { vari, varion, alt };
-export default vari;
+/** The type of the VARION API object. */
+export type VarionApi = typeof varion;
+export { varion };
+export default varion;
 
 // Resource scripts use the API as globals, without importing anything.
 declare global {
-    const vari: VarionApi;
     const varion: VarionApi;
-    const alt: VarionApi;
 }

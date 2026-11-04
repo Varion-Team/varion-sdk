@@ -1,5 +1,5 @@
 # main -> test, tags v* -> prod, any other branch -> its own preview server.
-# Secrets: VARION_SDK_TOKEN, VARION_DEPLOY_TOKEN, VARION_DEPLOY_KEY (see README.md).
+# Secrets: VARION_DEPLOY_TOKEN, VARION_DEPLOY_KEY (see README.md).
 name: Deploy
 
 on:
@@ -32,14 +32,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-
-      - name: Access the Varion SDK
-        shell: bash
-        env:
-          SDK_TOKEN: ${{ secrets.VARION_SDK_TOKEN }}
-        run: |
-          git config --global url."https://x-access-token:${SDK_TOKEN}@github.com/Varion-Team/".insteadOf "https://github.com/Varion-Team/"
-          git config --global --add url."https://x-access-token:${SDK_TOKEN}@github.com/Varion-Team/".insteadOf "ssh://git@github.com/Varion-Team/"
 
       - run: npm ci
 

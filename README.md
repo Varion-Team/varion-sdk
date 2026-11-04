@@ -9,4 +9,4 @@ cd my-mode
 npm run dev
 ```
 
-Needs Node.js 22.12+. Documentation is on [varionmp.net](https://varionmp.net).
+Needs Node.js 22.12+. Documentation: [docs.varionmp.net](https://docs.varionmp.net).

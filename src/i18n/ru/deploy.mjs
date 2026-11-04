@@ -1,4 +1,6 @@
 export default {
+  'the cabinet returned invalid release metadata': 'кабинет вернул некорректные данные выпуска',
+  'the cabinet returned invalid deploy metadata': 'кабинет вернул некорректные данные выкладки',
   // developer key
   '{source} is not a PEM private key': '{source} — не закрытый ключ PEM',
   '{source}: the key type is {type}, but deploy requests are signed with Ed25519':

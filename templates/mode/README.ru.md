@@ -10,7 +10,8 @@ npm run dev
 Заходи на `varion://127.0.0.1:<port>` из лаунчера Varion. Режим перезапускается при сохранении.
 <!-- if db -->
 
-При первом запуске поднимается локальная MariaDB в `.varion/db`, настройки пишутся в `.env`.
+В Windows первый запуск поднимает локальную MariaDB в `.varion/db` и пишет настройки в `.env`;
+в других системах впиши свою базу в `.env`.
 <!-- end db -->
 
 - `npm run check` – проверка типов
@@ -24,7 +25,6 @@ npm run dev
 `npx varion deploy test --rollback` возвращает предыдущий выпуск. Push на GitHub выкладывает сам:
 `main` — на test, теги `v*` — на prod, остальные ветки — на сервер превью. Сценарию нужны секреты:
 
-- `VARION_SDK_TOKEN` – токен GitHub с доступом на чтение к `Varion-Team/varion-sdk`
 - `VARION_DEPLOY_TOKEN` – токен разработчика из кабинета
 - `VARION_DEPLOY_KEY` – закрытый ключ для подписи выкладки
 

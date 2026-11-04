@@ -17,6 +17,8 @@ import {
   writeJsonAtomic,
 } from '../shared/fs.mjs';
 import { isLoopbackHost } from '../shared/http.mjs';
+import { canonicalJson } from '../shared/canonical-json.mjs';
+export { canonicalJson };
 
 export const DEPLOY_ENV = /^(test|prod|preview-[a-z0-9][a-z0-9._-]{0,62})$/;
 export const RELEASE_ID = /^\d{8}-\d{6}-[0-9a-f]{8}$/;
@@ -198,21 +200,6 @@ export function initKeys({ env = process.env, dir = keysDir(env), force = false 
 
 // ---- signed request ----
 
-export function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value)
-      .sort()
-      .filter((key) => value[key] !== undefined)
-      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
-      .join(',')}}`;
-  }
-  if (typeof value === 'number' && !Number.isFinite(value)) {
-    throw new TypeError('not representable in JSON');
-  }
-  return JSON.stringify(value);
-}
-
 export function buildDeployRequest({
   action = 'activate',
   env,
@@ -268,7 +255,8 @@ export function buildDeployRequest({
   return { action, env, issuedAt, nonce, project, releaseId, serverId, sha256 };
 }
 
-export function signDeployRequest(request, { privateKey, env = process.env, dir } = {}) {
+export function signDeployRequest(input, { privateKey, env = process.env, dir } = {}) {
+  const request = buildDeployRequest(input);
   let key;
   if (!privateKey) key = loadKey(dir || keysDir(env), env).key;
   else if (privateKey instanceof crypto.KeyObject) key = privateKey;
@@ -282,8 +270,10 @@ export function signDeployRequest(request, { privateKey, env = process.env, dir 
   return { request, signature, publicKey: rawPublicKey(key).toString('base64') };
 }
 
-export function verifyDeployRequest({ request, signature, publicKey }) {
+export function verifyDeployRequest(envelope) {
   try {
+    const { request: input, signature, publicKey } = envelope;
+    const request = buildDeployRequest(input);
     const raw = Buffer.from(String(publicKey), 'base64');
     const sig = Buffer.from(String(signature), 'base64');
     if (raw.length !== 32 || sig.length !== 64) return false;
@@ -453,7 +443,13 @@ function send({
       let sent = 0;
       stream.on('data', (chunk) => {
         sent += chunk.length;
-        if (onProgress) onProgress({ sent, total: file.size });
+        try {
+          if (onProgress) onProgress({ sent, total: file.size });
+        } catch (error) {
+          settle(reject, error);
+          stream.destroy();
+          req.destroy();
+        }
       });
       stream.on('error', (error) => req.destroy(error));
       req.on('close', () => stream.destroy());
@@ -515,7 +511,12 @@ export async function listReleases({
   checkTarget({ serverId, token });
   const url = endpoint(cabinetUrl, `${serverPath(serverId)}/releases`, { allowInsecureHttp });
   const answer = await withRetries(() => send({ url, token }), retries);
-  if (answer.status !== 200 || !answer.body || typeof answer.body !== 'object') {
+  if (
+    answer.status !== 200 ||
+    !answer.body ||
+    typeof answer.body !== 'object' ||
+    Array.isArray(answer.body)
+  ) {
     throw refusal(answer, t('cannot list the releases'));
   }
   return answer.body;
@@ -545,20 +546,37 @@ export async function uploadRelease({
     });
   }
   const { sha256 } = await sha256File(bundlePath);
+  const uploaded = (body, existing) => {
+    if (
+      !body ||
+      typeof body !== 'object' ||
+      typeof body.releaseId !== 'string' ||
+      !RELEASE_ID.test(body.releaseId) ||
+      typeof body.project !== 'string' ||
+      !PROJECT.test(body.project) ||
+      typeof body.env !== 'string' ||
+      !DEPLOY_ENV.test(body.env)
+    ) {
+      throw new DeployError(t('the cabinet returned invalid release metadata'), {
+        code: 'bad_answer',
+      });
+    }
+    return {
+      releaseId: body.releaseId,
+      sha256,
+      size: stat.size,
+      project: body.project,
+      env: body.env,
+      existing,
+    };
+  };
   // a refused token or server shows up before a byte of the bundle is sent
   const listed = await listReleases({ cabinetUrl, serverId, token, retries, allowInsecureHttp });
   const known = (Array.isArray(listed.releases) ? listed.releases : []).find(
     (release) => release && release.sha256 === sha256 && release.stored !== false,
   );
   if (known) {
-    return {
-      releaseId: known.releaseId,
-      sha256,
-      size: stat.size,
-      project: known.project,
-      env: known.env,
-      existing: true,
-    };
+    return uploaded(known, true);
   }
   const limit = listed.limits && Number(listed.limits.maxBundleBytes);
   if (limit && stat.size > limit) {
@@ -597,14 +615,7 @@ export async function uploadRelease({
       { code: 'sha256_mismatch' },
     );
   }
-  return {
-    releaseId: body.releaseId,
-    sha256,
-    size: Number(body.size) || stat.size,
-    project: body.project,
-    env: body.env,
-    existing: !!body.existing,
-  };
+  return uploaded(body, !!body.existing);
 }
 
 // a rollback names the active release, and the host goes back to the one before it
@@ -625,13 +636,20 @@ export async function requestDeploy({
   const request = buildDeployRequest({ action, env, project, releaseId, serverId, sha256 });
   const body = signDeployRequest(request, { privateKey, dir });
   const url = endpoint(cabinetUrl, `${serverPath(serverId)}/deploys`, { allowInsecureHttp });
-  const accepted = (deployId, status) => ({
-    deployId,
-    status,
-    request,
-    publicKey: body.publicKey,
-    fingerprint: keyFingerprint(body.publicKey),
-  });
+  const accepted = (deployId, status = 'queued') => {
+    if (typeof deployId !== 'string' || !deployId || typeof status !== 'string' || !status) {
+      throw new DeployError(t('the cabinet returned invalid deploy metadata'), {
+        code: 'bad_answer',
+      });
+    }
+    return {
+      deployId,
+      status,
+      request,
+      publicKey: body.publicKey,
+      fingerprint: keyFingerprint(body.publicKey),
+    };
+  };
   let answer;
   let resent = false;
   try {
@@ -660,7 +678,7 @@ export async function requestDeploy({
       code: 'bad_answer',
     });
   }
-  return accepted(deployId, answer.body.status || 'queued');
+  return accepted(deployId, answer.body.status);
 }
 
 export async function getDeploy({

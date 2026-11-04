@@ -1,7 +1,7 @@
 {
   "name": "@varion/sdk",
-  "version": "1.0.0",
-  "description": "Tools for building game modes on Varion: the varion command line, varion host, live UI and the test bot driver.",
+  "version": "1.0.1",
+  "description": "Tools for building game modes on Varion: the varion command line, varion host, live UI and runtime declarations.",
   "private": true,
   "license": "UNLICENSED",
   "author": "Varion Team",
@@ -18,9 +18,18 @@
   },
   "exports": {
     "./package.json": "./package.json",
-    "./deploy": "./src/deploy/client.mjs",
-    "./dev-ui": "./src/dev-ui/index.mjs",
-    "./dev-ui/vite": "./src/dev-ui/vite.mjs"
+    "./deploy": {
+      "types": "./src/deploy/client.d.mts",
+      "default": "./src/deploy/client.mjs"
+    },
+    "./dev-ui": {
+      "types": "./src/dev-ui/index.d.mts",
+      "default": "./src/dev-ui/index.mjs"
+    },
+    "./dev-ui/vite": {
+      "types": "./src/dev-ui/vite.d.mts",
+      "default": "./src/dev-ui/vite.mjs"
+    }
   },
   "files": [
     "bin/",
@@ -39,9 +48,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "24.19.0",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "prettier": "^3.9.10",
+    "typescript": "5.9.3",
     "vite": "^8.3.5"
   },
   "prettier": {

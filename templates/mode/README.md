@@ -10,7 +10,8 @@ npm run dev
 Join `varion://127.0.0.1:<port>` from the Varion launcher. The mode restarts on save.
 <!-- if db -->
 
-The first run sets up a local MariaDB in `.varion/db` and writes its settings to `.env`.
+On Windows the first run sets up a local MariaDB in `.varion/db` and writes its settings to
+`.env`; on other systems put your own database into `.env`.
 <!-- end db -->
 
 - `npm run check` – type check
@@ -25,7 +26,6 @@ Sign in once with `npx varion login`, then `npx varion deploy test` (or `prod`);
 automatically: `main` to test, `v*` tags to prod, other branches to a preview server. The workflow
 needs these secrets:
 
-- `VARION_SDK_TOKEN` – GitHub token with read access to `Varion-Team/varion-sdk`
 - `VARION_DEPLOY_TOKEN` – developer token from the cabinet
 - `VARION_DEPLOY_KEY` – private key for signing deploys
 

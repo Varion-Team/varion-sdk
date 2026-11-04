@@ -9,7 +9,7 @@ import { tomlString } from './toml.mjs';
 export const SDK_TYPE_FILES = ['varion-server.d.ts', 'varion-client.d.ts', 'varion-natives.d.ts'];
 
 // the engine a new project starts on
-export const DEFAULT_ENGINE = { version: '1.0.76', channel: 'rc' };
+export const DEFAULT_ENGINE = { version: '1.0.83', channel: 'rc' };
 
 // what the template is tested with
 export const TEMPLATE_VERSIONS = {

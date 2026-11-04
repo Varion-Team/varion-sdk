@@ -3,6 +3,8 @@ import { t } from '../i18n/index.mjs';
 import { readJson, writeJsonAtomic } from '../shared/fs.mjs';
 import { RequestRejected } from './errors.mjs';
 import { decodeBase64, findTrusted } from './keys.mjs';
+import { canonicalJson } from '../shared/canonical-json.mjs';
+export { canonicalJson };
 
 export const REQUEST_FIELDS = Object.freeze([
   'action',
@@ -26,17 +28,6 @@ const RELEASE_ID = /^\d{8}-\d{6}-[0-9a-f]{8}$/;
 const SERVER_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const SHA256 = /^[0-9a-f]{64}$/;
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
-
-export function canonicalJson(value) {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
-  if (value && typeof value === 'object') {
-    return `{${Object.keys(value)
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
-      .join(',')}}`;
-  }
-  return JSON.stringify(value);
-}
 
 // the signed fields only: the cabinet may add its own
 export function canonicalRequest(request) {

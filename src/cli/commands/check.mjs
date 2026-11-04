@@ -27,6 +27,9 @@ export async function run(argv, { output: root }) {
   for (const part of ['server', 'client', 'ui']) {
     if (!build[part]) continue;
     const entry = path.resolve(project.root, build[part]);
+    if (part === 'server' && (!fs.existsSync(entry) || !fs.statSync(entry).isFile())) {
+      throw new CliError(t('server entry is not a file: {file}', { file: build[part] }));
+    }
     if (!fs.existsSync(entry)) continue;
     const tsconfig = findTsconfig(project.root, part === 'ui' ? entry : path.dirname(entry));
     if (tsconfig) sides.push({ name: part, tsconfig });

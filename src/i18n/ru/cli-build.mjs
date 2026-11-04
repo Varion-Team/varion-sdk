@@ -1,5 +1,6 @@
 export default {
   // varion build, varion check
+  'server entry is not a file: {file}': 'точка входа сервера не является файлом: {file}',
   'the build failed (errors above)': 'сборка не прошла (ошибки выше)',
   'done: {resource} ({seconds} s)': 'готово: {resource} ({seconds} с)',
   'varion check is for the standard build ([build] server/client/ui); this project has its own [build.steps]':
