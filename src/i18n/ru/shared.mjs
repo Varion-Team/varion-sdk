@@ -108,6 +108,8 @@ export default {
   'engine manifest: "{path}" is listed twice': 'манифест движка: «{path}» указан дважды',
   'the engine package {version} has no {exe} (a package for another system?)':
     'в пакете движка {version} нет {exe} (пакет для другой системы?)',
+  'engine {version} ({channel}) has no package for {system}':
+    'у движка {version} ({channel}) нет пакета для {system}',
   '{dir} has no signed engine manifest': 'в {dir} нет подписанного манифеста движка',
   'the engine manifest signature does not match the Varion release key':
     'подпись манифеста движка не сходится с ключом выпусков Varion',

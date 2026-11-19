@@ -4,6 +4,7 @@ import path from 'node:path';
 import { after, before, describe, it } from 'node:test';
 import {
   EngineStore,
+  engineManifestName,
   enginePackageName,
   RELEASE_KEY,
   serverExecutableName,
@@ -30,11 +31,21 @@ after(async () => {
   removeDir(work);
 });
 
-function publish(version, pkg, { signature = pkg.signature, channel = 'rc' } = {}) {
+function publish(
+  version,
+  pkg,
+  {
+    signature = pkg.signature,
+    channel = 'rc',
+    platform = process.platform,
+    arch = process.arch,
+  } = {},
+) {
   const base = `/Varion-Server/${channel}/${version}`;
-  cdn.serve(`${base}/server-manifest.json`, pkg.manifestBytes);
-  cdn.serve(`${base}/server-manifest.json.sig`, Buffer.from(`${signature}\n`));
-  cdn.serve(`${base}/${enginePackageName(version)}`, pkg.zip);
+  const manifest = engineManifestName(platform, arch);
+  cdn.serve(`${base}/${manifest}`, pkg.manifestBytes);
+  cdn.serve(`${base}/${manifest}.sig`, Buffer.from(`${signature}\n`));
+  cdn.serve(`${base}/${enginePackageName(version, platform, arch)}`, pkg.zip);
 }
 
 function store(name, options = {}) {
@@ -75,6 +86,48 @@ describe('EngineStore', () => {
     const second = await engines.ensure({ version: '1.0.75', channel: 'rc' }, { hashes: false });
     assert.equal(second.downloaded, false);
     assert.equal(engines.calls.request, requests, 'a cached engine needs no request');
+  });
+
+  it('installs the package of its own system from a folder that holds several', async () => {
+    const windows = buildEnginePackage({ version: '1.0.90', releaseKeys, platform: 'win32' });
+    const linux = buildEnginePackage({
+      version: '1.0.90',
+      releaseKeys,
+      platform: 'linux',
+      files: { 'runtime/node': 'not a real node' },
+    });
+    publish('1.0.90', windows, { platform: 'win32', arch: 'x64' });
+    publish('1.0.90', linux, { platform: 'linux', arch: 'x64' });
+    assert.equal(engineManifestName('win32', 'x64'), 'server-manifest.json');
+    assert.equal(engineManifestName('linux', 'x64'), 'server-manifest-linux-x64.json');
+
+    const onLinux = await store('linux', { platform: 'linux', arch: 'x64' }).ensure({
+      version: '1.0.90',
+    });
+    assert.equal(onLinux.exe, path.join(onLinux.dir, 'varion-server'));
+    assert.ok(fs.existsSync(onLinux.exe));
+    assert.ok(fs.existsSync(path.join(onLinux.dir, 'runtime', 'node')));
+    assert.equal(fs.existsSync(path.join(onLinux.dir, 'varion-server.exe')), false);
+    assert.deepEqual(
+      fs.readFileSync(path.join(onLinux.dir, 'server-manifest.json')),
+      linux.manifestBytes,
+      'the installed copy keeps its manifest under the usual name',
+    );
+
+    const onWindows = await store('windows', { platform: 'win32', arch: 'x64' }).ensure({
+      version: '1.0.90',
+    });
+    assert.ok(fs.existsSync(path.join(onWindows.dir, 'varion-server.exe')));
+  });
+
+  it('says so when a release has no package for this system', async () => {
+    publish('1.0.88', buildEnginePackage({ version: '1.0.88', releaseKeys, platform: 'win32' }), {
+      platform: 'win32',
+      arch: 'x64',
+    });
+    const engines = store('linux-none', { platform: 'linux', arch: 'x64' });
+    await assert.rejects(engines.ensure({ version: '1.0.88' }), { code: 'engine-platform' });
+    assert.equal(engines.calls.download, 0);
   });
 
   it('refuses a manifest not signed by the release key, before fetching the package', async () => {

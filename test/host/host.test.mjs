@@ -7,7 +7,7 @@ import { main } from '../../src/host/cli.mjs';
 import { Host } from '../../src/host/host.mjs';
 import { trustKey } from '../../src/host/keys.mjs';
 import { createLogger } from '../../src/host/log.mjs';
-import { enginePackageName } from '../../src/shared/engine.mjs';
+import { engineManifestName, enginePackageName } from '../../src/shared/engine.mjs';
 import { sleep } from '../../src/shared/fs.mjs';
 import { isAlive } from '../../src/shared/process.mjs';
 import { startFakeCabinet } from './fixtures/fake-cabinet.mjs';
@@ -105,8 +105,8 @@ before(async () => {
     pollAfterMs: 100,
   });
   const pkg = buildEnginePackage({ version: '1.0.75', releaseKeys });
-  cabinet.serve('/Varion-Server/rc/1.0.75/server-manifest.json', pkg.manifestBytes);
-  cabinet.serve('/Varion-Server/rc/1.0.75/server-manifest.json.sig', Buffer.from(pkg.signature));
+  cabinet.serve(`/Varion-Server/rc/1.0.75/${engineManifestName()}`, pkg.manifestBytes);
+  cabinet.serve(`/Varion-Server/rc/1.0.75/${engineManifestName()}.sig`, Buffer.from(pkg.signature));
   cabinet.serve(`/Varion-Server/rc/1.0.75/${enginePackageName('1.0.75')}`, pkg.zip);
   fs.mkdirSync(path.join(root, 'trust'), { recursive: true });
   trustKey(

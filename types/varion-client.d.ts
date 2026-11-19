@@ -39,16 +39,32 @@ export interface WebSocketEventHandlers {
     open: () => void; message: (message: string) => void;
     error: (message: string) => void; close: (code: number, reason: string) => void;
 }
+/** Where a WebView in the world is: a flat rectangle. */
+export interface WebViewWorld {
+    /** The centre of the rectangle. */
+    pos: Vector3Like;
+    /** Radians, as an entity's rot: the page looks the way a ped of that rotation would. */
+    rot: Vector3Like;
+    /** Metres. */
+    width: number; height: number;
+    /** The page is drawn while the local player is within this many metres of it; 150 by default. */
+    distance: number;
+}
 /** Options of WebView.create. */
 export interface WebViewOptions {
     url: string;
     /** true: made as an overlay (isOverlay); default false. */
     overlay?: boolean;
-    /** Screen pixels; without size the view covers the screen. */
+    /** Screen pixels; without size the view covers the screen. For a view in the world or on a texture, size is the page's own size in pixels. */
     pos?: Vector2Like; size?: Vector2Like;
     /** false: made hidden; default true (shown, without focus). */
     visible?: boolean;
     headers?: { [name: string]: string };
+    /** The page is a rectangle in the world, not on the screen; what is left out is 1.6 by 0.9 metres at the origin. */
+    world?: Partial<WebViewWorld>;
+    /** With targetTexture: the page is shown on that texture of the model (its name or hash), on every object of the model. */
+    drawable?: number | string;
+    targetTexture?: string;
     [option: string]: any;
 }
 /** Handler of event E: typed for the documented events and the keys of ICustomEmitEvent, any arguments for the rest. */
@@ -8062,14 +8078,15 @@ export const WebSocketReadyState: {
 };
 
 export class WebView {
-    /** Creates a WebView for an absolute http(s) URL on the server's HTTP or asset host (throws otherwise); http://resource/<path> is that file of the calling resource. It is shown at once, over the whole screen unless pos and size (screen pixels) are given; it does not take focus (focus() gives it). isOverlay (false by default) is only what the view was made with: it stays on the screen until attachTo places it over an entity. A number as the second argument throws: a view on a game texture is made with WebView.create({ drawable }). */
+    /** Creates a WebView for an absolute http(s) URL on the server's HTTP or asset host (throws otherwise); http://resource/<path> is that file of the calling resource. It is shown at once, over the whole screen unless pos and size (screen pixels) are given; it does not take focus (focus() gives it). isOverlay (false by default) is only what the view was made with: it stays on the screen until attachTo places it over an entity. With a model hash and a texture name the page is shown on that texture of the model instead, as WebView.create({ drawable, targetTexture }) shows it. */
     constructor(url: string, isOverlay?: boolean, pos?: Vector2Like, size?: Vector2Like);
     constructor(url: string, pos: Vector2Like, size?: Vector2Like);
+    constructor(url: string, modelHash: number, targetTexture: string);
     /** Every WebView not yet destroyed, of every resource. */
     static readonly all: WebView[];
     /** The number of WebView.all. */
     static readonly count: number;
-    /** Makes a WebView from options, like new WebView(url, overlay, pos, size), with headers sent along with its requests; it is shown unless visible is false, without taking focus. Throws for options that are not an object or a url that is not an absolute http(s) URL on the server's HTTP or asset host. */
+    /** Makes a WebView from options, like new WebView(url, overlay, pos, size), with headers sent along with its requests; it is shown unless visible is false, without taking focus. With world the page is a rectangle in the world instead (pos, rot, width and height in metres): GTA draws it there, what stands in front hides it, and its back is not drawn; no more than 16 at once. With drawable and targetTexture the page is on that texture of the model, on every object of it (a TV's screen); the model has to be loaded and to embed the texture (isTextureExistInArchetype). Such a view is never on the screen and takes no input; size is its page in pixels (1280 by 720 unless given; in the world as high as the rectangle's shape asks). Throws for options that are not an object, a url that is not an absolute http(s) URL on the server's HTTP or asset host, a drawable without targetTexture, or a seventeenth view in the world. */
     static create(options: WebViewOptions): WebView;
     /** The view with this id; null when there is none or it was destroyed. */
     static getByID(id: number): WebView | null;
@@ -8108,8 +8125,6 @@ export class WebView {
     hasMeta(key: string): boolean;
     /** Its id, 1000 or more, unique on this client and fixed. */
     readonly id: number;
-    /** True for a view WebView.create made with a drawable or targetTexture option: it is shown as a screen box at that entity (attachTo), not as a texture in the world. */
-    readonly isDuiCompat: boolean;
     /** The same as focused. */
     readonly isFocused: boolean;
     /** True once the page fired its load event; false again after reload(), a url change or a load error. */
@@ -8165,6 +8180,9 @@ export class WebView {
     readonly valid: boolean;
     /** Whether the view is shown; a new view is shown unless WebView.create got visible: false (a hidden view loads its page too). Showing a view does not focus it: the view that had focus keeps it. Hiding a focused view takes its focus away. */
     visible: boolean;
+    /** Where a view made with WebView.create({ world }) is in the world; null for any other view. Reading gives a copy. Assigning an object changes what it names and leaves the rest: view.world = { rot } turns the page where it stands. Assigning to a view that is not in the world throws. */
+    get world(): WebViewWorld | null;
+    set world(value: Partial<WebViewWorld>);
     /** Whether the view is on screen: for an attached view, whether its entity's point is on screen by the client's last snapshot (false until the snapshot says so); for any other view, visible. */
     readonly worldOnScreen: boolean;
     /** Drawing order among visible views, higher on top, as a whole number; 0 (the default) leaves the order to the client. */

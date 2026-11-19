@@ -10,6 +10,24 @@
 
 /** Anything with numeric x, y, z: a Vector3 or a plain object. */
 export interface Vector3Like { x: number; y: number; z: number; }
+/**
+ * What the server measured about a hit, the last argument of weaponDamage. It comes from where the server
+ * holds the shooter and the target and from the bullets the shooter's game reported; nothing is refused by
+ * these numbers, the handler decides. Positions on the server lag behind the game by the players' ping, so a
+ * moving player adds a few metres.
+ */
+export interface WeaponDamageShot {
+    /** Metres from the shooter to the target. */
+    readonly distance: number;
+    /** Whether the shooter's game reported a bullet of this weapon in the 1.5 s before the hit. A blow and a thrown or launched weapon have none. */
+    readonly bullet: boolean;
+    /** Milliseconds from that bullet to the hit; 0 without a bullet. */
+    readonly bulletAge: number;
+    /** Metres from the shooter to where the bullet started, measured when the bullet came; 0 without a bullet. */
+    readonly shooterToStart: number;
+    /** Metres from the target to the bullet's path; 0 without a bullet. */
+    readonly targetToPath: number;
+}
 /** RGBA colour; `a` defaults to 255. */
 export interface RGBALike { r: number; g: number; b: number; a?: number; }
 /** Options of createBlip. Other properties are passed to the core as given. */
@@ -7781,8 +7799,8 @@ export interface VarionEvents {
     vehicleSiren(vehicle: Vehicle, state: boolean): void;
     /** The voice service state, a VoiceConnectionState: 2 once the resource host is ready, 0 when the server shuts down. */
     voiceConnection(state: number): void;
-    /** A player hit someone. Return false (synchronously) to cancel the hit or a number to set its damage. `target` is null for an entity scripts do not know. */
-    weaponDamage(source: Player, target: Player | Ped | NativeVehicle | NativePed | null, weaponHash: number, damage: number, offset: Vector3, bodyPart: number, sourceEntity: Player): number | boolean | void;
+    /** A player hit someone. Return false (synchronously) to cancel the hit or a number to set its damage. `target` is null for an entity scripts do not know. `shot` is what the server measured: how far the two are apart, whether the shooter's game reported a bullet for the hit, how far the shooter was from where it started and how far the target is from its path. */
+    weaponDamage(source: Player, target: Player | Ped | NativeVehicle | NativePed | null, weaponHash: number, damage: number, offset: Vector3, bodyPart: number, sourceEntity: Player, shot: WeaponDamageShot | null): number | boolean | void;
 }
 
 declare const varion: {

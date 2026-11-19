@@ -44,6 +44,12 @@ export function enginePackageName(version, platform = process.platform, arch = p
   return `Varion-Server-${version}-${system}-${arch}.zip`;
 }
 
+// one CDN folder per version holds every system's package: the Windows manifest
+// keeps the first name, any other carries its system
+export function engineManifestName(platform = process.platform, arch = process.arch) {
+  return platform === 'win32' ? MANIFEST : `server-manifest-${platform}-${arch}.json`;
+}
+
 export function verifyManifestSignature(manifestBytes, signatureText, releaseKey = RELEASE_KEY) {
   const signature = Buffer.from(String(signatureText).trim(), 'base64');
   if (signature.length !== 64) return false;
@@ -133,7 +139,14 @@ export function parseManifest(
 
 export async function verifyEngineDir(
   dir,
-  { version, channel, releaseKey = RELEASE_KEY, hashes = true, extras = true } = {},
+  {
+    version,
+    channel,
+    releaseKey = RELEASE_KEY,
+    hashes = true,
+    extras = true,
+    platform = process.platform,
+  } = {},
 ) {
   let manifestBytes;
   let signatureText;
@@ -153,7 +166,7 @@ export async function verifyEngineDir(
       },
     );
   }
-  const { manifest, files } = parseManifest(manifestBytes, { version, channel });
+  const { manifest, files } = parseManifest(manifestBytes, { version, channel, platform });
   const manifestSha256 = sha256(manifestBytes);
   const marker = tryReadJson(path.join(dir, MARKER), null);
   const fullCheck = hashes || marker?.manifestSha256 !== manifestSha256;
@@ -217,8 +230,12 @@ export class EngineStore {
     extras = true,
     download = httpDownload,
     request = httpRequest,
+    platform = process.platform,
+    arch = process.arch,
   }) {
     this.root = root;
+    this.platform = platform;
+    this.arch = arch;
     this.extras = extras;
     this.cdn = String(cdn).replace(/\/+$/, '');
     this.releaseKey = releaseKey;
@@ -256,7 +273,7 @@ export class EngineStore {
 
   async ensureNow({ version, channel }, { recheck, hashes }) {
     const dir = this.dir({ version, channel });
-    const exe = path.join(dir, serverExecutableName());
+    const exe = path.join(dir, serverExecutableName(this.platform));
     const found = (result) => ({
       dir,
       exe,
@@ -274,6 +291,7 @@ export class EngineStore {
           releaseKey: this.releaseKey,
           hashes,
           extras: this.extras,
+          platform: this.platform,
         });
         this.verified.set(dir, result);
         return found(result);
@@ -320,15 +338,30 @@ export class EngineStore {
       { version, channel, url: base },
       'engine-download',
     );
-    const manifestBytes = (
-      await this.request(`${base}/${MANIFEST}`, {
-        maxBytes: 8 << 20,
-        what: t('engine manifest'),
-        timeoutMs: 60_000,
-      })
-    ).body;
+    const manifestName = engineManifestName(this.platform, this.arch);
+    let manifestBytes;
+    try {
+      manifestBytes = (
+        await this.request(`${base}/${manifestName}`, {
+          maxBytes: 8 << 20,
+          what: t('engine manifest'),
+          timeoutMs: 60_000,
+        })
+      ).body;
+    } catch (error) {
+      // a release made before this system had packages still has the Windows one
+      if (error.status !== 404 || manifestName === MANIFEST) throw error;
+      throw new EngineError(
+        t('engine {version} ({channel}) has no package for {system}', {
+          version,
+          channel,
+          system: `${this.platform} ${this.arch}`,
+        }),
+        { code: 'engine-platform' },
+      );
+    }
     const signatureText = (
-      await this.request(`${base}/${SIGNATURE}`, {
+      await this.request(`${base}/${manifestName}.sig`, {
         maxBytes: 4096,
         what: t('engine manifest signature'),
         timeoutMs: 60_000,
@@ -345,7 +378,11 @@ export class EngineStore {
         { code: 'engine-signature' },
       );
     }
-    const { manifest, files } = parseManifest(manifestBytes, { version, channel });
+    const { manifest, files } = parseManifest(manifestBytes, {
+      version,
+      channel,
+      platform: this.platform,
+    });
     ensureDir(path.dirname(dir));
     const staging = `${dir}.staging-${randomTag()}`;
     ensureDir(staging);
@@ -353,7 +390,8 @@ export class EngineStore {
       const archive = path.join(staging, 'package.zip');
       const total = [...files.values()].reduce((sum, file) => sum + file.size, 0);
       let reported = 0;
-      await this.download(`${base}/${enginePackageName(version)}`, archive, {
+      const packageName = enginePackageName(version, this.platform, this.arch);
+      await this.download(`${base}/${packageName}`, archive, {
         maxBytes: total + (64 << 20),
         what: t('engine package'),
         stallMs: 120_000,
@@ -376,7 +414,7 @@ export class EngineStore {
         },
       });
       const unpacked = path.join(staging, 'Varion-Server');
-      await extractPackage(archive, unpacked, files);
+      await extractPackage(archive, unpacked, files, this.platform);
       fs.rmSync(archive, { force: true });
       // use the verified manifest, not the copy from the archive
       fs.writeFileSync(path.join(unpacked, MANIFEST), manifestBytes);
@@ -393,6 +431,7 @@ export class EngineStore {
         channel,
         releaseKey: this.releaseKey,
         hashes: false,
+        platform: this.platform,
       });
       try {
         await renameWithRetry(unpacked, dir);
@@ -404,6 +443,7 @@ export class EngineStore {
           releaseKey: this.releaseKey,
           hashes: false,
           extras: false,
+          platform: this.platform,
         }).catch(() => null);
         if (!other) throw error;
       }
@@ -423,7 +463,7 @@ export class EngineStore {
   }
 }
 
-async function extractPackage(archive, target, files) {
+async function extractPackage(archive, target, files, platform) {
   const zip = await openZip(archive, { maxEntries: files.size + 1024 });
   try {
     const wanted = new Map();
@@ -485,8 +525,9 @@ async function extractPackage(archive, target, files) {
       const out = path.join(target, ...relative.split('/'));
       ensureDir(path.dirname(out));
       const executable =
-        relative === serverExecutableName() ||
+        relative === serverExecutableName(platform) ||
         relative === 'node' ||
+        relative === 'runtime/node' ||
         (entry.unixMode & 0o111) !== 0;
       try {
         await zip.extractTo(entry, out, {

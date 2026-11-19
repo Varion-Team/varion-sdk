@@ -122,10 +122,11 @@ export function buildEnginePackage({
   releaseKeys,
   files = {},
   mutateZipEntries,
+  platform = process.platform,
 } = {}) {
   const content = new Map([
     [
-      serverExecutableName(),
+      serverExecutableName(platform),
       Buffer.from('not a real server: the tests start fixtures/fake-server.mjs instead\n'),
     ],
     ['host/varion-host.cjs', Buffer.from('// fake host\n')],
