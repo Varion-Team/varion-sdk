@@ -9,14 +9,14 @@ export function emitClient<K extends keyof ServerToClient>(
   name: K,
   ...args: ServerToClient[K]
 ): void {
-  player.emit(name, ...args);
+  player.emit(name as string, ...args);
 }
 
 export function emitAllClients<K extends keyof ServerToClient>(
   name: K,
   ...args: ServerToClient[K]
 ): void {
-  varion.emitAllClients(name, ...args);
+  varion.emitAllClients(name as string, ...args);
 }
 
 // types describe what a client should send, not what it does: validate the values
@@ -32,5 +32,5 @@ export function onRpc<K extends keyof ServerRpc>(
   name: K,
   handler: (player: Player, ...args: RpcArgs<K>) => RpcResult<K> | Promise<RpcResult<K>>,
 ): void {
-  varion.onRpc(name, handler as (player: Player, ...args: any[]) => unknown);
+  varion.onRpc(name as string, handler as (player: Player, ...args: any[]) => any);
 }

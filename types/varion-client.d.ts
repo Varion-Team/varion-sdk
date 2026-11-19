@@ -6,7 +6,7 @@
 // return types are permissive, except the documented API (DEVELOPER-KIT.md section 5),
 // typed from tools/sdk-signatures.cjs and checked against the runtime on every run.
 // `readonly` marks what the runtime does not let a script assign (a getter without
-// a setter, a non-writable property) and the constants of classes and namespaces.
+// a setter, a non-writable property), class constants and fields the API never assigns.
 
 /** Anything with numeric x, y, z: a Vector3 or a plain object. */
 export interface Vector3Like { x: number; y: number; z: number; }
@@ -42,15 +42,19 @@ export interface WebSocketEventHandlers {
 /** Options of WebView.create. */
 export interface WebViewOptions {
     url: string;
-    /** false: an ordinary window above the game; default true (overlay). */
+    /** true: made as an overlay (isOverlay); default false. */
     overlay?: boolean;
-    pos?: Vector2Like; size?: Vector2Like; visible?: boolean;
+    /** Screen pixels; without size the view covers the screen. */
+    pos?: Vector2Like; size?: Vector2Like;
+    /** false: made hidden; default true (shown, without focus). */
+    visible?: boolean;
     headers?: { [name: string]: string };
     [option: string]: any;
 }
-/** Handler of event E: typed for the documented events, any arguments for the rest. */
+/** Handler of event E: typed for the documented events and the keys of ICustomEmitEvent, any arguments for the rest. */
 export type VarionEventHandler<E extends string> =
-    E extends keyof VarionEvents ? VarionEvents[E] : (...args: any[]) => void;
+    E extends keyof VarionEvents ? VarionEvents[E] :
+    E extends keyof ICustomEmitEvent ? ICustomEmitEvent[E] : (...args: any[]) => void;
 export interface DiscordUser { id: string; name: string; discriminator: string; avatar: string; }
 export interface DiscordActivityOptions {
     details?: string; name?: string; state?: string;
@@ -58,6 +62,120 @@ export interface DiscordActivityOptions {
     partyId?: string; partyID?: string; partySize?: number; partyCurrent?: number; partyMax?: number;
     startTimestamp?: number; endTimestamp?: number; instance?: boolean | string;
     buttons?: Array<{ label: string; url: string }>; updatedUtcMs?: number;
+}
+/**
+ * Keys a project declares for its metadata, events and RPCs: these interfaces are empty;
+ * add to them in a global .d.ts of the project (interface ICustomPlayerMeta { job: string }), and
+ * getMeta/setMeta, emit/on and the client-server events check those keys. A key not declared stays any.
+ */
+declare global {
+    interface ICustomGlobalMeta {}
+    interface ICustomGlobalSyncedMeta {}
+    interface ICustomBaseObjectMeta {}
+    interface ICustomBaseObjectSyncedMeta {}
+    interface ICustomEntitySyncedMeta {}
+    interface ICustomEntityStreamSyncedMeta {}
+    interface ICustomPlayerSyncedMeta {}
+    interface ICustomPlayerStreamSyncedMeta {}
+    interface ICustomPlayerLocalMeta {}
+    interface ICustomVehicleSyncedMeta {}
+    interface ICustomVehicleStreamSyncedMeta {}
+    interface ICustomVirtualEntityStreamSyncedMeta {}
+    interface ICustomPedSyncedMeta {}
+    interface ICustomPedStreamSyncedMeta {}
+    interface ICustomCheckpointStreamSyncedMeta {}
+    interface ICustomServerClientEvent {}
+    interface ICustomClientServerEvent {}
+    interface ICustomServerClientRpc {}
+    interface ICustomClientServerRpc {}
+    interface ICustomBlipMeta {}
+    interface ICustomColshapeMeta {}
+    interface ICustomCheckpointMeta {}
+    interface ICustomEntityMeta {}
+    interface ICustomPlayerMeta {}
+    interface ICustomVehicleMeta {}
+    interface ICustomEmitEvent {}
+    interface ICustomWebViewMeta {}
+    interface ICustomAudioMeta {}
+    interface ICustomLocalPlayerMeta {}
+    interface ICustomPedMeta {}
+}
+/** The value of key K in metadata interface M: its declared type, else Fallback. */
+export type CustomMetaValue<M, K extends string, Fallback = any> = K extends keyof M ? M[K] : Fallback;
+/** setMeta({ ... }): a declared key takes its declared type, any other Fallback. */
+export type CustomMetaValues<M, Fallback = any> = { [K in keyof M]?: M[K] } & { [key: string]: Fallback };
+/** The arguments of event or RPC K in M: its declared parameters, else any arguments. */
+export type CustomEventArgs<M, K extends string> =
+    K extends keyof M ? (M[K] extends (...args: infer A) => any ? A : any[]) : any[];
+/** What RPC K of M answers: its declared result, else any. */
+export type CustomRpcResult<M, K extends string> =
+    K extends keyof M ? (M[K] extends (...args: any[]) => infer R ? Awaited<R> : any) : any;
+/** Another name of the event map: the parameters of the documented events (VarionEvents). */
+export interface IClientEvent extends VarionEvents {}
+/** Another name of a varion.Utils.Timer instance. */
+export interface Timer extends UtilsTimer {}
+/** Another name of a varion.Utils.Timeout instance. */
+export interface Timeout extends UtilsTimeout {}
+/** Another name of a varion.Utils.Interval instance. */
+export interface Interval extends UtilsInterval {}
+/** Another name of a varion.Utils.NextTick instance. */
+export interface NextTick extends UtilsNextTick {}
+/** Another name of a varion.Utils.EveryTick instance. */
+export interface EveryTick extends UtilsEveryTick {}
+/** Another name of a varion.Utils.ConsoleCommand instance. */
+export interface ConsoleCommand extends UtilsConsoleCommand {}
+/** Options of Utils.inspect (Node's util.inspect): the server applies them all, the client those its doc names. */
+export interface IInspectOptions {
+    getters?: "get" | "set" | boolean | undefined; showHidden?: boolean | undefined;
+    depth?: number | null | undefined; colors?: boolean | undefined; customInspect?: boolean | undefined;
+    maxArrayLength?: number | null | undefined; maxStringLength?: number | null | undefined;
+    breakLength?: number | undefined; compact?: boolean | number | undefined;
+    sorted?: boolean | ((a: string, b: string) => number) | undefined;
+}
+/** A weapon of the local player (Player.local.weapons). */
+export interface IWeapon { hash: number; tintIndex: number; components: number[]; }
+/** A microphone (Voice.getAvailableInputDevices). */
+export interface IInputDevice { name: string; uuid: string | null; }
+/** What an HttpClient request resolves to. */
+export interface IHttpResponse { statusCode: number; headers: Record<string, string>; body: string; }
+/** Options of new Utils.Marker; scale may also be one number, visible is Varion's. */
+export interface IMarkerOptions {
+    type?: number; dir?: Vector3Like; rot?: Vector3Like; scale?: Vector3Like | number;
+    color?: { r: number; g: number; b: number; a?: number }; bobUpAndDown?: boolean; faceCamera?: boolean;
+    p19?: number; rotate?: boolean; textureDict?: string; textureName?: string; drawOnEnts?: boolean;
+    visible?: boolean;
+}
+/** Chrome DevTools’ .cpuprofile: save JSON.stringify(profile) as a .cpuprofile file and open it in DevTools or VS Code. */
+export interface CpuProfile {
+    /** The call tree; the first node is the root. */
+    readonly nodes: readonly CpuProfileNode[];
+    /** Microseconds, a steady clock. */
+    readonly startTime: number;
+    readonly endTime: number;
+    /** The id of the node on top of the stack, per sample. */
+    readonly samples: readonly number[];
+    /** Microseconds since the sample before; the first since startTime. */
+    readonly timeDeltas: readonly number[];
+}
+export interface CpuProfileNode {
+    readonly id: number;
+    /** Where the function is defined: lineNumber and columnNumber are 0-based, -1 for a native function, (root) and (program). */
+    readonly callFrame: { readonly functionName: string; readonly scriptId: number; readonly url: string; readonly lineNumber: number; readonly columnNumber: number };
+    /** Samples with this node on top of the stack. */
+    readonly hitCount: number;
+    /** Child node ids; absent for a leaf. */
+    readonly children?: readonly number[];
+    /** Always empty: the engine gives no per-line ticks. */
+    readonly positionTicks: readonly { readonly line: number; readonly ticks: number }[];
+}
+/** A command of the F8 console: its name as typed, and what the console says of it while a player types. */
+export interface ConsoleCommandOptions {
+    name: string;
+    /** Shown after the name while it is typed: "<model>", "[player]". */
+    arguments?: string;
+    description?: string;
+    /** "everyone" (the default), or "developer": only for a player who has the developer's console. */
+    access?: "everyone" | "developer";
 }
 
 export class AreaBlip {
@@ -91,7 +209,7 @@ export class AreaBlip {
     crewIndicatorVisible: boolean;
     /** Removes the key from the blip's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
     deleteMeta(key: string): void;
-    /** Removes the blip from GTA (REMOVE_BLIP): valid turns false and baseObjectRemove fires; later calls do nothing. A resource's blips are destroyed when it stops. */
+    /** Removes the blip from GTA (REMOVE_BLIP): valid turns false and baseObjectRemove fires; later calls do nothing. A resource's blips are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it shows in: the local player's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated, and checked again with each update of the local player. */
     dimension: number;
@@ -110,13 +228,13 @@ export class AreaBlip {
     /** Sent as SHOW_FRIEND_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
     friendIndicatorVisible: boolean;
     /** The value setMeta stored under the key, undefined for none: the blip's own metadata on this client. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomBlipMeta, K, unknown>;
     /** The keys of the blip's own metadata (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
     getMetaKeys(): string[];
     /** Always undefined: a local blip has no synced metadata. */
-    getSyncedMeta(key: string): unknown;
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomBaseObjectSyncedMeta, K, unknown>;
     /** Always []: a local blip has no synced metadata. */
     getSyncedMetaKeys(): string[];
     /** A GTA text label to name the blip with (SET_BLIP_NAME_FROM_TEXT_FILE), empty by default; while set it wins over name, and assigning name clears it. */
@@ -137,7 +255,7 @@ export class AreaBlip {
     readonly isAttached: false;
     /** Whether GTA shows the blip as friendly (SET_BLIP_AS_FRIENDLY), false until assigned. That native recolours the blip whatever its toggle (false leaves colour 49), so a local blip gets it only while friendly, after its colour (and again when a blipType change makes it anew); turning it off sends it with false and then the blip's colour again. */
     isFriendly: boolean;
-    /** True while the dimension is -2147483648, which shows the blip in every dimension. */
+    /** Always true: a blip made on this client is for no one player, in whatever dimension. */
     readonly isGlobal: boolean;
     /** Sent as SET_BLIP_HIDDEN_ON_LEGEND once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
     isHiddenOnLegend: boolean;
@@ -156,7 +274,8 @@ export class AreaBlip {
     /** Sent as SHOW_OUTLINE_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
     outlineIndicatorVisible: boolean;
     /** Its position, a copy; assigning moves it (SET_BLIP_COORDS), a missing or non-numeric component becoming 0. */
-    pos: Vector3Like;
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
     /** SET_BLIP_PRIORITY, truncated; sent once GTA has the blip and again when a blipType change makes it anew. 0 until assigned. */
     priority: number;
     /** Assigning true pulses the blip once (PULSE_BLIP); false sends nothing, and the value read is only what was assigned. */
@@ -171,15 +290,15 @@ export class AreaBlip {
     route: boolean;
     /** Colour index of the GPS route (SET_BLIP_ROUTE_COLOUR), clamped to 0..255 and truncated; 0 by default. */
     routeColor: number;
-    /** Icon size (SET_BLIP_SCALE), 1 by default, at least 0. */
+    /** Icon scale (SET_BLIP_SCALE), 1 by default, at least 0; an area's size is its extent, so the two stay apart. */
     scale: number;
     /** GTA's handle of the blip: 0 until GTA has made it and after destroy(); a blipType change makes the blip again with a new handle. */
     readonly scriptID: number;
     /** Secondary colour (SET_BLIP_SECONDARY_COLOUR): an {r, g, b} object, each clamped to 0..255, or a number 0xRRGGBBAA; read back as assigned, {r: 0, g: 0, b: 0, a: 255} by default. */
     secondaryColor: number | { r?: number; g?: number; b?: number; a?: number };
     /** Stores the value under the key in the blip's own metadata on this client and fires metaChange (blip, key, value, old value); an object sets each of its entries. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomBlipMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomBlipMeta, unknown>): void;
     /** Shown on the minimap only nearby (SET_BLIP_AS_SHORT_RANGE), false by default. */
     shortRange: boolean;
     /** Draws the blip's sight cone (SET_BLIP_SHOW_CONE, hue 0); sent again when a blipType change makes the blip anew, false until assigned. */
@@ -187,7 +306,8 @@ export class AreaBlip {
     /** Sent as SET_BLIP_AS_MINIMAL_ON_EDGE, the native isMinimalOnEdge uses too, so the last assignment of either wins (shrinked when a blipType change makes the blip anew); false until assigned. */
     shrinked: boolean;
     /** The area's width (x) and height (y) in metres as given to the constructor, a negative one becoming 0; assigning resizes it (SET_BLIP_SCALE_2D). */
-    size: Vector2Like;
+    get size(): Vector2;
+    set size(value: Vector2Like);
     /** Icon (BlipSprite), 1 by default; truncated, at least 0 (SET_BLIP_SPRITE). */
     sprite: number;
     /** Sent as SHOW_TICK_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
@@ -210,7 +330,7 @@ export class Audio {
     static readonly all: Audio[];
     /** The number of Audio.all. */
     static readonly count: number;
-    /** The same as new Audio(url, volume): volume 0..1 (clamped), default 1; nothing loads before play(). A path is taken relative to the server's HTTP address, and the URL must be on the server's own hosts (checked when it first loads). */
+    /** The same as new Audio(url, volume): volume 0..1 (clamped), default 1; nothing loads before play(). A path is a file of the resource that creates it ("@name/path" one of another resource), and the URL must be on the server's own hosts (checked when it first loads). */
     static create(url: string, volume?: number): Audio;
     /** The Audio with this id; null when there is none or it was destroyed. */
     static getByID(id: number): Audio | null;
@@ -218,11 +338,11 @@ export class Audio {
     static readonly OutputFrontend: number;
     /** The number 1. Nothing in the runtime reads it: where an Audio is heard is set with addOutput (an AudioOutputFrontend, AudioOutputWorld or AudioOutputAttached). */
     static readonly OutputWorld: number;
-    /** Creates an Audio and starts it at once; it is heard whatever its outputs. A failed start fires its error listeners (code 1) instead of throwing, and the audio is not destroyed when it ends. */
+    /** Creates an Audio and starts it at once; it is heard whatever its outputs. A failed start fires its error listeners once instead of throwing, and the audio is not destroyed when it ends. */
     static playFrontend(url: string, volume?: number): Audio;
-    /** Plays the audio through this output; from then on an Audio not made by playFrontend is heard only through its outputs. null, a destroyed output or one already added is ignored. */
+    /** Plays the audio through this output; from then on an Audio not made by playFrontend is heard only through its outputs. null, a destroyed output or one already added is ignored; anything else that is not an AudioOutput throws a TypeError. */
     addOutput(output: AudioOutput): void;
-    /** An AudioCategory name or hash, "" for none: that category's volume multiplies the audio's. */
+    /** An AudioCategory name or hash, "" for none: a change of that category's volume from GTA's own level scales the audio's. */
     category: string | number;
     /** Playback position in seconds, as the player last reported it (a few times a second while playing); 0 before the first play() or seek(). Assigning moves playback there (negative counts as 0) without firing streamSeek, and is ignored before the first play() or seek(). */
     currentTime: number;
@@ -235,7 +355,7 @@ export class Audio {
     /** The listeners of that event, or of every event when no name is given. */
     getEventListeners(eventName?: string): Array<(...args: any[]) => void>;
     /** The value setMeta stored under the key; undefined when there is none. */
-    getMeta(key: string): any;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomAudioMeta, K, any>;
     /** A copy of the outputs addOutput added; a destroyed output leaves the list. */
     getOutputs(): AudioOutput[];
     /** Whether setMeta stored a value under the key. */
@@ -252,13 +372,13 @@ export class Audio {
     readonly maxTime: number;
     /** Removes the listener from that event: every registration of it this resource made with on or once. */
     off(eventName: string, callback: (...args: any[]) => void): void;
-    /** Adds a listener: inited (it can play), streamStarted, streamPaused, streamEnded, streamReset, streamSeek (seconds), error (code, message) or volumeChange (volume). Adding the same function again does nothing; the handle's destroy() removes it. */
+    /** Adds a listener: inited (once per source, when it can first play), streamStarted, streamPaused, streamEnded, streamReset, streamSeek (seconds), error (code, message) or volumeChange (volume). Adding the same function again does nothing; the handle's destroy() removes it. */
     on<E extends string>(eventName: E, callback: E extends keyof AudioEventHandlers ? AudioEventHandlers[E] : (...args: any[]) => void): VarionEventHandle;
     /** Like on, for the next such event only. */
     once<E extends string>(eventName: E, callback: E extends keyof AudioEventHandlers ? AudioEventHandlers[E] : (...args: any[]) => void): VarionEventHandle;
     /** Pauses playback (streamPaused follows); play() resumes it. Does nothing before the first play() or after destroy(). */
     pause(): void;
-    /** Starts or resumes playback, loading the URL the first time, and resolves once it plays. Rejects when playback fails, the URL is not allowed or the audio is destroyed; with no URL it resolves at once and plays nothing. */
+    /** Starts or resumes playback, loading the URL the first time, and resolves once it plays. When playback fails or the URL is not allowed, the error listeners get (code, message) and the promise rejects; it never counts as an unhandled rejection. On a destroyed audio it rejects only. With no URL it resolves at once and plays nothing. */
     play(): Promise<void>;
     /** Playback speed, 1 by default, kept within 0.1..4 (0 or a non-number counts as 1). A rate set before the audio loads, or before a new source, applies when it loads. */
     playbackRate: number;
@@ -271,11 +391,11 @@ export class Audio {
     /** Moves playback to that time in seconds (negative counts as 0) and fires streamSeek with it. Throws on a destroyed audio; does nothing without a URL. */
     seek(seconds: number): void;
     /** Stores a value under the key in this Audio's own metadata, or each entry of an object. Only this object holds it; destroy() clears it. */
-    setMeta(key: string, value: any): void;
-    setMeta(values: Record<string, any>): void;
-    /** Sets volume (clamped to 0..1) and fires volumeChange with it. */
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomAudioMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomAudioMeta, any>): void;
+    /** The same as assigning volume. */
     setVolume(volume: number): void;
-    /** The URL or path given, "" for none. Assigning another pauses the audio and drops what was loaded; the next play() loads the new source and checks its host then. */
+    /** The URL or path given, "" for none. A path is a file of the resource that made the Audio ("/sounds/a.ogg" and "sounds/a.ogg" alike), "@name/path" a file of resource name. Assigning another pauses the audio and drops what was loaded; the next play() loads the new source and checks its host then. */
     source: string;
     /** Pauses and rewinds to the start. Does nothing before the first play() or after destroy(). */
     stop(): void;
@@ -283,7 +403,7 @@ export class Audio {
     url: string;
     /** True until destroy(); a resource's audio is destroyed when the resource stops. */
     readonly valid: boolean;
-    /** Its own volume, 0..1 (clamped), multiplied by its category's volume and its outputs'. Assigning does not fire volumeChange; setVolume does. */
+    /** Its own volume, 0..1 (clamped), scaled by its category (Audio#category) and its outputs'. Assigning another value fires volumeChange with it. */
     volume: number;
 }
 
@@ -518,22 +638,81 @@ export const AudioCategories: {
 
 export class AudioCategory {
     constructor(name: string | number);
-    /** An AudioCategory for a name or hash, a new object on each call; objects of the same category share its volume. */
+    /** The same as getForName. */
     static get(name: string | number): AudioCategory;
-    /** The category's name; a number assigned reads back as text. Assigning points this object at that category and its volume. */
+    /** GTA's audio category of that name (or hash): one object per category. In game it throws "Failed to get audio category" when GTA has none of that name, and an error naming the cause when GTA's categories cannot be reached on this game build. */
+    static getForName(categoryName: string | number): AudioCategory;
+    /** GTA's value of the category, read and written in the game; throws without the game or when the category cannot be reached. */
+    distanceReverbDamping: number;
+    /** GTA's value of the category, read and written in the game; throws without the game or when the category cannot be reached. GTA's own value comes back when the player leaves the server. */
+    distanceRolloffScale: number;
+    /** GTA's value of the category, read and written in the game; throws without the game or when the category cannot be reached. */
+    environmentalFilterDamping: number;
+    /** GTA's value of the category, read and written in the game; throws without the game or when the category cannot be reached. */
+    environmentalLoudness: number;
+    /** GTA's high-pass cutoff of the category in Hz, a whole number (int16); throws without the game or when the category cannot be reached. */
+    highPassFilterCutoff: number;
+    /** GTA's value of the category, read and written in the game; throws without the game or when the category cannot be reached. */
+    interiorReverbDamping: number;
+    /** GTA's low-pass cutoff of the category in Hz, a whole number (int16); throws without the game or when the category cannot be reached. */
+    lowPassFilterCutoff: number;
+    /** The category's name; a number assigned reads back as text. Assigning points this object at that category. */
     get name(): string;
     set name(value: string | number);
-    /** 0..1 (clamped), default 1: multiplies the volume of every Audio and AudioOutput of this category, for every resource. GTA's own sounds are not affected. */
+    /** GTA's value of the category, read and written in the game; throws without the game or when the category cannot be reached. */
+    occlusionDamping: number;
+    /** GTA's pitch of the category, a whole number (int16: written truncated and kept within -32768..32767); throws without the game or when the category cannot be reached. */
+    pitch: number;
+    /** GTA's value of the category, read and written in the game; throws without the game or when the category cannot be reached. */
+    plateauRolloffScale: number;
+    /** GTA's value of the category, read and written in the game; throws without the game or when the category cannot be reached. */
+    sourceReverbDamping: number;
+    /** GTA's value of the category, read and written in the game; throws without the game or when the category cannot be reached. */
+    stonedWetLevel: number;
+    /** GTA's value of the category, read and written in the game; throws without the game or when the category cannot be reached. */
+    underwaterWetLevel: number;
+    /** GTA's volume of the category, in decibels (its own level, often 0, is what GTA set): it changes every game sound of the category, until the player leaves the server. Its change from GTA's own level also scales Varion's Audio and AudioOutput of the category (never above their own volume). Without the game it is only kept here, default 0. */
     volume: number;
 }
 
 export class AudioFilter {
     /** Wraps a filter in an AudioFilter: a number is kept as an unsigned 32-bit hash (0 for a non-number), a name ("phone") is hashed. AudioFilter.create(nameOrHash) returns the same object for the same hash. */
     constructor(hash: number | string);
-    /** The AudioFilter of a name (hashed) or hash, the same object for the same hash. An output's filter accepts only walkietalkie, phone and underwater. */
+    /** The AudioFilter of a name (hashed) or hash, the same object for the same hash. */
     static create(nameOrHash: string | number): AudioFilter;
+    /** Adds BASS_FX's BASS_BFX_AUTOWAH to the filter and returns its handle for removeEffect. A resonant band-pass swept fRate times a second (0..10) from fFreq Hz (0..1000) up fRange octaves (0..10); fDryMix and fWetMix -2..2, fFeedback -1..1. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addAutowahEffect(fDryMix: number, fWetMix: number, fFeedback: number, fRate: number, fRange: number, fFreq: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_BQF to the filter and returns its handle for removeEffect. lFilter: 0 low-pass, 1 high-pass, 2 band-pass (0 dB peak), 3 band-pass (peak Q), 4 notch, 5 all-pass, 6 peaking EQ, 7 low shelf, 8 high shelf; fCenter in Hz; fGain in dB (peaking and shelves); fBandwidth in octaves wins over fQ when not 0; fS: shelf slope 0..1. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addBqfEffect(lFilter: number, fCenter: number, fGain: number, fBandwidth: number, fQ: number, fS: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_CHORUS to the filter and returns its handle for removeEffect. A delay moving between fMinSweep and fMaxSweep milliseconds (0..6000) at fRate milliseconds a second (0..1000); fDryMix and fWetMix -2..2, fFeedback -1..1. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addChorusEffect(fDryMix: number, fWetMix: number, fFeedback: number, fMinSweep: number, fMaxSweep: number, fRate: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_COMPRESSOR2 to the filter and returns its handle for removeEffect. fGain: output gain in dB, -60..60; fThreshold in dB, -60..0; fRatio from 1; fAttack 0.01..1000 ms and fRelease 0.01..5000 ms. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addCompressor2Effect(fGain: number, fThreshold: number, fRatio: number, fAttack: number, fRelease: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_DAMP (dynamic amplification) to the filter and returns its handle for removeEffect. fTarget: the level it holds the sound at, 0..1; fQuiet: under this level nothing is raised; fRate: share of the gap closed every 10 ms, 0..1; fGain: the gain it starts at; fDelay: seconds after a cut before it raises again. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addDampEffect(fTarget: number, fQuiet: number, fRate: number, fGain: number, fDelay: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_DISTORTION to the filter and returns its handle for removeEffect. fDrive 0..5; fDryMix and fWetMix -5..5; fFeedback -1..1; fVolume 0..2 scales the result. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addDistortionEffect(fDrive: number, fDryMix: number, fWetMix: number, fFeedback: number, fVolume: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_ECHO4 to the filter and returns its handle for removeEffect. fDryMix and fWetMix -2..2; fFeedback -1..1; fDelay: seconds, 0..6 (at least one sample). Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addEcho4Effect(fDryMix: number, fWetMix: number, fFeedback: number, fDelay: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_FREEVERB to the filter and returns its handle for removeEffect. fDryMix and fWetMix: gains of the dry sound and the reverb (BASS_FX defaults 0 and 1); fRoomSize, fDamp and fWidth 0..1; lMode 1 freezes the tail. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addFreeverbEffect(fDryMix: number, fWetMix: number, fRoomSize: number, fDamp: number, fWidth: number, lMode: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_PEAKEQ to the filter and returns its handle for removeEffect. One peaking band: lBand only names it (0..63); fBandwidth in octaves 0..10 wins over fQ (0..30) when not 0; fCenter in Hz; fGain in dB -60..60. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addPeakeqEffect(lBand: number, fBandwidth: number, fQ: number, fCenter: number, fGain: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_PHASER to the filter and returns its handle for removeEffect. Four all-pass stages swept fRate times a second (0..10) from fFreq Hz (0..1000) up fRange octaves (0..10); fDryMix and fWetMix -2..2, fFeedback -1..1. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addPhaserEffect(fDryMix: number, fWetMix: number, fFeedback: number, fRate: number, fRange: number, fFreq: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_PITCHSHIFT to the filter and returns its handle for removeEffect. fPitchShift: factor 0.5..2, used unless it is 1, then fSemitones -12..12; lFFTsize: frame size, a power of two 256..8192; lOsamp: overlap 4..32. The shifted sound lags by lFFTsize - lFFTsize/lOsamp samples. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addPitchshiftEffect(fPitchShift: number, fSemitones: number, lFFTsize: number, lOsamp: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_ROTATE to the filter and returns its handle for removeEffect. fRate: turns of the stereo image a second (negative turns back), -100..100; mono is left as it is. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addRotateEffect(fRate: number, priority: number): number;
+    /** Adds BASS_FX's BASS_BFX_VOLUME to the filter and returns its handle for removeEffect. fVolume: linear gain 0..10; channel: -1 (default) or 0 every channel, 1 the left, 2 the right, 3 both. Every value is clamped into its range; a value that is not a finite number throws a TypeError. priority: a higher one runs first, of equal ones the one added first; a filter holds at most 16 effects. It shapes every output and voice using a filter of this name. */
+    addVolumeEffect(fVolume: number, priority: number, channel?: number): number;
+    /** A category hash kept with the filter (a name assigned is hashed); 0 by default. Varion's filtered sound does not play through GTA's categories, so it changes nothing else. */
+    get audioCategory(): number;
+    set audioCategory(value: number | string);
     /** The filter's hash, an unsigned 32-bit number. */
     readonly hash: number;
+    /** Takes the effect of that handle off the filter: true, or false when the filter has no such effect. A filter left with no effects is its preset again (walkietalkie, phone, underwater) or changes nothing. */
+    removeEffect(hfxHandler: number): boolean;
     /** Text of the form "AudioFilter{ hash: N }", the hash in decimal. */
     toString(): string;
 }
@@ -547,11 +726,11 @@ export class AudioOutput {
     static readonly count: number;
     /** The output with this id, of any kind; null when there is none or it was destroyed. */
     static getByID(id: number): AudioOutput | null;
-    /** A category hash, 0 for none: that AudioCategory's volume multiplies the output's volume. */
+    /** A category hash: hash("radio") when the constructor got none, 0 for none. A change of that AudioCategory's volume from GTA's own level scales the output's volume. */
     category: number;
     /** Takes the output off every Audio and WebView that uses it; valid turns false and later calls do nothing. A resource's outputs are destroyed when the resource stops. */
     destroy(): void;
-    /** walkietalkie, phone or underwater; null removes the filter. Unsupported presets throw RangeError. */
+    /** Sound through this output goes through the filter's effects (add*Effect); a filter named walkietalkie, phone or underwater with no effects is that preset, any other filter with none changes nothing. null removes the filter; anything else that is not an AudioFilter throws a TypeError. A WebView added to the output plays it without the effects (the presets only). */
     filter: AudioFilter | null;
     /** Its id for getByID; all kinds of output share one numbering. */
     readonly id: number;
@@ -571,13 +750,13 @@ export class AudioOutputAttached {
     static readonly count: number;
     /** The output of this kind with this id; null when there is none, it is of another kind or it was destroyed. */
     static getByID(id: number): AudioOutputAttached | null;
-    /** A category hash, 0 for none: that AudioCategory's volume multiplies the output's volume. */
+    /** A category hash: hash("radio") when the constructor got none, 0 for none. A change of that AudioCategory's volume from GTA's own level scales the output's volume. */
     category: number;
     /** Takes the output off every Audio and WebView that uses it; valid turns false and later calls do nothing. A resource's outputs are destroyed when the resource stops. */
     destroy(): void;
     /** The entity the sound follows (anything with pos), null for none. The output is silent while it is null or the entity's valid or isStreamedIn is false; assignable. */
     entity: { readonly pos: Vector3Like; readonly valid?: boolean; readonly isStreamedIn?: boolean } | null;
-    /** walkietalkie, phone or underwater; null removes the filter. Unsupported presets throw RangeError. */
+    /** Sound through this output goes through the filter's effects (add*Effect); a filter named walkietalkie, phone or underwater with no effects is that preset, any other filter with none changes nothing. null removes the filter; anything else that is not an AudioFilter throws a TypeError. A WebView added to the output plays it without the effects (the presets only). */
     filter: AudioFilter | null;
     /** Its id for getByID; all kinds of output share one numbering. */
     readonly id: number;
@@ -586,7 +765,7 @@ export class AudioOutputAttached {
     /** While true the output passes no sound; default false. */
     muted: boolean;
     /** The entity's pos, or (0, 0, 0) without an entity. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** True until destroy(). */
     readonly valid: boolean;
     /** The output's volume, 0..1 (default 1; clamped when applied), faded by the camera's distance to the entity: silent beyond maxDistance (50 m by default) and while the entity is not streamed in. */
@@ -601,11 +780,11 @@ export class AudioOutputFrontend {
     static readonly count: number;
     /** The output of this kind with this id; null when there is none, it is of another kind or it was destroyed. */
     static getByID(id: number): AudioOutputFrontend | null;
-    /** A category hash, 0 for none: that AudioCategory's volume multiplies the output's volume. */
+    /** A category hash: hash("radio") when the constructor got none, 0 for none. A change of that AudioCategory's volume from GTA's own level scales the output's volume. */
     category: number;
     /** Takes the output off every Audio and WebView that uses it; valid turns false and later calls do nothing. A resource's outputs are destroyed when the resource stops. */
     destroy(): void;
-    /** walkietalkie, phone or underwater; null removes the filter. Unsupported presets throw RangeError. */
+    /** Sound through this output goes through the filter's effects (add*Effect); a filter named walkietalkie, phone or underwater with no effects is that preset, any other filter with none changes nothing. null removes the filter; anything else that is not an AudioFilter throws a TypeError. A WebView added to the output plays it without the effects (the presets only). */
     filter: AudioFilter | null;
     /** Its id for getByID; all kinds of output share one numbering. */
     readonly id: number;
@@ -625,11 +804,11 @@ export class AudioOutputWorld {
     static readonly count: number;
     /** The output of this kind with this id; null when there is none, it is of another kind or it was destroyed. */
     static getByID(id: number): AudioOutputWorld | null;
-    /** A category hash, 0 for none: that AudioCategory's volume multiplies the output's volume. */
+    /** A category hash: hash("radio") when the constructor got none, 0 for none. A change of that AudioCategory's volume from GTA's own level scales the output's volume. */
     category: number;
     /** Takes the output off every Audio and WebView that uses it; valid turns false and later calls do nothing. A resource's outputs are destroyed when the resource stops. */
     destroy(): void;
-    /** walkietalkie, phone or underwater; null removes the filter. Unsupported presets throw RangeError. */
+    /** Sound through this output goes through the filter's effects (add*Effect); a filter named walkietalkie, phone or underwater with no effects is that preset, any other filter with none changes nothing. null removes the filter; anything else that is not an AudioFilter throws a TypeError. A WebView added to the output plays it without the effects (the presets only). */
     filter: AudioFilter | null;
     /** Its id for getByID; all kinds of output share one numbering. */
     readonly id: number;
@@ -637,8 +816,9 @@ export class AudioOutputWorld {
     maxDistance: number;
     /** While true the output passes no sound; default false. */
     muted: boolean;
-    /** Where the sound comes from: the object given to the constructor, kept by reference (changing its x, y, z moves the sound), or (0, 0, 0) when none was given; assignable. */
-    pos: Vector3Like;
+    /** Where the sound comes from, (0, 0, 0) when none was given. The constructor and an assignment copy the position, and each read gives a new Vector3, so changing the caller's object later does not move the sound; assignable. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
     /** True until destroy(). */
     readonly valid: boolean;
     /** The output's volume, 0..1 (default 1; clamped when applied), faded by the camera's distance to pos: silent beyond maxDistance (50 m by default). */
@@ -648,12 +828,12 @@ export class AudioOutputWorld {
 export class BaseObject {
     /** Only a base class for `instanceof`: the client's world objects, entities and WebSocketClient extend it. The objects come from their own classes (`all`, `get`, `getByID`, constructors) and from events. */
     private constructor();
-    /** The object of that BaseObjectType with that id: a player, vehicle, ped, object or virtual entity as Entity.getByID finds it, a blip, checkpoint, colshape, marker or text label as its class's getByID does (this client's own first, then the server's); null for none. */
-    static getByID(type: number, id: number): PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | VirtualEntity | Blip | Checkpoint | ColShape | Marker | TextLabel | null;
-    /** The server's object of that BaseObjectType with that id: a player, vehicle, ped, object or virtual entity as Entity.getByID finds it, the server's blip, checkpoint, colshape, marker or text label (its class's getByRemoteID); null for none. On a class with a lookup of its own (LocalVehicle, WebSocketClient ...) it takes the id alone and looks in that class. */
+    /** The object of that BaseObjectType with that id: a player, vehicle, ped, object, virtual entity, local vehicle, local ped or local object as Entity.getByID finds it, a blip, checkpoint, colshape, marker or text label as its class's getByID does (this client's own first, then the server's); null for none. */
+    static getByID(type: number, id: number): PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | VirtualEntity | LocalVehicle | LocalPed | LocalObject | Blip | Checkpoint | ColShape | Marker | TextLabel | null;
+    /** The server's object of that BaseObjectType with that id: a player, vehicle, ped, object or virtual entity as Entity.getByID finds it, the server's blip, checkpoint, colshape, marker or text label (its class's getByRemoteID); null for none and for the local entity types (19, 24, 25). On a class with a lookup of its own (LocalVehicle, WebSocketClient ...) it takes the id alone and looks in that class. */
     static getByRemoteID(type: number, remoteId: number): PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | VirtualEntity | Blip | Checkpoint | ColShape | Marker | TextLabel | null;
-    /** Removes what this client made itself (a local entity, blip, marker, checkpoint, colshape, socket ...). What the server made is the server's to remove: see the class of the object for what its destroy does. */
-    destroy(): void | Promise<boolean>;
+    /** Removes what this client made itself (a local entity, blip, marker, checkpoint, colshape, socket ...) at once. What the server made is the server's to remove: its destroy refuses with a warning. */
+    destroy(): void;
     /** Its id: a player's or server entity's server id (a native vehicle's or NPC's is the id server scripts know it by, 65536 and up), the local player's own (0 before its first state), a local entity's negative id. A blip, marker, checkpoint or colshape this client made has a negative id of its own kind. A WebSocketClient has its own number. */
     readonly id: number;
     /** Whether this client still has it. A player or server entity: the newest snapshot lists it (the same entity, not another under its id) and did not find its GTA entity gone, so a kept object turns false once it leaves; the local player: it has an id; a native vehicle or NPC: the server still binds it to this client; a local entity: until destroy(). */
@@ -661,16 +841,37 @@ export class BaseObject {
 }
 
 export const BaseObjectType: {
+    readonly Audio: any;
+    readonly AudioFilter: any;
+    readonly AudioOutput: any;
+    readonly AudioOutputAttached: any;
+    readonly AudioOutputFrontend: any;
+    readonly AudioOutputWorld: any;
     readonly Blip: any;
     readonly Checkpoint: any;
+    readonly Colshape: any;
     readonly ColShape: any;
+    readonly ConnectionInfo: any;
+    readonly CustomTexture: any;
+    readonly Font: any;
+    readonly HttpClient: any;
+    readonly LocalObject: any;
+    readonly LocalPed: any;
+    readonly LocalPlayer: any;
+    readonly LocalVehicle: any;
     readonly Marker: any;
     readonly Object: any;
     readonly Ped: any;
     readonly Player: any;
+    readonly RmlDocument: any;
+    readonly RmlElement: any;
+    readonly Size: any;
     readonly TextLabel: any;
     readonly Vehicle: any;
     readonly VirtualEntity: any;
+    readonly VirtualEntityGroup: any;
+    readonly VoiceChannel: any;
+    readonly WebSocketClient: any;
     readonly WebView: any;
 };
 
@@ -691,59 +892,59 @@ export class Blip {
     static getByScriptID(scriptID: number): Blip | { type: 4; id: number; remoteId: number; remoteID: number; isRemote: true; scriptID: number; valid: boolean; isStreamedIn: boolean; pos: Vector3Like; dimension: number; sprite: number; color: number; scale: number; alpha: number; display: number; visible: boolean; bright: boolean; number: number; heading: number; isFriendly: boolean; size: Vector2Like; isAttached: boolean; name: string; shortRange: boolean; route: boolean; radius: number; width: number; height: number; isRadius: boolean; isArea: boolean; getSyncedMeta(key: string): unknown; hasSyncedMeta(key: string): boolean; getSyncedMetaKeys(): string[] } | null;
     /** Opacity 0..255 (clamped, truncated), 255 by default; sent as SET_BLIP_ALPHA. On the server's blip, assigning changes it for this client only. */
     alpha: number;
-    /** Sent as SET_BLIP_AS_MISSION_CREATOR_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SET_BLIP_AS_MISSION_CREATOR_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     asMissionCreator: boolean;
     /** A local blip's GTA type, as BlipType: Destination (4), Radius (7) or Area (11). Assigning one of them makes the blip that kind where it is: GTA cannot change a blip's kind, so the blip is made again (a new scriptID) and given what was set on it; the class follows. A radius without a radius gets 100 m, an area made from another kind 100 x 100 m. Any other type throws a RangeError. */
     blipType: number;
     /** Sent as SET_BLIP_BRIGHT once GTA has the blip, and again when a blipType change makes it anew; false until assigned. On the server's blip, assigning changes it for this client only. */
     bright: boolean;
-    /** GTA's blip category (SET_BLIP_CATEGORY), truncated; sent once GTA has the blip and again when a blipType change makes it anew. 0 until assigned. Only local blips have it. */
+    /** GTA's blip category (SET_BLIP_CATEGORY), truncated; sent once GTA has the blip and again when a blipType change makes it anew. 0 until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     category: number;
     /** Colour index (BlipColor), 0 by default; clamped to 0..255 and truncated (SET_BLIP_COLOUR). On the server's blip, assigning recolours it for this client only, unclamped. */
     color: number;
-    /** Sent as SHOW_CREW_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SHOW_CREW_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     crewIndicatorVisible: boolean;
-    /** Removes the key from the blip's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. Only local blips have it. */
+    /** Removes the key from the blip's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. The server's blip has metadata of this client's own too, gone with the blip. */
     deleteMeta(key: string): void;
-    /** Removes the blip from GTA (REMOVE_BLIP): valid turns false and baseObjectRemove fires; later calls do nothing. A resource's blips are destroyed when it stops, and the server's blips have no destroy. */
+    /** Removes the blip from GTA (REMOVE_BLIP): valid turns false and baseObjectRemove fires; later calls do nothing. A resource's blips are destroyed when it stops, and the server's blips have no destroy. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it shows in: the local player's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated, and checked again with each update of the local player. On the server's blip, assigning moves it for this client only. */
     dimension: number;
     /** GTA's display mode (SET_BLIP_DISPLAY), 2 by default, an integer of at least 0; 0 is sent instead while the blip is hidden (visible false or another dimension). On the server's blip, assigning changes it for this client only. */
     display: number;
-    /** Fades the blip to opacity 0..255 (clamped) over duration ms, at least 0 (SET_BLIP_FADE); does nothing before GTA has the blip or after destroy(). Only local blips have it. */
+    /** Fades the blip to opacity 0..255 (clamped) over duration ms, at least 0 (SET_BLIP_FADE); does nothing before GTA has the blip or after destroy(). On the server's blip it runs once on this client's copy, which keeps the opacity it faded to as its alpha. */
     fade(opacity: number, duration: number): void;
-    /** Sent as SET_BLIP_FLASHES once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SET_BLIP_FLASHES once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     flashes: boolean;
-    /** Sent as SET_BLIP_FLASHES_ALTERNATE once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SET_BLIP_FLASHES_ALTERNATE once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     flashesAlternate: boolean;
-    /** Flash interval in ms (SET_BLIP_FLASH_INTERVAL), an integer of at least 0; sent again when a blipType change makes the blip anew. 0 until assigned. Only local blips have it. */
+    /** Flash interval in ms (SET_BLIP_FLASH_INTERVAL), an integer of at least 0; sent again when a blipType change makes the blip anew. 0 until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     flashInterval: number;
-    /** How long the blip flashes, in ms (SET_BLIP_FLASH_TIMER), an integer of at least 0; sent again when a blipType change makes the blip anew. 0 until assigned. Only local blips have it. */
+    /** How long the blip flashes, in ms (SET_BLIP_FLASH_TIMER), an integer of at least 0; sent again when a blipType change makes the blip anew. 0 until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     flashTimer: number;
-    /** Sent as SHOW_FRIEND_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SHOW_FRIEND_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     friendIndicatorVisible: boolean;
-    /** The value setMeta stored under the key, undefined for none: the blip's own metadata on this client. Only local blips have it. */
-    getMeta(key: string): unknown;
-    /** The keys of the blip's own metadata (setMeta); getMetaKeys returns the same. Only local blips have it. */
+    /** The value setMeta stored under the key, undefined for none: the blip's own metadata on this client. The server's blip has metadata of this client's own too, gone with the blip. */
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomBlipMeta, K, unknown>;
+    /** The keys of the blip's own metadata (setMeta); getMetaKeys returns the same. The server's blip has metadata of this client's own too, gone with the blip. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. Only local blips have it. */
     getMetaKeys(): string[];
     /** Always undefined on a local blip, which has no synced metadata; the server's blip returns the value the server set for the key, undefined for none. */
-    getSyncedMeta(key: string): unknown;
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomBaseObjectSyncedMeta, K, unknown>;
     /** [] on a local blip; the server's blip lists the keys the server set. */
     getSyncedMetaKeys(): string[];
-    /** A GTA text label to name the blip with (SET_BLIP_NAME_FROM_TEXT_FILE), empty by default; while set it wins over name, and assigning name clears it. Only local blips have it. */
+    /** A GTA text label to name the blip with (SET_BLIP_NAME_FROM_TEXT_FILE), empty by default; while set it wins over name, and assigning name clears it. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     gxtName: string;
-    /** Whether the blip's own metadata (setMeta) holds the key. Only local blips have it. */
+    /** Whether the blip's own metadata (setMeta) holds the key. The server's blip has metadata of this client's own too, gone with the blip. */
     hasMeta(key: string): boolean;
     /** Always false on a local blip; the server's blip answers whether the server set the key. */
     hasSyncedMeta(key: string): boolean;
     /** Rotation of the icon in degrees (SET_BLIP_ROTATION_WITH_FLOAT); sent again when a blipType change makes the blip anew. 0 until assigned. On the server's blip, assigning changes it for this client only. */
     heading: number;
-    /** Sent as SHOW_HEADING_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SHOW_HEADING_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     headingIndicatorVisible: boolean;
-    /** Sent as SET_BLIP_HIGH_DETAIL once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SET_BLIP_HIGH_DETAIL once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     highDetail: boolean;
     /** A local blip's id is negative (-1, -2 ...) and unique on this client; the server's blips have the server's id. */
     readonly id: number;
@@ -751,15 +952,15 @@ export class Blip {
     readonly isAttached: boolean;
     /** Whether GTA shows the blip as friendly (SET_BLIP_AS_FRIENDLY), false until assigned. That native recolours the blip whatever its toggle (false leaves colour 49), so a local blip gets it only while friendly, after its colour (and again when a blipType change makes it anew); turning it off sends it with false and then the blip's colour again. On the server's blip, assigning changes it for this client only. */
     isFriendly: boolean;
-    /** True while the dimension is -2147483648, which shows the blip in every dimension. Only local blips have it. */
+    /** Always true on a blip made on this client: it is for no one player, in whatever dimension. Only local blips have it. */
     readonly isGlobal: boolean;
-    /** Sent as SET_BLIP_HIDDEN_ON_LEGEND once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SET_BLIP_HIDDEN_ON_LEGEND once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip has it too, as this client's own: the server sends none. */
     isHiddenOnLegend: boolean;
-    /** Sent as SET_BLIP_AS_MINIMAL_ON_EDGE, the native shrinked uses too, so the last assignment of either wins (shrinked when a blipType change makes the blip anew); false until assigned. Only local blips have it. */
+    /** GTA's one flag SET_BLIP_AS_MINIMAL_ON_EDGE, behind both shrinked and isMinimalOnEdge: assigning either sets the other; false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     isMinimalOnEdge: boolean;
     /** False for a local blip; the server's blips read true. */
     readonly isRemote: boolean;
-    /** Sent as SET_BLIP_SHORT_HEIGHT_THRESHOLD once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SET_BLIP_SHORT_HEIGHT_THRESHOLD once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip has it too, as this client's own: the server sends none. */
     isShortHeightThreshold: boolean;
     /** True while GTA has the blip, it is visible and its dimension matches the local player's. The server's blip reads the same: GTA has it only in the local player's dimension. */
     readonly isStreamedIn: boolean;
@@ -767,13 +968,14 @@ export class Blip {
     name: string;
     /** Number shown on the blip (SHOW_NUMBER_ON_BLIP), truncated; a negative one hides it (HIDE_NUMBER_ON_BLIP). -1 until assigned. On the server's blip, assigning changes it for this client only. */
     number: number;
-    /** Sent as SHOW_OUTLINE_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SHOW_OUTLINE_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     outlineIndicatorVisible: boolean;
     /** Its position, a copy; assigning moves it (SET_BLIP_COORDS), a missing or non-numeric component becoming 0. On the server's blip, assigning moves it for this client only. */
-    pos: Vector3Like;
-    /** SET_BLIP_PRIORITY, truncated; sent once GTA has the blip and again when a blipType change makes it anew. 0 until assigned. Only local blips have it. */
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
+    /** SET_BLIP_PRIORITY, truncated; sent once GTA has the blip and again when a blipType change makes it anew. 0 until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     priority: number;
-    /** Assigning true pulses the blip once (PULSE_BLIP); false sends nothing, and the value read is only what was assigned. Only local blips have it. */
+    /** Assigning true pulses the blip once (PULSE_BLIP); false sends nothing, and the value read is only what was assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     pulse: boolean;
     /** Always 1: the runtime keeps no reference count of its objects. */
     readonly refCount: 1;
@@ -783,32 +985,33 @@ export class Blip {
     readonly remoteID: number;
     /** Whether GTA draws a GPS route to the blip (SET_BLIP_ROUTE), false by default. On the server's blip, assigning sets it for this client only, and the client's copy keeps it when it applies the blip again. */
     route: boolean;
-    /** Colour index of the GPS route (SET_BLIP_ROUTE_COLOUR), clamped to 0..255 and truncated; 0 by default. Only local blips have it. */
+    /** Colour index of the GPS route (SET_BLIP_ROUTE_COLOUR), clamped to 0..255 and truncated; 0 by default. The server's blip reads it as an RGBA of the colour the server gave (routeR..routeA), and an RGBA assigned to it goes to this client's copy, which GTA shows as the nearest HUD colour. */
     routeColor: number;
-    /** Icon size (SET_BLIP_SCALE), 1 by default, at least 0. On the server's blip, assigning resizes it for this client only, and 0 becomes 1 there. */
+    /** The drawn size's x (size.x), 1 by default; assigning sets a point or radius blip's size to it on both axes (SET_BLIP_SCALE). On an area blip it is the icon scale alone. On the server's blip, assigning changes it for this client only. */
     scale: number;
     /** GTA's handle of the blip: 0 until GTA has made it and after destroy(); a blipType change makes the blip again with a new handle. The server's blip reads 0 while it is in another dimension than the local player's, where the client keeps no GTA blip for it. */
     readonly scriptID: number;
-    /** Secondary colour (SET_BLIP_SECONDARY_COLOUR): an {r, g, b} object, each clamped to 0..255, or a number 0xRRGGBBAA; read back as assigned, {r: 0, g: 0, b: 0, a: 255} by default. Only local blips have it. */
+    /** Secondary colour (SET_BLIP_SECONDARY_COLOUR): an {r, g, b} object, each clamped to 0..255, or a number 0xRRGGBBAA; read back as assigned, {r: 0, g: 0, b: 0, a: 255} by default. The server's blip reads it as an RGBA, and assigning changes this client's copy. */
     secondaryColor: number | { r?: number; g?: number; b?: number; a?: number };
-    /** Stores the value under the key in the blip's own metadata on this client and fires metaChange (blip, key, value, old value); an object sets each of its entries. Only local blips have it. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    /** Stores the value under the key in the blip's own metadata on this client and fires metaChange (blip, key, value, old value); an object sets each of its entries. The server's blip has metadata of this client's own too, gone with the blip. */
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomBlipMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomBlipMeta, unknown>): void;
     /** Shown on the minimap only nearby (SET_BLIP_AS_SHORT_RANGE): false by default for a local blip, true for the server's ones. On the server's blip, assigning changes it for this client only. */
     shortRange: boolean;
-    /** Draws the blip's sight cone (SET_BLIP_SHOW_CONE, hue 0); sent again when a blipType change makes the blip anew, false until assigned. Only local blips have it. */
+    /** Draws the blip's sight cone (SET_BLIP_SHOW_CONE, in the blip's colour, again when the colour changes); sent again when a blipType change makes the blip anew, false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     showCone: boolean;
-    /** Sent as SET_BLIP_AS_MINIMAL_ON_EDGE, the native isMinimalOnEdge uses too, so the last assignment of either wins (shrinked when a blipType change makes the blip anew); false until assigned. Only local blips have it. */
+    /** GTA's one flag SET_BLIP_AS_MINIMAL_ON_EDGE, behind both shrinked and isMinimalOnEdge: assigning either sets the other; false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     shrinked: boolean;
-    /** An area blip's width (x) and height (y) in metres, {1, 1} on other blips by default; assigning sends SET_BLIP_SCALE_2D (each at least 0), which only an area blip gets again when a blipType change makes it anew. On the server's blip, assigning changes it for this client only. */
-    size: Vector2Like;
+    /** SET_BLIP_SCALE_2D: an area blip's width (x) and height (y) in metres; on other blips the drawn scale per axis, {1, 1} by default, whose x is scale. Each at least 0. On the server's blip, assigning changes it for this client only. */
+    get size(): Vector2;
+    set size(value: Vector2Like);
     /** Icon (BlipSprite), 1 by default; truncated, at least 0 (SET_BLIP_SPRITE). On the server's blip, assigning changes it for this client only. */
     sprite: number;
-    /** Sent as SHOW_TICK_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SHOW_TICK_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip reads what this client applies to GTA's blip, and assigning changes this client's copy. */
     tickVisible: boolean;
     /** BaseObjectType.Blip (4). */
     readonly type: 4;
-    /** Sent as SET_BLIP_USE_HEIGHT_INDICATOR_ON_EDGE once GTA has the blip, and again when a blipType change makes it anew; false until assigned. Only local blips have it. */
+    /** Sent as SET_BLIP_USE_HEIGHT_INDICATOR_ON_EDGE once GTA has the blip, and again when a blipType change makes it anew; false until assigned. The server's blip has it too, as this client's own: the server sends none. */
     useHeightIndicatorOnEdge: boolean;
     /** True until destroy() or the stop of its resource. The server's blips are valid while this client keeps them. */
     readonly valid: boolean;
@@ -2474,19 +2677,19 @@ export class Checkpoint {
     set color(value: { r?: number; g?: number; b?: number; a?: number });
     /** Removes the key from the checkpoint's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
     deleteMeta(key: string): void;
-    /** Deletes the GTA checkpoint (DELETE_CHECKPOINT): valid turns false and baseObjectRemove fires; later calls do nothing. A resource's checkpoints are destroyed when it stops, and the server's ones have no destroy. */
+    /** Deletes the GTA checkpoint (DELETE_CHECKPOINT): a player inside leaves first (entityLeaveColshape), then valid turns false and baseObjectRemove fires; later calls do nothing. A resource's checkpoints are destroyed when it stops, and the server's ones have no destroy. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it exists in: the local player's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated. On the server's checkpoint, assigning moves it for this client only. */
     dimension: number;
     /** The value setMeta stored under the key, undefined for none: the checkpoint's own metadata on this client (on the server's checkpoint, until the server removes it). */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomCheckpointMeta, K, unknown>;
     /** The keys of the checkpoint's own metadata (setMeta). */
     getMetaDataKeys(): string[];
     /** Whether the checkpoint's own metadata (setMeta) holds the key. */
     hasMeta(key: string): boolean;
     /** Height of the cylinder in metres, at least 0 (SET_CHECKPOINT_CYLINDER_HEIGHT); isPointIn counts from pos.z up to pos.z + height. On the server's checkpoint, assigning changes it for this client only. */
     height: number;
-    /** Colour of the icon (SET_CHECKPOINT_RGBA2), the colour by default; each component is clamped to 0..255, and a missing one keeps its value on assigning. Only local checkpoints have it. */
+    /** Colour of the icon (SET_CHECKPOINT_RGBA2), the colour by default; each component is clamped to 0..255, and a missing one keeps its value on assigning. The server's checkpoint has it as this client's own (the server sends none): GTA's icon colour until a script sets it, which reads as its colour. */
     get iconColor(): { r: number; g: number; b: number; a: number };
     set iconColor(value: { r?: number; g?: number; b?: number; a?: number });
     /** A local checkpoint's id is negative and unique on this client; the server's checkpoints have the server's id. */
@@ -2499,23 +2702,23 @@ export class Checkpoint {
     readonly isRemote: boolean;
     /** True while GTA has the checkpoint: visible, in the local player's dimension and within streamingDistance of the local player. The server's checkpoint: while the client draws it, visible, in the local player's dimension and within streamingDistance (0: at any distance). */
     readonly isStreamedIn: boolean;
-    /** The point its arrow faces (SET_CHECKPOINT_DIRECTION), a copy, pos by default; on assigning a missing or non-numeric component keeps its value. Only local checkpoints have it. */
+    /** The point its arrow faces (SET_CHECKPOINT_DIRECTION), a copy, pos by default; on assigning a missing or non-numeric component keeps its value. The server's checkpoint has it as this client's own (the server sends none): GTA's checkpoint is made again pointing there. */
     get nextPos(): Vector3Like;
     set nextPos(value: Partial<Vector3Like>);
     /** Its position, a copy; assigning makes the GTA checkpoint again there, a missing or non-numeric component keeping its value. On the server's checkpoint, assigning moves it for this client only. */
     get pos(): Vector3Like;
     set pos(value: Partial<Vector3Like>);
-    /** Radius in metres, at least 0 (SET_CHECKPOINT_CYLINDER_HEIGHT); isPointIn uses it. On the server's checkpoint, assigning changes it for this client only. */
+    /** Radius in metres, at least 0; isPointIn uses it, and GTA draws the cylinder 2 × radius wide. GTA fixes a checkpoint's size when it is made, so assigning makes the checkpoint anew. On the server's checkpoint, assigning changes it for this client only. */
     radius: number;
     /** The server's id of a checkpoint of the server; 0 for one this client made. */
     readonly remoteId: number;
     /** 0 for a local checkpoint; the server's checkpoints read their id, as remoteId. */
     readonly remoteID: number;
-    /** GTA's handle of the checkpoint; 0 while GTA does not have it (hidden, another dimension, out of range, destroyed). Always 0 on the server's checkpoints, which are drawn as markers. */
+    /** GTA's handle of the checkpoint; 0 while GTA does not have it (hidden, another dimension, out of range, destroyed). The server's checkpoints report theirs as this client makes and removes them. */
     readonly scriptID: number;
     /** Stores the value under the key in the checkpoint's own metadata on this client and fires metaChange (checkpoint, key, value, old value); an object sets each of its entries. On the server's checkpoint the metadata goes when the server removes it. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomCheckpointMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomCheckpointMeta, unknown>): void;
     /** Distance in metres from the local player within which GTA has the checkpoint: as given to the constructor, at least 1, 300 by default. On the server's checkpoint 0 draws it at any distance. */
     readonly streamingDistance: number;
     /** BaseObjectType.Checkpoint (8). */
@@ -2615,12 +2818,12 @@ export class ColShape {
     readonly colshapeType: number;
     /** Removes the key from the colshape's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. Only local colshapes have it. */
     deleteMeta(key: string): void;
-    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops, and the server's ones have no destroy. */
+    /** Removes the colshape: valid turns false, baseObjectRemove fires and whoever is inside leaves first (entityLeaveColshape, the colshape still valid); later calls do nothing. A resource's colshapes are destroyed when it stops, and the server's ones have no destroy. */
     destroy(): void;
     /** The dimension it works in: an entity's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated. The local player's enter and leave events follow it. Read-only on the server's colshapes. */
     dimension: number;
     /** The value setMeta stored under the key, undefined for none: the colshape's own metadata on this client. Only local colshapes have it. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomColshapeMeta, K, unknown>;
     /** The keys of the colshape's own metadata (setMeta); getMetaKeys returns the same. Only local colshapes have it. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. Only local colshapes have it. */
@@ -2649,7 +2852,7 @@ export class ColShape {
     readonly min: Vector3Like;
     /** The bottom of a polygon's height range; 0 for other kinds. */
     readonly minZ: number;
-    /** Whether isEntityIn counts players only, false by default; a server's colshape reads the flag the server gave it. The runtime's own enter and leave events check the local player anyway. */
+    /** Whether only players count, false by default: for isEntityIn and for the enter and leave events of a colshape of this client's scripts. A server's colshape reads the flag the server gave it. */
     playersOnly: boolean;
     /** A polygon's corners as {x, y}; [] for other kinds. */
     readonly points: Vector2Like[];
@@ -2662,8 +2865,8 @@ export class ColShape {
     /** Always 0 for a local colshape; the server's ones have their id here. */
     readonly remoteID: 0;
     /** Stores the value under the key in the colshape's own metadata on this client and fires metaChange (colshape, key, value, old value); an object sets each of its entries. Only local colshapes have it. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomColshapeMeta, unknown>): void;
     /** BaseObjectType.ColShape (7). */
     readonly type: 7;
     /** True until destroy() or the stop of its resource. The server's colshapes are valid while this client keeps them. */
@@ -2697,12 +2900,12 @@ export class Colshape {
     readonly colshapeType: number;
     /** Removes the key from the colshape's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. Only local colshapes have it. */
     deleteMeta(key: string): void;
-    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops, and the server's ones have no destroy. */
+    /** Removes the colshape: valid turns false, baseObjectRemove fires and whoever is inside leaves first (entityLeaveColshape, the colshape still valid); later calls do nothing. A resource's colshapes are destroyed when it stops, and the server's ones have no destroy. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it works in: an entity's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated. The local player's enter and leave events follow it. Read-only on the server's colshapes. */
     dimension: number;
     /** The value setMeta stored under the key, undefined for none: the colshape's own metadata on this client. Only local colshapes have it. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomColshapeMeta, K, unknown>;
     /** The keys of the colshape's own metadata (setMeta); getMetaKeys returns the same. Only local colshapes have it. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. Only local colshapes have it. */
@@ -2724,19 +2927,19 @@ export class Colshape {
     /** Its shape as text: "sphere", "cylinder", "circle", "box" (a cuboid), "rectangle" or "polygon". */
     readonly kind: "sphere" | "cylinder" | "circle" | "box" | "rectangle" | "polygon";
     /** The corner of its bounding box with the largest coordinates, a copy: for a sphere, pos plus the radius on each axis; for a cylinder, x and y plus the radius and z pos.z + height; for a circle, x and y plus the radius and z 0; the corner of a cuboid or a rectangle (z 0); for a polygon, the largest x and y of its corners and z maxZ. */
-    readonly max: Vector3Like;
+    readonly max: Vector3;
     /** The top of a polygon's height range; 0 for other kinds. */
     readonly maxZ: number;
     /** The corner of its bounding box with the smallest coordinates, a copy: for a sphere, pos minus the radius on each axis; for a cylinder, x and y minus the radius and z pos.z; for a circle, x and y minus the radius and z 0; the corner of a cuboid or a rectangle (z 0); for a polygon, the smallest x and y of its corners and z minZ. */
-    readonly min: Vector3Like;
+    readonly min: Vector3;
     /** The bottom of a polygon's height range; 0 for other kinds. */
     readonly minZ: number;
-    /** Whether isEntityIn counts players only, false by default; a server's colshape reads the flag the server gave it. The runtime's own enter and leave events check the local player anyway. */
+    /** Whether only players count, false by default: for isEntityIn and for the enter and leave events of a colshape of this client's scripts. A server's colshape reads the flag the server gave it. */
     playersOnly: boolean;
     /** A polygon's corners as {x, y}; [] for other kinds. */
-    readonly points: Vector2Like[];
+    readonly points: Vector2[];
     /** Its centre, a copy: of a sphere or circle (z 0), the base of a cylinder, the middle of a cuboid or rectangle (z 0) or of a polygon's bounding box. Read-only. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** Radius in metres of a sphere, cylinder or circle (a negative one becomes 0); 0 for other kinds. */
     readonly radius: number;
     /** Always 0 for a local colshape; the server's ones have their id here. */
@@ -2744,8 +2947,8 @@ export class Colshape {
     /** Always 0 for a local colshape; the server's ones have their id here. */
     readonly remoteID: 0;
     /** Stores the value under the key in the colshape's own metadata on this client and fires metaChange (colshape, key, value, old value); an object sets each of its entries. Only local colshapes have it. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomColshapeMeta, unknown>): void;
     /** BaseObjectType.ColShape (7). */
     readonly type: 7;
     /** True until destroy() or the stop of its resource. The server's colshapes are valid while this client keeps them. */
@@ -2769,12 +2972,12 @@ export class ColshapeCircle {
     readonly colshapeType: 2;
     /** Removes the key from the colshape's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
     deleteMeta(key: string): void;
-    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. */
+    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it works in: an entity's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated. The local player's enter and leave events follow it. */
     dimension: number;
     /** The value setMeta stored under the key, undefined for none: the colshape's own metadata on this client. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomColshapeMeta, K, unknown>;
     /** The keys of the colshape's own metadata (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -2796,19 +2999,19 @@ export class ColshapeCircle {
     /** Always "circle". */
     readonly kind: "circle";
     /** The largest corner of the circle's bounding box, a copy: x and y plus the radius, z 0. */
-    readonly max: Vector3Like;
+    readonly max: Vector3;
     /** Always 0: only a polygon has a height range. */
     readonly maxZ: number;
     /** The smallest corner of the circle's bounding box, a copy: x and y minus the radius, z 0. */
-    readonly min: Vector3Like;
+    readonly min: Vector3;
     /** Always 0: only a polygon has a height range. */
     readonly minZ: number;
     /** Whether isEntityIn counts players only, false by default for a local colshape; the runtime's own enter and leave events check the local player anyway. */
     playersOnly: boolean;
     /** Always []: only a polygon has points. */
-    readonly points: Vector2Like[];
+    readonly points: Vector2[];
     /** The circle's centre, a copy; z is always 0. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** The circle's radius in metres, as given; a negative one becomes 0. */
     readonly radius: number;
     /** Always 0: a local colshape has no server id. */
@@ -2816,8 +3019,8 @@ export class ColshapeCircle {
     /** Always 0: a local colshape has no server id. */
     readonly remoteID: 0;
     /** Stores the value under the key in the colshape's own metadata on this client and fires metaChange (colshape, key, value, old value); an object sets each of its entries. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomColshapeMeta, unknown>): void;
     /** BaseObjectType.ColShape (7). */
     readonly type: 7;
     /** True until destroy() or the stop of its resource. */
@@ -2841,12 +3044,12 @@ export class ColshapeCuboid {
     readonly colshapeType: 3;
     /** Removes the key from the colshape's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
     deleteMeta(key: string): void;
-    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. */
+    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it works in: an entity's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated. The local player's enter and leave events follow it. */
     dimension: number;
     /** The value setMeta stored under the key, undefined for none: the colshape's own metadata on this client. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomColshapeMeta, K, unknown>;
     /** The keys of the colshape's own metadata (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -2868,19 +3071,19 @@ export class ColshapeCuboid {
     /** Always "box". */
     readonly kind: "box";
     /** The box's corner with the largest coordinates, a copy. */
-    readonly max: Vector3Like;
+    readonly max: Vector3;
     /** Always 0: only a polygon has a height range. */
     readonly maxZ: number;
     /** The box's corner with the smallest coordinates, a copy. */
-    readonly min: Vector3Like;
+    readonly min: Vector3;
     /** Always 0: only a polygon has a height range. */
     readonly minZ: number;
     /** Whether isEntityIn counts players only, false by default for a local colshape; the runtime's own enter and leave events check the local player anyway. */
     playersOnly: boolean;
     /** Always []: only a polygon has points. */
-    readonly points: Vector2Like[];
+    readonly points: Vector2[];
     /** The middle of the box, a copy. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** Always 0: a cuboid has no radius. */
     readonly radius: number;
     /** Always 0: a local colshape has no server id. */
@@ -2888,8 +3091,8 @@ export class ColshapeCuboid {
     /** Always 0: a local colshape has no server id. */
     readonly remoteID: 0;
     /** Stores the value under the key in the colshape's own metadata on this client and fires metaChange (colshape, key, value, old value); an object sets each of its entries. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomColshapeMeta, unknown>): void;
     /** BaseObjectType.ColShape (7). */
     readonly type: 7;
     /** True until destroy() or the stop of its resource. */
@@ -2913,12 +3116,12 @@ export class ColshapeCylinder {
     readonly colshapeType: 1;
     /** Removes the key from the colshape's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
     deleteMeta(key: string): void;
-    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. */
+    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it works in: an entity's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated. The local player's enter and leave events follow it. */
     dimension: number;
     /** The value setMeta stored under the key, undefined for none: the colshape's own metadata on this client. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomColshapeMeta, K, unknown>;
     /** The keys of the colshape's own metadata (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -2940,19 +3143,19 @@ export class ColshapeCylinder {
     /** Always "cylinder". */
     readonly kind: "cylinder";
     /** The largest corner of the cylinder's bounding box, a copy: x and y plus the radius, z pos.z + height. */
-    readonly max: Vector3Like;
+    readonly max: Vector3;
     /** Always 0: only a polygon has a height range. */
     readonly maxZ: number;
     /** The smallest corner of the cylinder's bounding box, a copy: x and y minus the radius, z pos.z. */
-    readonly min: Vector3Like;
+    readonly min: Vector3;
     /** Always 0: only a polygon has a height range. */
     readonly minZ: number;
     /** Whether isEntityIn counts players only, false by default for a local colshape; the runtime's own enter and leave events check the local player anyway. */
     playersOnly: boolean;
     /** Always []: only a polygon has points. */
-    readonly points: Vector2Like[];
+    readonly points: Vector2[];
     /** The centre of the cylinder's base, a copy; it reaches up from there by height. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** The cylinder's radius in metres, as given; a negative one becomes 0. */
     readonly radius: number;
     /** Always 0: a local colshape has no server id. */
@@ -2960,8 +3163,8 @@ export class ColshapeCylinder {
     /** Always 0: a local colshape has no server id. */
     readonly remoteID: 0;
     /** Stores the value under the key in the colshape's own metadata on this client and fires metaChange (colshape, key, value, old value); an object sets each of its entries. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomColshapeMeta, unknown>): void;
     /** BaseObjectType.ColShape (7). */
     readonly type: 7;
     /** True until destroy() or the stop of its resource. */
@@ -2986,12 +3189,12 @@ export class ColshapePolygon {
     readonly colshapeType: 6;
     /** Removes the key from the colshape's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
     deleteMeta(key: string): void;
-    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. */
+    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it works in: an entity's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated. The local player's enter and leave events follow it. */
     dimension: number;
     /** The value setMeta stored under the key, undefined for none: the colshape's own metadata on this client. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomColshapeMeta, K, unknown>;
     /** The keys of the colshape's own metadata (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -3013,19 +3216,19 @@ export class ColshapePolygon {
     /** Always "polygon". */
     readonly kind: "polygon";
     /** The largest x and y of its points, with maxZ; a copy. */
-    readonly max: Vector3Like;
+    readonly max: Vector3;
     /** The top of the height range: the larger of the two heights given. */
     readonly maxZ: number;
     /** The smallest x and y of its points, with minZ; a copy. */
-    readonly min: Vector3Like;
+    readonly min: Vector3;
     /** The bottom of the height range: the smaller of the two heights given. */
     readonly minZ: number;
     /** Whether isEntityIn counts players only, false by default for a local colshape; the runtime's own enter and leave events check the local player anyway. */
     playersOnly: boolean;
     /** Its corners as {x, y} copies; a non-numeric value became 0. */
-    readonly points: Vector2Like[];
+    readonly points: Vector2[];
     /** The middle of the polygon's bounding box, z halfway between minZ and maxZ; a copy. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** Always 0: a polygon has no radius. */
     readonly radius: number;
     /** Always 0: a local colshape has no server id. */
@@ -3033,8 +3236,8 @@ export class ColshapePolygon {
     /** Always 0: a local colshape has no server id. */
     readonly remoteID: 0;
     /** Stores the value under the key in the colshape's own metadata on this client and fires metaChange (colshape, key, value, old value); an object sets each of its entries. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomColshapeMeta, unknown>): void;
     /** BaseObjectType.ColShape (7). */
     readonly type: 7;
     /** True until destroy() or the stop of its resource. */
@@ -3058,12 +3261,12 @@ export class ColshapeRectangle {
     readonly colshapeType: 4;
     /** Removes the key from the colshape's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
     deleteMeta(key: string): void;
-    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. */
+    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it works in: an entity's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated. The local player's enter and leave events follow it. */
     dimension: number;
     /** The value setMeta stored under the key, undefined for none: the colshape's own metadata on this client. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomColshapeMeta, K, unknown>;
     /** The keys of the colshape's own metadata (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -3085,19 +3288,19 @@ export class ColshapeRectangle {
     /** Always "rectangle". */
     readonly kind: "rectangle";
     /** The rectangle's corner with the largest x and y, a copy; z is 0. */
-    readonly max: Vector3Like;
+    readonly max: Vector3;
     /** Always 0: only a polygon has a height range. */
     readonly maxZ: number;
     /** The rectangle's corner with the smallest x and y, a copy; z is 0. */
-    readonly min: Vector3Like;
+    readonly min: Vector3;
     /** Always 0: only a polygon has a height range. */
     readonly minZ: number;
     /** Whether isEntityIn counts players only, false by default for a local colshape; the runtime's own enter and leave events check the local player anyway. */
     playersOnly: boolean;
     /** Always []: only a polygon has points. */
-    readonly points: Vector2Like[];
+    readonly points: Vector2[];
     /** The middle of the rectangle, a copy; z is always 0. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** Always 0: a rectangle has no radius. */
     readonly radius: number;
     /** Always 0: a local colshape has no server id. */
@@ -3105,8 +3308,8 @@ export class ColshapeRectangle {
     /** Always 0: a local colshape has no server id. */
     readonly remoteID: 0;
     /** Stores the value under the key in the colshape's own metadata on this client and fires metaChange (colshape, key, value, old value); an object sets each of its entries. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomColshapeMeta, unknown>): void;
     /** BaseObjectType.ColShape (7). */
     readonly type: 7;
     /** True until destroy() or the stop of its resource. */
@@ -3130,12 +3333,12 @@ export class ColshapeSphere {
     readonly colshapeType: 0;
     /** Removes the key from the colshape's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
     deleteMeta(key: string): void;
-    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. */
+    /** Removes the colshape: valid turns false, baseObjectRemove fires and enter and leave events stop (a player inside gets no leave); later calls do nothing. A resource's colshapes are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it works in: an entity's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated. The local player's enter and leave events follow it. */
     dimension: number;
     /** The value setMeta stored under the key, undefined for none: the colshape's own metadata on this client. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomColshapeMeta, K, unknown>;
     /** The keys of the colshape's own metadata (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -3157,19 +3360,19 @@ export class ColshapeSphere {
     /** Always "sphere". */
     readonly kind: "sphere";
     /** The largest corner of the sphere's bounding box, a copy: pos plus the radius on each axis. */
-    readonly max: Vector3Like;
+    readonly max: Vector3;
     /** Always 0: only a polygon has a height range. */
     readonly maxZ: number;
     /** The smallest corner of the sphere's bounding box, a copy: pos minus the radius on each axis. */
-    readonly min: Vector3Like;
+    readonly min: Vector3;
     /** Always 0: only a polygon has a height range. */
     readonly minZ: number;
     /** Whether isEntityIn counts players only, false by default for a local colshape; the runtime's own enter and leave events check the local player anyway. */
     playersOnly: boolean;
     /** Always []: only a polygon has points. */
-    readonly points: Vector2Like[];
+    readonly points: Vector2[];
     /** The sphere's centre, a copy. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** The sphere's radius in metres, as given; a negative one becomes 0. */
     readonly radius: number;
     /** Always 0: a local colshape has no server id. */
@@ -3177,8 +3380,8 @@ export class ColshapeSphere {
     /** Always 0: a local colshape has no server id. */
     readonly remoteID: 0;
     /** Stores the value under the key in the colshape's own metadata on this client and fires metaChange (colshape, key, value, old value); an object sets each of its entries. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomColshapeMeta, unknown>): void;
     /** BaseObjectType.ColShape (7). */
     readonly type: 7;
     /** True until destroy() or the stop of its resource. */
@@ -3239,20 +3442,22 @@ export class Entity {
     private constructor();
     /** Every entity this client knows, as new objects on each read: the local player once it has an id, the other players, the old-path vehicles, peds and objects (streamed in or not), the native vehicles and NPCs its GTA has now, and the local entities not destroyed. Virtual entities are not included. */
     static readonly all: Array<PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | LocalVehicle | LocalPed | LocalObject>;
-    /** The entity of that BaseObjectType by its server id, through that class's get: Player (0), Vehicle (1), Ped (2), Object (3) or VirtualEntity (9); null for any other type or an id this client does not know. Local entities are not found. */
-    static getByID(type: number, id: number): PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | VirtualEntity | null;
-    /** The same as Entity.getByID: on the client the remote id is the server id. On a class with a lookup of its own (LocalVehicle, LocalPed, LocalObject, WebSocketClient) it takes the id alone and finds that class's object whose remoteId it is. */
+    /** The entity of that BaseObjectType by its id, through that class's lookup: Player (0), Vehicle (1), Ped (2), Object (3) and VirtualEntity (20) by the server id, LocalObject (19), LocalPed (24) and LocalVehicle (25) by their own id; null for any other type or an id this client does not know. */
+    static getByID(type: number, id: number): PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | VirtualEntity | LocalVehicle | LocalPed | LocalObject | null;
+    /** The same as Entity.getByID for the server's entities: on the client the remote id is the server id. LocalObject, LocalPed and LocalVehicle (19, 24, 25) have no server id and give null. On a class with a lookup of its own (LocalVehicle, LocalPed, LocalObject, WebSocketClient) it takes the id alone and finds that class's object whose remoteId it is. */
     static getByRemoteID(type: number, remoteId: number): PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | VirtualEntity | null;
     /** The entity whose GTA handle this is: the local player; a player, old-path vehicle, object or ped the server streams to this client; a local entity not destroyed; or a native vehicle or NPC. null for 0 or below and for any other handle. */
     static getByScriptID(scriptID: number): PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | LocalVehicle | LocalPed | LocalObject | null;
-    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY; useSoftPinning and collision default to false, fixedRot to true. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
+    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); useSoftPinning, collision and fixedRot default to false. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
     attachTo(entity: { scriptID: number } | number, bone?: number, offset?: Partial<Vector3Like>, rotation?: Partial<Vector3Like>, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
     /** Whether collision is on: for a player or a server entity, the server's setting as this client last got it (true when none was sent); a local entity's own setting (true at creation), which assigning applies in this client's GTA. */
     readonly collision: boolean;
-    /** Deletes its GTA entity on this client (DELETE_ENTITY) and resolves true once that ran; false when it has no GTA entity here, when it is a player's ped, the local one included (a warning is logged), or when GTA refused. The server is not told. A local entity has its own synchronous destroy(). */
-    destroy(): Promise<boolean>;
-    /** Detaches its GTA entity on this client (DETACH_ENTITY, dynamic, with collision); resolves false when it has no GTA entity here or GTA refused. */
-    detach(): Promise<boolean>;
+    /** Removes the key from this client's own data on it (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. A local entity keeps its own, until destroy(). */
+    deleteMeta(key: string): void;
+    /** Refuses at once with a warning: this is the server's entity, destroyed on the server; a client script destroys only its own local objects (LocalVehicle and the like have their own destroy). Nothing in the game is changed. */
+    destroy(): void;
+    /** Detaches its GTA entity on this client (DETACH_ENTITY with collision; dynamic only when dynamic is true); resolves false when it has no GTA entity here or GTA refused. */
+    detach(dynamic?: boolean): Promise<boolean>;
     /** The dimension it is in: a player's or server entity's by the newest snapshot (0 when not known), a native vehicle's or NPC's the local player's (the server sends only those), the local player's own; a local entity's own setting, which assigning changes (-2147483648: every dimension). */
     readonly dimension: number;
     /** Whether its GTA entity exists on this client: false while it has none (not streamed in, not created yet) and once it is gone; for a player or server entity also what the newest snapshot found (DOES_ENTITY_EXIST). A local entity: until destroy(); a virtual entity, which never has one: the same as valid. */
@@ -3261,12 +3466,44 @@ export class Entity {
     existsAsync(): Promise<boolean | null>;
     /** Freezes (true) or releases its GTA entity on this client (FREEZE_ENTITY_POSITION); resolves false when it has no GTA entity here or GTA refused. A server entity's frozen property (the server's flag) does not change; a local entity's does, as when it is assigned. */
     freezePosition(frozen: boolean): Promise<boolean>;
-    /** Whether it is frozen: for a player or server entity, the server's setting as this client last got it (false when none was sent); a local entity's own setting (true at creation), which assigning applies in this client's GTA. */
+    /** Whether it is frozen: for a player or server entity, the server's setting as this client last got it (false when none was sent), or what a script here assigned since -- assigning freezes this client's GTA copy (FREEZE_ENTITY_POSITION) until the server changes its flag; a local entity's own setting (false at creation), which assigning applies in this client's GTA. A virtual entity's is read-only. */
     readonly frozen: boolean;
+    /** The value setMeta stored under the key on this client, the same value that was stored; undefined for none. The data never leaves the client; an entity's is cleared when the server streams it out of this client and when the session ends. A local entity keeps its own, until destroy(). */
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomEntityMeta, K, any>;
+    /** The keys of this client's own data on it (setMeta). A local entity keeps its own, until destroy(). */
+    getMetaDataKeys(): string[];
+    /** The same as getMetaDataKeys. A local entity keeps its own, until destroy(). */
+    getMetaKeys(): string[];
     /** Its speed in m/s: at once from speed when the object has one; otherwise GTA is asked (GET_ENTITY_SPEED), null when it has no GTA entity here or the game did not answer within 150 ms. */
     getSpeedAsync(): Promise<number | null>;
+    /** The same as getStreamSyncedMetaData: the server's stream-synced value under the key, decoded; undefined for none. A local entity has none. */
+    getStreamSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomEntityStreamSyncedMeta, K, any>;
+    /** The value the server set as stream-synced data on it (setStreamSyncedMeta), decoded, with a server object in it resolved to this client's object; undefined for none. A value setStreamSyncedMetaData put here reads back as it was set. Cleared when the server streams the entity out of this client. A local entity has none. */
+    getStreamSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomEntityStreamSyncedMeta, K, any>;
+    /** The keys of the stream-synced data this client has for it. A local entity has none. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** The same as getStreamSyncedMetaDataKeys. A local entity has none. */
+    getStreamSyncedMetaKeys(): string[];
+    /** The same as getSyncedMetaData: the server's synced value under the key, decoded; undefined for none. A local entity has none. */
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomEntitySyncedMeta, K, any>;
+    /** The value the server set as synced data on it (setSyncedMeta), decoded, with a server object in it resolved to this client's object; undefined for none. A local entity has none. */
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomEntitySyncedMeta, K, any>;
+    /** The keys of the synced data (setSyncedMeta on the server) this client has for it. A local entity has none. */
+    getSyncedMetaKeys(): string[];
+    /** What the clone sync knows of this entity’s network object, in the sync’s own timestamps (ms). A copy of another client’s entity: receivedTick (its last record) and fullyReceivedTick (its last full state). One this client owns: sendTick, ackedSendTick (the last one the server acknowledged) and, per node of its sync tree, when that node last changed: each node is a component of one property. active is false and every number 0 where the game has no network object for it, or outside the game’s engine. */
+    getSyncInfo(): { active: boolean; receivedTick: number; fullyReceivedTick: number; sendTick: number; ackedSendTick: number; propertyCount: number; componentCount: number; propertyUpdateTicks: number[][] };
     /** The same as getSyncedMeta; a local entity has no synced data and reads undefined. */
     getVariable(key: string): any;
+    /** Whether this client's own data on it (setMeta) holds the key. A local entity keeps its own, until destroy(). */
+    hasMeta(key: string): boolean;
+    /** The same as hasStreamSyncedMetaData. A local entity has none. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** Whether this client has stream-synced data under the key for it. A local entity has none. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** The same as hasSyncedMetaData. A local entity has none. */
+    hasSyncedMeta(key: string): boolean;
+    /** Whether this client has synced data (setSyncedMeta on the server) under the key for it. A local entity has none. */
+    hasSyncedMetaData(key: string): boolean;
     /** The same as hasSyncedMeta; a local entity has no synced data and reads false. */
     hasVariable(key: string): boolean;
     /** Its id: a player's or server entity's server id (a native vehicle's or NPC's is the id server scripts know it by, 65536 and up), the local player's own (0 before its first state), a local entity's negative id. */
@@ -3279,31 +3516,38 @@ export class Entity {
     readonly isSpawned: boolean;
     /** For a player or server entity: whether the server streams it to this client and the newest snapshot did not find its GTA entity gone, false once the snapshots stop listing it (it may still wait for its GTA entity: see isSpawned). The local player: valid; a native vehicle or NPC and a local entity: whether it has a GTA entity here. */
     readonly isStreamedIn: boolean;
-    /** Its position: a player's or server entity's by the newest snapshot (read from GTA while it is streamed in, else the last synced one); the local player's from its own state (the world origin before the first one, with a warning logged once); a native vehicle's or NPC's read from GTA on each read ({0,0,0} while it has none); a local entity's own, which assigning moves. */
-    readonly pos: Vector3Like;
+    /** A new plain object of this client's own data on it (setMeta) on each read. A local entity keeps its own, until destroy(). */
+    readonly metaData: Record<string, any>;
+    /** Its position: a player's or server entity's by the newest snapshot (read from GTA while it is streamed in, else the last synced one); the local player's from its own state (the world origin before the first one, with a warning logged once); a native vehicle's or NPC's read from GTA on each read ({0,0,0} while it has none); a local entity's read from GTA while it has its entity, else its last known, and assigning moves it. */
+    readonly pos: Vector3;
     /** The same as id. */
     readonly remoteId: number;
     /** The same as id. */
     readonly remoteID: number;
     /** Resets the alpha of its GTA entity on this client (RESET_ENTITY_ALPHA); resolves false when it has no GTA entity here or GTA refused. A local entity also keeps 255 for its re-creation. */
     resetAlpha(): Promise<boolean>;
-    /** Its rotation in degrees (z is the heading): a player's or server entity's by the newest snapshot, the local player's from its own state, a native vehicle's or NPC's read from GTA on each read; a local entity's own, which assigning turns. */
-    readonly rot: Vector3Like;
+    /** Its rotation in radians (z is the heading): a player's or server entity's by the newest snapshot, the local player's from its own state, a native vehicle's or NPC's read from GTA on each read; a local entity's read from GTA while it has its entity, else its last known, and assigning turns it. */
+    readonly rot: Vector3;
     /** Its GTA handle on this client; 0 while it has no GTA entity here. A virtual entity always reads 0. */
     readonly scriptID: number;
     /** Sets the alpha of its GTA entity on this client (SET_ENTITY_ALPHA): alpha is clamped to 0–255 and made whole (a non-number counts as 0) and skin is passed on as the native's skin flag. Resolves false when it has no GTA entity here or GTA refused. A local entity keeps it, and its re-creation applies it. */
     setAlpha(alpha: number, skin?: boolean): Promise<boolean>;
     /** Turns collision of its GTA entity on or off on this client (SET_ENTITY_COLLISION); keepPhysics defaults to true. Resolves false when it has no GTA entity here or GTA refused. A server entity's collision property (the server's flag) does not change; a local entity's does, as when it is assigned. */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
+    /** Stores the value under the key on this client and fires metaChange; an object given alone sets each of its entries. The data never leaves the client; an entity's is cleared when the server streams it out of this client and when the session ends. A local entity keeps its own, until destroy(). */
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomEntityMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomEntityMeta, any>): void;
     /** Moves its GTA entity on this client (SET_ENTITY_COORDS, clearing the area) and resolves true once that ran; false when it has no GTA entity here, for another player (a warning is logged) or when GTA refused. The server is not told. A local entity's pos changes too, as when it is assigned. */
     setPos(x: number, y: number, z: number): Promise<boolean>;
-    /** Turns its GTA entity on this client (SET_ENTITY_ROTATION, degrees, rotation order 2) and resolves true once that ran; false when it has no GTA entity here, for another player (a warning is logged) or when GTA refused. The server is not told. A local entity's rot changes too, as when it is assigned. */
+    /** Turns its GTA entity on this client (radians; SET_ENTITY_ROTATION gets degrees, rotation order 2) and resolves true once that ran; false when it has no GTA entity here, for another player (a warning is logged) or when GTA refused. The server is not told. A local entity's rot changes too, as when it is assigned. */
     setRot(x: number, y: number, z: number): Promise<boolean>;
     /** Shows or hides its GTA entity on this client with SET_ENTITY_VISIBLE; resolves true once GTA ran it, false when it has no GTA entity here or GTA refused. */
     setVisible(visible: boolean): Promise<boolean>;
     /** Whether the server streams it to this client, by the newest snapshot; the local player: valid; a native vehicle or NPC and a local entity: whether it has a GTA entity here. */
     readonly streamed: boolean;
-    /** Its BaseObjectType: Player 0, Vehicle 1, Ped 2, Object 3, VirtualEntity 9; a local entity has its kind's (1, 2 or 3). */
+    /** A new plain object of the stream-synced data this client has for it on each read. A local entity has none. */
+    readonly streamSyncedMetaData: Record<string, any>;
+    /** Its BaseObjectType: Player 0, Vehicle 1, Ped 2, Object 3, VirtualEntity 20; LocalObject 19, LocalPed 24, LocalVehicle 25. */
     readonly type: number;
     /** Whether this client still has it. A player or server entity: the newest snapshot lists it (the same entity, not another under its id) and did not find its GTA entity gone, so a kept object turns false once it leaves; the local player: it has an id; a native vehicle or NPC: the server still binds it to this client; a local entity: until destroy(). */
     readonly valid: boolean;
@@ -3314,11 +3558,11 @@ export class Entity {
 export const File: {
     /** Deletes a file of the scripts folder of this server and resolves true. Rejects with "not_found" when there was none, "read_only" for a resource: path, "invalid_path" or "empty_path" for a bad path, and "File I/O timeout" after 8 s. */
     delete(path: string): Promise<boolean>;
-    /** Resolves whether the path names an existing file (a folder reads false). Rejects for a path that names nothing allowed ("invalid_path", "unknown_resource" and the like) and with "File I/O timeout" after 8 s. */
+    /** Resolves whether the path names an existing file (a folder reads false); an empty path resolves false at once. Rejects for a path that names nothing allowed ("invalid_path", "unknown_resource" and the like) and with "File I/O timeout" after 8 s. */
     exists(path: string): Promise<boolean>;
-    /** Resolves the whole file: as text, or with encoding "binary" as an ArrayBuffer of its bytes. "cache:<path>" or a plain path is a file of the scripts folder of this server (kept between its versions, shared by its resources); "resource:<name>/<path>" is a file of a loaded client resource. Rejects with "not_found", "invalid_path", "unknown_resource" or, after 8 s, "File I/O timeout". Other encodings read the file as UTF-8 text. */
+    /** Resolves the whole file: as text, or with encoding "binary" as an ArrayBuffer of its bytes. "cache:<path>" or a plain path is a file of the scripts folder of this server (kept between its versions, shared by its resources); "resource:<name>/<path>" (or "@<name>/<path>") is a file of a loaded client resource. Rejects with "not_found", "invalid_path", "unknown_resource", at once with "empty_path" for an empty path, or, after 8 s, "File I/O timeout". "utf-16" (FileEncoding.Utf16) reads UTF-16 text, little-endian unless a byte order mark says big-endian; other encodings read the file as UTF-8 text. */
     read(path: string, encoding?: string): Promise<string | ArrayBuffer>;
-    /** The local path a File path names: "resource:<name>/<path>" as Resource.getPath gives it ("" for an unknown resource), anything else inside the scripts folder of this server. It only builds the text and checks nothing. */
+    /** The local path a File path names: "resource:<name>/<path>" (or "@<name>/<path>") as Resource.getPath gives it ("" for an unknown resource), anything else inside the scripts folder of this server. It only builds the text and checks nothing. */
     resolvePath(path: string): string;
     /** Writes data to a file of the scripts folder of this server, creating folders, and resolves true: text as UTF-8, an ArrayBuffer or a typed array as its bytes. Rejects with "read_only" for a resource: path, "invalid_path" or "empty_path", "write_failed" when the disk does not take it, and "File I/O timeout" after 8 s. encoding is not used. */
     write(path: string, data: string | ArrayBuffer | ArrayBufferView, encoding?: string): Promise<boolean>;
@@ -3335,7 +3579,7 @@ export const FocusData: {
     clearFocus(): void;
     /** The entity the last overrideFocus was given; null when it was given a position or nothing is overridden. */
     readonly focusOverrideEntity: { scriptID: number } | null;
-    /** A copy of the offset the last overrideFocus was given, (0, 0, 0) by default; a plain object, not a Vector3. */
+    /** A copy of the offset the last overrideFocus was given, as a Vector3, (0, 0, 0) by default. */
     readonly focusOverrideOffset: Vector3Like;
     /** A copy of the focus position: the position given, or the entity's pos at the time of overrideFocus (not updated as it moves); (0, 0, 0) without an override. */
     readonly focusOverridePos: Vector3Like;
@@ -3347,9 +3591,33 @@ export const FocusData: {
     overrideFocus(target: Vector3Like | { scriptID: number; pos?: Vector3Like }, offset?: Vector3Like): void;
 };
 
+export class Font {
+    constructor(...args: any[]);
+    static getByID(...args: any[]): any;
+    static getByRemoteID(...args: any[]): any;
+    /** Adds a Scaleform font library (.gfx) to GTA’s text and returns its Font, the same object for the same font. The path is "@resource/file.gfx", "/file.gfx" from the resource’s root, "dir/file.gfx" from client-main’s folder, or the bare name GTA’s streaming knows the .gfx by; it must be one of the server’s stream files (stream.toml). The library’s first font is used, by its export name or else its own. GTA’s text cannot draw a TrueType font, so a .ttf or .otf throws, as does a file that is no font library, a build where GTA’s font lookup is not found, and a call outside the game. The font streams in over the next frames; until then its id draws GTA’s default font. */
+    static register(path: string): Font;
+    /** GTA’s font id, 13 and up: what SET_TEXT_FONT, drawText2d/drawText3d and a TextLabel take. */
+    readonly fontId: number;
+    /** The same as fontId. */
+    readonly id: number;
+    /** False: a font is this client’s own. */
+    readonly isRemote: boolean;
+    /** The name GTA’s font library knows the font by; a TextLabel created with it as font name draws with this font. */
+    readonly name: string;
+    /** 0: a font is this client’s own. */
+    readonly remoteID: number;
+    toString(): string;
+    /** BaseObjectType.Font. */
+    readonly type: number;
+    /** Always true: a font stays in GTA’s font library for the life of the game. */
+    readonly valid: boolean;
+}
+
 export const GameFont: {
     readonly ChaletComprimeCologne: any;
     readonly ChaletLondon: any;
+    readonly CharletComprimeColonge: any;
     readonly HouseScript: any;
     readonly Monospace: any;
     readonly Pricedown: any;
@@ -3404,24 +3672,76 @@ export const GamepadButton: {
 export class HandlingData {
     /** Creates a handling record for a model hash: handlingNameHash = hash (0 for a non-number); its handling fields read the model's handling in GTA as getForHash's do, while maxBraking, maxTraction and maxPassengers stay 0 and measured is false. getForHash and getForName give a filled one. */
     constructor(hash?: number);
-    /** getForHash of the hash, or of a handling name's hash: the hash is used as a model hash, which matches for a stock vehicle, whose handling name is its model name. */
+    /** GTA's own handling entry of that handling name (a name or its hash): every member is read and written in place, no vehicle of a model needed, and a write is every vehicle's using that handling (the client puts GTA's value back when the session ends). While the client cannot find the entry, getForHash of the hash (a stock vehicle's handling name is its model name). */
     static getForHandlingName(handlingNameHash: number | string): HandlingData;
     /** Handling of a vehicle model: acceleration, initialDriveMaxFlatVel, brakeForce, steeringLock and tractionCurveMax read from GTA through a vehicle of the model in the game (measured is then true), else the values a script set for the model or 0; maxBraking and maxTraction from GET_VEHICLE_MODEL_MAX_BRAKING and GET_VEHICLE_MODEL_MAX_TRACTION, maxPassengers from the model's seats less the driver's. A new object on each call. */
     static getForHash(modelHash: number): HandlingData;
     /** getForHash of the hash of the model name. */
     static getForName(modelName: string): HandlingData;
-    /** Writes the handling values scripts set for the model into GTA again and makes every vehicle of the model the client knows (the server's in range and its own local ones) take its drive force and top speed anew, with GTA's MODIFY_VEHICLE_TOP_SPEED and 0, which also ends a top-speed change a script made on them. Resolves true when all of it went through, false when no vehicle of the model is in the game or for a hash of 0. */
-    static reloadVehiclePhysics(modelHash: number): Promise<boolean>;
-    /** The model's drive force (fInitialDriveForce), read from the model's handling in GTA's memory through a vehicle of the model that is in the game, else the value a script set for the model, or 0. Assigning writes it into the model's handling in GTA: a vehicle made afterwards takes it, one already in the game with HandlingData.reloadVehiclePhysics (GTA keeps a vehicle's drive force and top speed from the moment it is made). The value is kept for the model, saved for this server (written again once a vehicle of the model is in the game); GTA's own value comes back when the session ends. */
+    /** Writes the handling values scripts set for the model into GTA again and makes every vehicle of the model the client knows (the server's in range and its own local ones) take its drive force and top speed anew, with GTA's MODIFY_VEHICLE_TOP_SPEED and 0, which also ends a top-speed change a script made on them. At once: true when all of it went through, false when no vehicle of the model is in the game or for a hash of 0. */
+    static reloadVehiclePhysics(modelHash: number): boolean;
+    /** The rear axle's share of drive (CHandlingData at 0x4C), where it is the old name of driveBiasRear: read from the model's handling in GTA's memory through a vehicle of the model that is in the game, else the value a script set for the model, or 0. Assigning writes it into the model's handling in GTA, so every vehicle of the model takes it. The value is kept for the model, saved for this server (written again once a vehicle of the model is in the game); GTA's own value comes back when the session ends. */
     acceleration: number;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    antiRollBarBiasFront: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    antiRollBarBiasRear: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    antiRollBarForce: number | undefined;
     /** Writes this object's handling fields above 0 into the handling of a vehicle (script handle or object with scriptID) in GTA, which is its model's: every vehicle of the model takes the brake force, grip and steering lock at once, until the session ends. That vehicle also takes its drive force and top speed anew (GTA's MODIFY_VEHICLE_TOP_SPEED and 0, which ends a top-speed change made on it); the model's other vehicles take them when made, or with HandlingData.reloadVehiclePhysics. Resolves true when any field was written, false without a handle. */
     applyTo(vehicle: number | { scriptID: number }): Promise<boolean>;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    brakeBiasFront: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    brakeBiasRear: number | undefined;
     /** The model's brake force (fBrakeForce), read from the model's handling in GTA's memory through a vehicle of the model that is in the game, else the value a script set for the model, or 0. Assigning writes it into GTA: every vehicle of the model takes it at once. The value is kept for the model, saved for this server (written again once a vehicle of the model is in the game); GTA's own value comes back when the session ends. */
     brakeForce: number;
-    /** The hash the object was made for (the model hash for getForHash and getForName), 0 for none. setField keeps overrides under it, and applyTo sends it to SET_VEHICLE_HANDLING_OVERRIDE. */
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    camberStiffnesss: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    centreOfMassOffset: Vector3 | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    clutchChangeRateScaleDownShift: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    clutchChangeRateScaleUpShift: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    collisionDamageMult: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). An integer (flags as GTA keeps them). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    damageFlags: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    deformationDamageMult: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    downforceModifier: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    driveBiasFront: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    driveBiasRear: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    driveInertia: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    driveMaxFlatVel: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    engineDamageMult: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    handBrakeForce: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). An integer (flags as GTA keeps them). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    handlingFlags: number | undefined;
+    /** The hash the object was made for (the model hash for getForHash and getForName), 0 for none. setField keeps the values under it, and the fields read and write GTA's handling through a vehicle whose model has this hash. */
     handlingNameHash: number;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    inertiaMultiplier: Vector3 | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    initialDragCoeff: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    initialDriveForce: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). An integer (flags as GTA keeps them). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    initialDriveGears: number | undefined;
     /** The model's top speed on the flat in metres per second (fInitialDriveMaxFlatVel: the handling file's km/h divided by 3.6), read from the model's handling in GTA's memory through a vehicle of the model that is in the game, else the value a script set for the model, or 0. Assigning also sets the speed GTA derives from it (1.2 times as much). Assigning writes it into the model's handling in GTA: a vehicle made afterwards takes it, one already in the game with HandlingData.reloadVehiclePhysics (GTA keeps a vehicle's drive force and top speed from the moment it is made). The value is kept for the model, saved for this server (written again once a vehicle of the model is in the game); GTA's own value comes back when the session ends. */
     initialDriveMaxFlatVel: number;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    lowSpeedTractionLossMult: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    mass: number | undefined;
     /** The greatest braking GTA gives: for a model GET_VEHICLE_MODEL_MAX_BRAKING, for a vehicle (getVehicleHandling) GET_VEHICLE_MAX_BRAKING; when GTA gives 0, the value a script set or 0. */
     maxBraking: number;
     /** Passenger seats, the driver's not counted: for a model, GET_VEHICLE_MODEL_NUMBER_OF_SEATS less one (getForHash, getForName, getForHandlingName); for a vehicle (varion.getVehicleHandling), GET_VEHICLE_MAX_NUMBER_OF_PASSENGERS. 0 when GTA gives nothing. */
@@ -3430,12 +3750,82 @@ export class HandlingData {
     maxTraction: number;
     /** True when the handling fields were read from GTA, through a vehicle of the model (or the vehicle given to getVehicleHandling) in the game; false when none was, and the fields hold the values a script set or 0. */
     measured: boolean;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). An integer (flags as GTA keeps them). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    modelFlags: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). An integer (flags as GTA keeps them). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    monetaryValue: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    oilVolume: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    percentSubmerged: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    percentSubmergedRatio: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    petrolTankVolume: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    rollCentreHeightFront: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    rollCentreHeightRear: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    seatOffsetDistX: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    seatOffsetDistY: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    seatOffsetDistZ: number | undefined;
     /** Sets a field (the value as a number, 0 for a non-number) and keeps it as this client's value for handlingNameHash, saved for this server and given to later getForHash calls. acceleration, initialDriveMaxFlatVel, brakeForce, steeringLock and tractionCurveMax are written into GTA's handling of the model at once when a vehicle of it is in the game, else once one is (vehicles already in the game take acceleration and initialDriveMaxFlatVel with reloadVehiclePhysics). Returns this object. */
     setField(field: string, value: number): HandlingData;
     /** The model's steering lock in radians (fSteeringLock: the handling file's degrees), read from the model's handling in GTA's memory through a vehicle of the model that is in the game, else the value a script set for the model, or 0. Assigning also sets the inverse GTA keeps beside it. Assigning writes it into GTA: every vehicle of the model takes it at once. The value is kept for the model, saved for this server (written again once a vehicle of the model is in the game); GTA's own value comes back when the session ends. */
     steeringLock: number;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    steeringLockRatio: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    suspensionBiasFront: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    suspensionBiasRear: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    suspensionCompDamp: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    suspensionForce: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    suspensionLowerLimit: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    suspensionRaise: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    suspensionReboundDamp: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    suspensionUpperLimit: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    tractionBiasFront: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    tractionBiasRear: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    tractionCurveLateral: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    tractionCurveLateralRatio: number | undefined;
     /** The model's greatest grip (fTractionCurveMax), read from the model's handling in GTA's memory through a vehicle of the model that is in the game, else the value a script set for the model, or 0. Assigning also sets the inverse GTA keeps beside it. Assigning writes it into GTA: every vehicle of the model takes it at once. The value is kept for the model, saved for this server (written again once a vehicle of the model is in the game); GTA's own value comes back when the session ends. */
     tractionCurveMax: number;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    tractionCurveMaxRatio: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    tractionCurveMin: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    tractionCurveMinRatio: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    tractionLossMult: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    tractionSpringDeltaMax: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    tractionSpringDeltaMaxRatio: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    unkFloat1: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    unkFloat2: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    unkFloat4: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    unkFloat5: number | undefined;
+    /** The model's CHandlingData field, read and written in GTA's memory through a vehicle of the model (a write is every vehicle's of that model; the client puts GTA's value back when the session ends). undefined while no vehicle of the model is in the game, or where GTA's parser has no such field. */
+    weaponDamageMult: number | undefined;
 }
 
 export const Http: {
@@ -3452,32 +3842,106 @@ export class HttpClient {
     static create(): HttpClient;
     /** The client with this id; null when there is none or the resource that made it stopped. */
     static getByID(id: number): HttpClient | null;
-    /** A CONNECT request. The client's HTTP bridge does not allow this method (nor does a browser's fetch), so the promise always rejects (TypeError "fetch failed: request refused: method CONNECT is not allowed"). */
-    connect(url: string, body?: string): Promise<{ statusCode: number; headers: Record<string, string>; body: string }>;
+    /** A CONNECT request. The client's HTTP bridge does not allow this method (nor does a browser's fetch), so it always resolves with statusCode 0 and the refusal in the log. */
+    connect(url: string, body?: string): Promise<IHttpResponse>;
     /** How long a request may take in milliseconds before it rejects, 15000 by default; values under 1000 (or not a number) count as 1000 or the default. */
     connectTimeout: number;
-    /** A DELETE request with an optional body (sent as text); resolves and rejects as get. */
-    delete(url: string, body?: string): Promise<{ statusCode: number; headers: Record<string, string>; body: string }>;
-    /** A GET request. A path is resolved against the server's HTTP address, and only the server's own HTTP hosts and ports are allowed (never port 7788); resolves for any status with the body as text and the headers (names in lower case), without following redirects. Rejects for another host, before the server's HTTP address is known, when the request fails (a response over 16 MB too) and after connectTimeout ms (15000 by default) with an AbortError. */
-    get(url: string): Promise<{ statusCode: number; headers: Record<string, string>; body: string }>;
+    /** A DELETE request with an optional body (sent as text); resolves as get (statusCode 0 when the request fails). */
+    delete(url: string, body?: string): Promise<IHttpResponse>;
+    /** Lets the client go: HttpClient.getByID no longer finds it and valid turns false. A request already sent still settles. A resource's clients go when it stops. */
+    destroy(): void;
+    /** A GET request. A path is resolved against the server's HTTP address, and only the server's own HTTP hosts and ports are allowed (never port 7788); resolves for any status with the body as text and the headers (names in lower case), without following redirects. When the request itself fails (refused, unreachable, a response over 16 MB, connectTimeout ms passed, 15000 by default) it resolves with statusCode 0, an empty body and no headers, and the reason goes to the log. Throws for another host and before the server's HTTP address is known. */
+    get(url: string): Promise<IHttpResponse>;
     /** A copy of the headers setExtraHeader added. */
     getExtraHeaders(): Record<string, string>;
-    /** A HEAD request; resolves and rejects as get, with an empty body. */
-    head(url: string): Promise<{ statusCode: number; headers: Record<string, string>; body: string }>;
+    /** A HEAD request; resolves as get (statusCode 0 when the request fails), with an empty body. */
+    head(url: string): Promise<IHttpResponse>;
     /** A number of its own, counted from 1 across the HTTP clients of this game session; HttpClient.getByID finds the client by it. */
     id: number;
-    /** An OPTIONS request with an optional body (sent as text); resolves and rejects as get. */
-    options(url: string, body?: string): Promise<{ statusCode: number; headers: Record<string, string>; body: string }>;
-    /** A PATCH request; a body starting with { or [ goes as application/json, other text as text/plain, unless a Content-Type header was set. Resolves and rejects as get. */
-    patch(url: string, body?: string): Promise<{ statusCode: number; headers: Record<string, string>; body: string }>;
-    /** A POST request; a body starting with { or [ goes as application/json, other text as text/plain, unless a Content-Type header was set. Resolves and rejects as get. */
-    post(url: string, body?: string): Promise<{ statusCode: number; headers: Record<string, string>; body: string }>;
-    /** A PUT request; a body starting with { or [ goes as application/json, other text as text/plain, unless a Content-Type header was set. Resolves and rejects as get. */
-    put(url: string, body?: string): Promise<{ statusCode: number; headers: Record<string, string>; body: string }>;
+    /** An OPTIONS request with an optional body (sent as text); resolves as get (statusCode 0 when the request fails). */
+    options(url: string, body?: string): Promise<IHttpResponse>;
+    /** A PATCH request; a body starting with { or [ goes as application/json, other text as text/plain, unless a Content-Type header was set. Resolves as get (statusCode 0 when the request fails). */
+    patch(url: string, body?: string): Promise<IHttpResponse>;
+    /** A POST request; a body starting with { or [ goes as application/json, other text as text/plain, unless a Content-Type header was set. Resolves as get (statusCode 0 when the request fails). */
+    post(url: string, body?: string): Promise<IHttpResponse>;
+    /** A PUT request; a body starting with { or [ goes as application/json, other text as text/plain, unless a Content-Type header was set. Resolves as get (statusCode 0 when the request fails). */
+    put(url: string, body?: string): Promise<IHttpResponse>;
     /** Adds a header (both as text) to every later request of this client. */
     setExtraHeader(header: string, value: string): void;
-    /** A TRACE request. The client's HTTP bridge does not allow this method (nor does a browser's fetch), so the promise always rejects (TypeError "fetch failed: request refused: method TRACE is not allowed"). */
-    trace(url: string, body?: string): Promise<{ statusCode: number; headers: Record<string, string>; body: string }>;
+    /** A TRACE request. The client's HTTP bridge does not allow this method (nor does a browser's fetch), so it always resolves with statusCode 0 and the refusal in the log. */
+    trace(url: string, body?: string): Promise<IHttpResponse>;
+    /** True until destroy() or until the resource that made it stops. */
+    readonly valid: boolean;
+}
+
+export class Interior {
+    constructor(...args: any[]);
+    /** The interior GTA knows by this id (GET_INTERIOR_AT_COORDS, GET_INTERIOR_FROM_ENTITY), read from its proxy and its archetype; throws when it is not loaded (no player near or in it) or GTA does not know the id. */
+    static getForInteriorID(id: number): Interior;
+    /** The box around its entities (GTA’s current value, read again on each access). */
+    readonly entitiesExtents: { min: Vector3; max: Vector3 };
+    /** The portal at this index; throws a RangeError for none. */
+    getPortalByIndex(index: number): InteriorPortal;
+    /** The room whose name hashes to this (a name is hashed too); throws for none. */
+    getRoomByHash(hash: number | string): InteriorRoom;
+    /** The room at this index; throws a RangeError for none. */
+    getRoomByIndex(index: number): InteriorRoom;
+    /** The interior id it was made with. */
+    readonly id: number;
+    /** How many portals its archetype has (GTA’s current value, read again on each access). */
+    readonly portalCount: number;
+    /** Where the interior is (GTA’s current value, read again on each access). */
+    readonly pos: Vector3;
+    /** How many rooms its archetype has (GTA’s current value, read again on each access). */
+    readonly roomCount: number;
+    /** Its rotation in radians (GTA’s current value, read again on each access). */
+    readonly rot: Vector3;
+}
+
+export class InteriorPortal {
+    constructor(...args: any[]);
+    /** How many corners it has (GTA’s current value, read again on each access). */
+    readonly cornerCount: number;
+    /** How many entities are attached to it (GTA’s current value, read again on each access). */
+    readonly entityCount: number;
+    /** Its flags (GTA’s current value, read again on each access). Assigning writes it into the interior’s archetype in GTA (every instance of that interior). */
+    flag: number;
+    /** Where its corner is; throws a RangeError for none. */
+    getCornerPos(cornerIndex: number): Vector3;
+    /** The archetype hash of an entity attached to it. */
+    getEntityArchetype(entityIndex: number): number;
+    /** The flags of an entity attached to it. */
+    getEntityFlag(entityIndex: number): number;
+    /** Where an entity attached to it is, in the interior. */
+    getEntityPos(entityIndex: number): Vector3;
+    /** The rotation of an entity attached to it, in radians. */
+    getEntityRot(entityIndex: number): Vector3;
+    /** Its index in the interior. */
+    readonly index: number;
+    /** The room it leads from (GTA’s current value, read again on each access). Assigning writes it into the interior’s archetype in GTA (every instance of that interior). */
+    roomFrom: number;
+    /** The room it leads to (GTA’s current value, read again on each access). Assigning writes it into the interior’s archetype in GTA (every instance of that interior). */
+    roomTo: number;
+    /** Moves its corner in the archetype in GTA; throws for a corner out of range or an interior not loaded. */
+    setCornerPos(cornerIndex: number, value: Vector3Like): void;
+    /** Sets the flags of an entity attached to it, in the archetype in GTA. */
+    setEntityFlag(entityIndex: number, flag: number): void;
+}
+
+export class InteriorRoom {
+    constructor(...args: any[]);
+    /** Its box (GTA’s current value, read again on each access). Assigning writes it into the interior’s archetype in GTA (every instance of that interior). */
+    extents: { min: Vector3; max: Vector3 };
+    /** Its flags (GTA’s current value, read again on each access). Assigning writes it into the interior’s archetype in GTA (every instance of that interior). */
+    flag: number;
+    /** Its index in the interior. */
+    readonly index: number;
+    /** Its name in the archetype (GTA’s current value, read again on each access). */
+    readonly name: string;
+    /** The hash of its name. */
+    readonly nameHash: number;
+    /** The hash of its timecycle (GTA’s current value, read again on each access). Assigning writes it into the interior’s archetype in GTA (every instance of that interior). */
+    timecycle: number;
 }
 
 export const Key: {
@@ -3513,7 +3977,15 @@ export const Key: {
     readonly F10: any;
     readonly F11: any;
     readonly F12: any;
+    readonly F13: any;
+    readonly F14: any;
+    readonly F15: any;
+    readonly F16: any;
+    readonly F17: any;
+    readonly F18: any;
+    readonly F19: any;
     readonly F2: any;
+    readonly F20: any;
     readonly F3: any;
     readonly F4: any;
     readonly F5: any;
@@ -3617,7 +4089,15 @@ export const KeyCode: {
     readonly F10: any;
     readonly F11: any;
     readonly F12: any;
+    readonly F13: any;
+    readonly F14: any;
+    readonly F15: any;
+    readonly F16: any;
+    readonly F17: any;
+    readonly F18: any;
+    readonly F19: any;
     readonly F2: any;
+    readonly F20: any;
     readonly F3: any;
     readonly F4: any;
     readonly F5: any;
@@ -3710,10 +4190,12 @@ export const LicenseType: {
 };
 
 export class LocalObject {
-    /** Creates a local object only for this client from a model hash or name, rotated by `rot` in degrees (0, 0, 0 by default), frozen, in dimension 0; `dynamic` defaults to false. With `useStreaming` it exists only within `streamingDistance` metres (300 by default) of the local player. With `noOffset` GTA places it with CREATE_OBJECT_NO_OFFSET and moves it with SET_ENTITY_COORDS_NO_OFFSET: pos is the model's origin, without the offset GTA would add. */
+    /** Creates a local object only for this client, an instance of Object, from a model hash or name, rotated by `rot` in radians (0, 0, 0 by default), not frozen, in dimension 0; `dynamic` defaults to false. With `useStreaming` it exists only within `streamingDistance` metres (300 by default) of the local player. With `noOffset` GTA places it with CREATE_OBJECT_NO_OFFSET and moves it with SET_ENTITY_COORDS_NO_OFFSET: pos is the model's origin, without the offset GTA would add. */
     constructor(model: number | string, pos: Vector3Like, rot?: Vector3Like, noOffset?: boolean, dynamic?: boolean, useStreaming?: boolean, streamingDistance?: number);
     /** Every LocalObject not destroyed, of every resource; a new array on each read. */
     static readonly all: LocalObject[];
+    /** The objects GTA placed itself (the map’s and its fragments’); [] without a synchronous native. */
+    static readonly allWorld: readonly LocalObject[];
     /** How many objects LocalObject.all holds. */
     static readonly count: number;
     /** The LocalObject not destroyed with this id, given as its negative id or as the number without the sign (-3 or 3); null for none. */
@@ -3726,16 +4208,18 @@ export class LocalObject {
     activatePhysics(): void;
     /** Its alpha 0–255, 255 at creation; assigning truncates and clamps the number (a non-number counts as 0) and applies it in this client's GTA (SET_ENTITY_ALPHA), at once or when it is created. It stays when frozen, collision or visible change; a hidden object is drawn with 0. */
     alpha: number;
-    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY; useSoftPinning and collision default to false, fixedRot to true. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
+    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); useSoftPinning, collision and fixedRot default to false. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
     attachTo(entity: { scriptID: number } | number, bone?: number, offset?: Partial<Vector3Like>, rotation?: Partial<Vector3Like>, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
-    /** The same as attachTo: attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY; resolves false when either has no GTA entity here. */
+    /** The same as attachTo: attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); resolves false when either has no GTA entity here. */
     attachToEntity(entity: { scriptID: number } | number, bone?: number, offset?: Partial<Vector3Like>, rotation?: Partial<Vector3Like>, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
     /** Its own collision setting, true at creation; assigning applies it in this client's GTA (SET_ENTITY_COLLISION), at once or when it is created. setCollision does not change it. */
     collision: boolean;
-    /** Destroys it: its GTA entity is deleted (gameEntityDestroy fires if it had one, then baseObjectRemove), valid turns false and pending waitForSpawn promises reject. A second call does nothing; a resource's local entities are destroyed when it stops. */
+    /** Removes the key from its own data (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
+    deleteMeta(key: string): void;
+    /** Destroys it: its GTA entity is deleted (gameEntityDestroy fires if it had one, then baseObjectRemove), valid turns false and pending waitForSpawn promises reject. A second call does nothing; a resource's local entities are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
-    /** Detaches its GTA entity on this client (DETACH_ENTITY, dynamic, with collision); resolves false when it has no GTA entity here or GTA refused. */
-    detach(): Promise<boolean>;
+    /** Detaches its GTA entity on this client (DETACH_ENTITY with collision; dynamic only when dynamic is true); resolves false when it has no GTA entity here or GTA refused. */
+    detach(dynamic?: boolean): Promise<boolean>;
     /** Its dimension, 0 by default; it exists in GTA only while the local player's dimension sees it: the same one, every one at -2147483648, and 0 also from a negative dimension. Assigning a finite number (anything else sets 0) creates or deletes its GTA entity at once to match. */
     dimension: number;
     /** Whether it was made dynamic (the constructor's dynamic flag), applied with SET_ENTITY_DYNAMIC when its GTA object is created. */
@@ -3746,14 +4230,45 @@ export class LocalObject {
     existsAsync(): Promise<boolean | null>;
     /** Sets frozen (the same as assigning it) and, when it has a GTA entity, freezes (true) or releases it on this client with FREEZE_ENTITY_POSITION; resolves true once GTA ran it, false without a GTA entity yet (frozen applies at its creation) or when GTA refused. */
     freezePosition(frozen: boolean): Promise<boolean>;
-    /** Its own frozen setting, true at creation; assigning applies it in this client's GTA (FREEZE_ENTITY_POSITION), at once or when it is created. freezePosition does not change it. */
+    /** Its own frozen setting, false at creation as GTA makes it (one that is not dynamic stays put); assigning applies it in this client's GTA (FREEZE_ENTITY_POSITION), at once or when it is created. freezePosition does not change it. */
     frozen: boolean;
+    /** The value setMeta stored under the key on it, a copy; undefined for none. Its own data on this client, kept until destroy(). */
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomEntityMeta, K, any>;
+    /** The keys of its own data (setMeta). */
+    getMetaDataKeys(): string[];
+    /** The same as getMetaDataKeys. */
+    getMetaKeys(): string[];
     /** Its speed in m/s asked of GTA (GET_ENTITY_SPEED); null when it has no GTA entity yet or the game did not answer within 150 ms. */
     getSpeedAsync(): Promise<number | null>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getStreamSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomEntityStreamSyncedMeta, K, any>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomEntityStreamSyncedMeta, K, any>;
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaKeys(): string[];
+    /** undefined: the server syncs no data to an entity this client made. */
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomEntitySyncedMeta, K, any>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomEntitySyncedMeta, K, any>;
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getSyncedMetaKeys(): string[];
+    getSyncInfo(...args: any[]): any;
     /** Always undefined: a local entity is this client's own and has no synced data. */
     getVariable(key: string): undefined;
     /** Whether gravity acts on it, true by default; assigning applies it in this client's GTA (SET_ENTITY_HAS_GRAVITY), at once or when it is created. */
     hasGravity: boolean;
+    /** Whether its own data (setMeta) holds the key. */
+    hasMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasSyncedMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasSyncedMetaData(key: string): boolean;
     /** Always false: a local entity is this client's own and has no synced data. */
     hasVariable(key: string): boolean;
     /** Its negative id (-1, -2 ...), unique among this client's local entities; its class's getByID finds it. */
@@ -3768,18 +4283,24 @@ export class LocalObject {
     readonly isSpawned: boolean;
     /** Whether it has a GTA entity on this client now (scriptID is not 0). */
     readonly isStreamedIn: boolean;
+    /** Whether it is a WeaponObject; false on any other LocalObject. */
+    readonly isWeaponObject: boolean;
     /** True on an object GTA placed itself, as Utils.getClosestWorldObject gives it; false on one a script made. */
     readonly isWorldObject: boolean;
     /** Its LOD distance, 100 by default; assigning truncates and clamps to 0–65535 (a non-number counts as 0) and applies it in this client's GTA (SET_ENTITY_LOD_DIST), at once or when it is created. */
     lodDistance: number;
+    /** A new plain object of its own data (setMeta) on each read. */
+    readonly metaData: Record<string, any>;
     /** Its model hash; assigning a name or hash (0, the same model or a destroyed entity is ignored) deletes its GTA entity (gameEntityDestroy) and creates it again with the new model. */
     get model(): number;
     set model(value: string | number);
+    /** null: a local entity has no network owner. */
+    readonly netOwner: null;
     /** The noOffset the object was made with; kept for reading only, the object is placed at pos either way. */
     noOffset: boolean;
     /** Places its GTA object on the ground on this client (PLACE_OBJECT_ON_GROUND_PROPERLY), at once or once it is created; the pos property does not change. */
     placeOnGroundProperly(): void;
-    /** Its position, a copy on each read. Assigning sets the given components (the others stay), moves its GTA entity on this client and checks streaming again, which may create or delete it. */
+    /** Its position, a copy on each read: where its GTA entity is now (GET_ENTITY_COORDS, so physics and placeOnGroundProperly show), the last known while it has none. Assigning sets the given components (the others stay), moves its GTA entity on this client and checks streaming again, which may create or delete it. */
     get pos(): Vector3Like;
     set pos(value: Partial<Vector3Like>);
     /** The same as frozen; assigning sets frozen. */
@@ -3790,7 +4311,7 @@ export class LocalObject {
     readonly remoteID: number;
     /** Sets alpha to 255. */
     resetAlpha(): void;
-    /** Its rotation in degrees (z is the heading), a copy on each read. Assigning sets the given components and turns its GTA entity on this client. */
+    /** Its rotation in radians (z is the heading), a copy on each read: as its GTA entity is turned now (GET_ENTITY_ROTATION), the last known while it has none. Assigning sets the given components and turns its GTA entity on this client. */
     get rot(): Vector3Like;
     set rot(value: Partial<Vector3Like>);
     /** Its GTA handle on this client; 0 until it is created, while it is out of streaming range or in another dimension, and after destroy(). */
@@ -3799,9 +4320,12 @@ export class LocalObject {
     setAlpha(alpha: number, skin?: boolean): Promise<boolean>;
     /** Sets collision (the same as assigning it) and, when it has a GTA entity, turns its collision on or off on this client with SET_ENTITY_COLLISION (keepPhysics true by default); resolves true once GTA ran it, false without a GTA entity yet (collision applies at its creation) or when GTA refused. */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
+    /** Stores a copy of the value under the key on it and fires metaChange; an object given alone sets each of its entries. Its own data on this client, kept until destroy(). */
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomEntityMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomEntityMeta, any>): void;
     /** Sets pos (the same as assigning it, so streaming and a re-creation use the new place) and, when it has a GTA entity, moves it on this client with SET_ENTITY_COORDS; resolves true once GTA ran it, false without a GTA entity yet or when GTA refused. */
     setPos(x: number, y: number, z: number): Promise<boolean>;
-    /** Sets rot (the same as assigning it, so a re-creation keeps it) and, when it has a GTA entity, turns it on this client with SET_ENTITY_ROTATION (degrees); resolves true once GTA ran it, false without a GTA entity yet or when GTA refused. */
+    /** Sets rot (the same as assigning it, so a re-creation keeps it) and, when it has a GTA entity, turns it on this client with SET_ENTITY_ROTATION (radians; GTA gets degrees); resolves true once GTA ran it, false without a GTA entity yet or when GTA refused. */
     setRot(x: number, y: number, z: number): Promise<boolean>;
     /** Sets visible (the same as assigning it) and, when it has a GTA entity, shows or hides it with SET_ENTITY_VISIBLE; resolves true once GTA ran it, false without a GTA entity yet (visible applies at its creation) or when GTA refused. */
     setVisible(visible: boolean): Promise<boolean>;
@@ -3809,11 +4333,13 @@ export class LocalObject {
     readonly streamed: boolean;
     /** The distance in metres within which it exists in GTA while useStreaming is true; given to the constructor, 300 by default, at least 1. */
     readonly streamingDistance: number;
+    /** An empty object: the server syncs no data to an entity this client made. */
+    readonly streamSyncedMetaData: Record<string, any>;
     /** Its texture variation (tint index), 0 by default; assigning truncates (a negative or non-number counts as 0) and applies it in this client's GTA (SET_OBJECT_TINT_INDEX), at once or when it is created. */
     textureVariation: number;
-    /** Sets collision to toggle. */
-    toggleCollision(toggle: boolean): void;
-    /** Always 3 (BaseObjectType.Object). */
+    /** Sets collision to toggle. toggleCollision(toggle, keepPhysics) also sets SET_ENTITY_COLLISION's keepPhysics; until a script gives it, keepPhysics follows collision. */
+    toggleCollision(toggle: boolean, keepPhysics?: boolean): void;
+    /** Always 19 (BaseObjectType.LocalObject). It is still an Object: instanceof Object is true. */
     readonly type: number;
     /** Given to the constructor: true makes it exist in GTA only within streamingDistance of the local player (checked whenever the local player's state changes); false, while the local player is in its dimension. */
     readonly useStreaming: boolean;
@@ -3821,13 +4347,13 @@ export class LocalObject {
     readonly valid: boolean;
     /** Its own visibility, true at creation; assigning shows or hides its GTA entity on this client, at once or when it is created (hiding also sets its alpha to 0, showing to 255). setVisible does not change it. */
     visible: boolean;
-    /** Resolves once it has a GTA entity (at once when it has). Rejects when it is destroyed, when the engine gives up making it (localEntityFailed; at once while that stands, until it is requested again: a new model, or out of range or its dimension and back) and, when a timeout is given, after that many ms (0, negative or not a number counts as 1 ms); without a timeout it waits as long as it takes. */
+    /** Resolves once it has a GTA entity (at once when it has). Rejects when it is destroyed, when the engine gives up making it (localEntityFailed; at once while that stands, until it is requested again: a new model, or out of range or its dimension and back) and after timeout ms (2000 by default; 0, negative or not a number counts as 1 ms). */
     waitForSpawn(timeout?: number): Promise<void>;
 }
 
 export class LocalPed {
-    /** Creates a local ped only for this client from a model hash or name, frozen and turned to `rot.z` degrees. A number as the second argument is its dimension; without it the ped is in dimension 0 and every later argument moves up one. With `useStreaming` it exists only within `streamingDistance` metres (300 by default) of the local player. */
-    constructor(model: number | string, dimension: number, pos: Vector3Like, rot?: Vector3Like, useStreaming?: boolean, streamingDistance?: number);
+    /** Creates a local ped only for this client, an instance of Ped, from a model hash or name, not frozen, turned to `rot.z` radians; after a dimension `rot` may be a heading number in radians. A number as the second argument is its dimension; without it the ped is in dimension 0 and every later argument moves up one. With `useStreaming` it exists only within `streamingDistance` metres (300 by default) of the local player. */
+    constructor(model: number | string, dimension: number, pos: Vector3Like, rot?: Vector3Like | number, useStreaming?: boolean, streamingDistance?: number);
     constructor(model: number | string, pos: Vector3Like, rot?: Vector3Like, useStreaming?: boolean, streamingDistance?: number);
     /** Every LocalPed not destroyed, of every resource; a new array on each read. */
     static readonly all: LocalPed[];
@@ -3839,14 +4365,20 @@ export class LocalPed {
     static getByRemoteID(remoteId: number): LocalPed | null;
     /** The LocalPed not destroyed whose GTA handle this is; null for 0 or below and for none. */
     static getByScriptID(scriptID: number): LocalPed | null;
-    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY; useSoftPinning and collision default to false, fixedRot to true. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
+    /** Its armour as its GTA ped has it now (GET_PED_ARMOUR); 0 while it has no GTA ped. */
+    readonly armour: number;
+    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); useSoftPinning, collision and fixedRot default to false. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
     attachTo(entity: { scriptID: number } | number, bone?: number, offset?: Partial<Vector3Like>, rotation?: Partial<Vector3Like>, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
     /** Its own collision setting, true at creation; assigning applies it in this client's GTA (SET_ENTITY_COLLISION), at once or when it is created. setCollision does not change it. */
     collision: boolean;
-    /** Destroys it: its GTA entity is deleted (gameEntityDestroy fires if it had one, then baseObjectRemove), valid turns false and pending waitForSpawn promises reject. A second call does nothing; a resource's local entities are destroyed when it stops. */
+    /** The hash of the weapon its GTA ped holds (GET_SELECTED_PED_WEAPON), unsigned; 0 while it has no GTA ped. */
+    readonly currentWeapon: number;
+    /** Removes the key from its own data (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
+    deleteMeta(key: string): void;
+    /** Destroys it: its GTA entity is deleted (gameEntityDestroy fires if it had one, then baseObjectRemove), valid turns false and pending waitForSpawn promises reject. A second call does nothing; a resource's local entities are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
-    /** Detaches its GTA entity on this client (DETACH_ENTITY, dynamic, with collision); resolves false when it has no GTA entity here or GTA refused. */
-    detach(): Promise<boolean>;
+    /** Detaches its GTA entity on this client (DETACH_ENTITY with collision; dynamic only when dynamic is true); resolves false when it has no GTA entity here or GTA refused. */
+    detach(dynamic?: boolean): Promise<boolean>;
     /** Its dimension, 0 by default; it exists in GTA only while the local player's dimension sees it: the same one, every one at -2147483648, and 0 also from a negative dimension. Assigning a finite number (anything else sets 0) creates or deletes its GTA entity at once to match. */
     dimension: number;
     /** The same as valid: true until destroy(), whether its GTA entity exists or not. */
@@ -3855,14 +4387,47 @@ export class LocalPed {
     existsAsync(): Promise<boolean | null>;
     /** Sets frozen (the same as assigning it) and, when it has a GTA entity, freezes (true) or releases it on this client with FREEZE_ENTITY_POSITION; resolves true once GTA ran it, false without a GTA entity yet (frozen applies at its creation) or when GTA refused. */
     freezePosition(frozen: boolean): Promise<boolean>;
-    /** Its own frozen setting, true at creation; assigning applies it in this client's GTA (FREEZE_ENTITY_POSITION), at once or when it is created. freezePosition does not change it. */
+    /** Its own frozen setting, false at creation as GTA makes it; assigning applies it in this client's GTA (FREEZE_ENTITY_POSITION), at once or when it is created. freezePosition does not change it. */
     frozen: boolean;
+    /** The value setMeta stored under the key on it, a copy; undefined for none. Its own data on this client, kept until destroy(). */
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomPedMeta, K, any>;
+    /** The keys of its own data (setMeta). */
+    getMetaDataKeys(): string[];
+    /** The same as getMetaDataKeys. */
+    getMetaKeys(): string[];
     /** Its speed in m/s asked of GTA (GET_ENTITY_SPEED); null when it has no GTA entity yet or the game did not answer within 150 ms. */
     getSpeedAsync(): Promise<number | null>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getStreamSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomPedStreamSyncedMeta, K, any>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPedStreamSyncedMeta, K, any>;
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaKeys(): string[];
+    /** undefined: the server syncs no data to an entity this client made. */
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomPedSyncedMeta, K, any>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPedSyncedMeta, K, any>;
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getSyncedMetaKeys(): string[];
+    getSyncInfo(...args: any[]): any;
     /** Always undefined: a local entity is this client's own and has no synced data. */
     getVariable(key: string): undefined;
+    /** Whether its own data (setMeta) holds the key. */
+    hasMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasSyncedMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasSyncedMetaData(key: string): boolean;
     /** Always false: a local entity is this client's own and has no synced data. */
     hasVariable(key: string): boolean;
+    /** Its health as its GTA ped has it now (GET_ENTITY_HEALTH), as a Ped's; 0 while it has no GTA ped. */
+    readonly health: number;
     /** Its negative id (-1, -2 ...), unique among this client's local entities; its class's getByID finds it. */
     readonly id: number;
     /** Asks GTA whether it is dead (IS_ENTITY_DEAD); null when it has no GTA entity yet or the game did not answer within 150 ms. */
@@ -3873,12 +4438,18 @@ export class LocalPed {
     readonly isSpawned: boolean;
     /** Whether it has a GTA entity on this client now (scriptID is not 0). */
     readonly isStreamedIn: boolean;
+    /** Its maximum health as its GTA ped has it (GET_ENTITY_MAX_HEALTH); 0 while it has no GTA ped. */
+    readonly maxHealth: number;
+    /** A new plain object of its own data (setMeta) on each read. */
+    readonly metaData: Record<string, any>;
     /** Its model hash; assigning a name or hash (0, the same model or a destroyed entity is ignored) deletes its GTA entity (gameEntityDestroy) and creates it again with the new model. */
     get model(): number;
     set model(value: string | number);
+    /** null: a local entity has no network owner. */
+    readonly netOwner: null;
     /** Always false: a ped takes no noOffset. */
     noOffset: boolean;
-    /** Its position, a copy on each read. Assigning sets the given components (the others stay), moves its GTA entity on this client and checks streaming again, which may create or delete it. */
+    /** Its position, a copy on each read: where its GTA entity is now (GET_ENTITY_COORDS, so physics and placeOnGroundProperly show), the last known while it has none. Assigning sets the given components (the others stay), moves its GTA entity on this client and checks streaming again, which may create or delete it. */
     get pos(): Vector3Like;
     set pos(value: Partial<Vector3Like>);
     /** The same as id. */
@@ -3887,7 +4458,7 @@ export class LocalPed {
     readonly remoteID: number;
     /** Keeps 255 as its alpha for the creation of its GTA entity and, when it has one, resets it on this client (RESET_ENTITY_ALPHA); resolves false without a GTA entity yet or when GTA refused. */
     resetAlpha(): Promise<boolean>;
-    /** Its rotation in degrees, a copy on each read. Assigning sets the given components; its GTA ped takes only z, the heading. */
+    /** Its rotation in radians, a copy on each read: as its GTA entity is turned now (GET_ENTITY_ROTATION), the last known while it has none. Assigning sets the given components; its GTA ped takes only z, the heading. */
     get rot(): Vector3Like;
     set rot(value: Partial<Vector3Like>);
     /** Its GTA handle on this client; 0 until it is created, while it is out of streaming range or in another dimension, and after destroy(). */
@@ -3896,9 +4467,12 @@ export class LocalPed {
     setAlpha(alpha: number, skin?: boolean): Promise<boolean>;
     /** Sets collision (the same as assigning it) and, when it has a GTA entity, turns its collision on or off on this client with SET_ENTITY_COLLISION (keepPhysics true by default); resolves true once GTA ran it, false without a GTA entity yet (collision applies at its creation) or when GTA refused. */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
+    /** Stores a copy of the value under the key on it and fires metaChange; an object given alone sets each of its entries. Its own data on this client, kept until destroy(). */
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomPedMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomPedMeta, any>): void;
     /** Sets pos (the same as assigning it, so streaming and a re-creation use the new place) and, when it has a GTA entity, moves it on this client with SET_ENTITY_COORDS; resolves true once GTA ran it, false without a GTA entity yet or when GTA refused. */
     setPos(x: number, y: number, z: number): Promise<boolean>;
-    /** Sets rot (the same as assigning it, so a re-creation keeps it) and, when it has a GTA entity, turns it on this client with SET_ENTITY_ROTATION (degrees); resolves true once GTA ran it, false without a GTA entity yet or when GTA refused. */
+    /** Sets rot (the same as assigning it, so a re-creation keeps it) and, when it has a GTA entity, turns it on this client with SET_ENTITY_ROTATION (radians; GTA gets degrees); resolves true once GTA ran it, false without a GTA entity yet or when GTA refused. */
     setRot(x: number, y: number, z: number): Promise<boolean>;
     /** Sets visible (the same as assigning it) and, when it has a GTA entity, shows or hides it with SET_ENTITY_VISIBLE; resolves true once GTA ran it, false without a GTA entity yet (visible applies at its creation) or when GTA refused. */
     setVisible(visible: boolean): Promise<boolean>;
@@ -3906,7 +4480,9 @@ export class LocalPed {
     readonly streamed: boolean;
     /** The distance in metres within which it exists in GTA while useStreaming is true; given to the constructor, 300 by default, at least 1. */
     readonly streamingDistance: number;
-    /** Always 2 (BaseObjectType.Ped). */
+    /** An empty object: the server syncs no data to an entity this client made. */
+    readonly streamSyncedMetaData: Record<string, any>;
+    /** Always 24 (BaseObjectType.LocalPed). It is still a Ped: instanceof Ped is true. */
     readonly type: number;
     /** Given to the constructor: true makes it exist in GTA only within streamingDistance of the local player (checked whenever the local player's state changes); false, while the local player is in its dimension. */
     readonly useStreaming: boolean;
@@ -3914,7 +4490,7 @@ export class LocalPed {
     readonly valid: boolean;
     /** Its own visibility, true at creation; assigning shows or hides its GTA entity on this client, at once or when it is created (hiding also sets its alpha to 0, showing to 255). setVisible does not change it. */
     visible: boolean;
-    /** Resolves once it has a GTA entity (at once when it has). Rejects when it is destroyed, when the engine gives up making it (localEntityFailed; at once while that stands, until it is requested again: a new model, or out of range or its dimension and back) and, when a timeout is given, after that many ms (0, negative or not a number counts as 1 ms); without a timeout it waits as long as it takes. */
+    /** Resolves once it has a GTA entity (at once when it has). Rejects when it is destroyed, when the engine gives up making it (localEntityFailed; at once while that stands, until it is requested again: a new model, or out of range or its dimension and back) and after timeout ms (2000 by default; 0, negative or not a number counts as 1 ms). */
     waitForSpawn(timeout?: number): Promise<void>;
 }
 
@@ -3925,7 +4501,7 @@ export const LocalStorage: {
     delete(key: string): void;
     /** Removes every key of the calling resource's store; the disk changes with the next save() or auto-save. Throws outside a resource's code. */
     deleteAll(): void;
-    /** The value LocalStorage.set stored under the key, of the same type (a string as it is, other values through JSON); undefined when it is not set. Before the store has loaded it warns once and sees only this session's writes; throws outside a resource's code. */
+    /** The value LocalStorage.set stored under the key, of the same type (a string as it is; BigInt, NaN, ArrayBuffer, Vector3, Vector2 and RGBA as those; other values through JSON), a fresh copy each time; undefined when it is not set. Before the store has loaded it warns once and sees only this session's writes; throws outside a resource's code. */
     get(key: string): any;
     /** Whether the calling resource's store holds the key. Before the store has loaded it warns once and sees only this session's writes; throws outside a resource's code. */
     has(key: string): boolean;
@@ -3937,12 +4513,12 @@ export const LocalStorage: {
     remove(key: string): void;
     /** Writes the calling resource's whole store for this server and returns true; before the store has loaded it returns false and saves once it loads. A write the client cannot make fires localStorageError("saveAll", detail); changed stores are also saved when the resource stops, when the session ends and on exit through the menu or the F8 quit command. */
     save(): boolean;
-    /** Stores a value under the key in the calling resource's store: a string as it is; null, numbers, booleans, arrays and plain objects as JSON, so get gives the same type back. Throws a TypeError for a function, symbol, BigInt, Map, Set, binary data or nesting deeper than 32 levels; nothing reaches the disk before save() or an auto-save. */
+    /** Stores a value under the key in the calling resource's store, and get gives the same type back: a string as it is; null, numbers (NaN and the infinities too), BigInt, booleans, arrays and plain objects; an ArrayBuffer's bytes (read back as an ArrayBuffer); and the Vector3, Vector2 and RGBA classes (read back as those classes). Throws a TypeError for a function, symbol, Map, Set, typed array or DataView (keep its buffer) or nesting deeper than 32 levels; nothing reaches the disk before save() or an auto-save. */
     set(key: string, value: any): void;
 };
 
 export class LocalVehicle {
-    /** Creates a local vehicle only for this client from a model hash or name, frozen and rotated by `rot` in degrees. A number as the second argument is its dimension; without it the vehicle is in dimension 0 and every later argument moves up one. With `useStreaming` it exists only within `streamingDistance` metres (300 by default) of the local player. */
+    /** Creates a local vehicle only for this client, an instance of Vehicle, from a model hash or name, not frozen, rotated by `rot` in radians. A number as the second argument is its dimension; without it the vehicle is in dimension 0 and every later argument moves up one. With `useStreaming` it exists only within `streamingDistance` metres (300 by default) of the local player. */
     constructor(model: number | string, dimension: number, pos: Vector3Like, rot?: Vector3Like, useStreaming?: boolean, streamingDistance?: number);
     constructor(model: number | string, pos: Vector3Like, rot?: Vector3Like, useStreaming?: boolean, streamingDistance?: number);
     /** Every LocalVehicle not destroyed, of every resource; a new array on each read. */
@@ -3955,42 +4531,75 @@ export class LocalVehicle {
     static getByRemoteID(remoteId: number): LocalVehicle | null;
     /** The LocalVehicle not destroyed whose GTA handle this is; null for 0 or below and for none. */
     static getByScriptID(scriptID: number): LocalVehicle | null;
-    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY; useSoftPinning and collision default to false, fixedRot to true. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
+    /** The ABS lamp of the dashboard: what a script set, else what GTA last drew for this vehicle while the local player drives it, else false. Assigning puts the lamp into the dashboard GTA draws for this vehicle whenever the local player drives it, until resetDashboardLights or the session’s end. Not set, with a warning once, while it has no GTA entity here or on a build where GTA’s dashboard update is not found. */
+    absLight: boolean;
+    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); useSoftPinning, collision and fixedRot default to false. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
     attachTo(entity: { scriptID: number } | number, bone?: number, offset?: Partial<Vector3Like>, rotation?: Partial<Vector3Like>, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
+    /** The battery lamp of the dashboard: what a script set, else what GTA last drew for this vehicle while the local player drives it, else false. Assigning puts the lamp into the dashboard GTA draws for this vehicle whenever the local player drives it, until resetDashboardLights or the session’s end. Not set, with a warning once, while it has no GTA entity here or on a build where GTA’s dashboard update is not found. */
+    batteryLight: boolean;
     /** Body health (GET_VEHICLE_BODY_HEALTH, 0–1000) from the state its GTA vehicle reports (about every 100 ms, when it changes); 1000 before the first report. */
     readonly bodyHealth: number;
     /** Its own collision setting, true at creation; assigning applies it in this client's GTA (SET_ENTITY_COLLISION), at once or when it is created. setCollision does not change it. */
     collision: boolean;
-    /** Destroys it: its GTA entity is deleted (gameEntityDestroy fires if it had one, then baseObjectRemove), valid turns false and pending waitForSpawn promises reject. A second call does nothing; a resource's local entities are destroyed when it stops. */
+    /** Removes the key from its own data (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
+    deleteMeta(key: string): void;
+    /** Destroys it: its GTA entity is deleted (gameEntityDestroy fires if it had one, then baseObjectRemove), valid turns false and pending waitForSpawn promises reject. A second call does nothing; a resource's local entities are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
-    /** Detaches its GTA entity on this client (DETACH_ENTITY, dynamic, with collision); resolves false when it has no GTA entity here or GTA refused. */
-    detach(): Promise<boolean>;
+    /** Detaches its GTA entity on this client (DETACH_ENTITY with collision; dynamic only when dynamic is true); resolves false when it has no GTA entity here or GTA refused. */
+    detach(dynamic?: boolean): Promise<boolean>;
     /** Its dimension, 0 by default; it exists in GTA only while the local player's dimension sees it: the same one, every one at -2147483648, and 0 also from a negative dimension. Assigning a finite number (anything else sets 0) creates or deletes its GTA entity at once to match. */
     dimension: number;
     /** Engine health (GET_VEHICLE_ENGINE_HEALTH, a whole number) from the state its GTA vehicle reports (about every 100 ms, when it changes); 1000 before the first report. */
     readonly engineHealth: number;
+    /** The engine lamp of the dashboard: what a script set, else what GTA last drew for this vehicle while the local player drives it, else false. Assigning puts the lamp into the dashboard GTA draws for this vehicle whenever the local player drives it, until resetDashboardLights or the session’s end. Not set, with a warning once, while it has no GTA entity here or on a build where GTA’s dashboard update is not found. */
+    engineLight: boolean;
     /** Whether its engine runs (GET_IS_VEHICLE_ENGINE_RUNNING), from the state its GTA vehicle reports (about every 100 ms, when it changes); false before the first report. */
     readonly engineOn: boolean;
-    /** Engine temperature, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 before the first report or when the field could not be read. */
-    readonly engineTemperature: number;
+    /** Engine temperature, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 before the first report or when the field could not be read. Assigning writes it into this client’s GTA vehicle, or into the one made for it when it does not exist yet; on a car another client simulates its owner’s next report sets it back. A value that is not a finite number throws a TypeError; one of 100000 or more either way is not taken, as GTA's memory is not written with it, and the value stays as it was. */
+    engineTemperature: number;
     /** The same as valid: true until destroy(), whether its GTA entity exists or not. */
     exists(): boolean;
     /** Asks GTA whether its handle exists (DOES_ENTITY_EXIST): false at once when it has no GTA entity here, null when the game did not answer within 150 ms. */
     existsAsync(): Promise<boolean | null>;
     /** Sets frozen (the same as assigning it) and, when it has a GTA entity, freezes (true) or releases it on this client with FREEZE_ENTITY_POSITION; resolves true once GTA ran it, false without a GTA entity yet (frozen applies at its creation) or when GTA refused. */
     freezePosition(frozen: boolean): Promise<boolean>;
-    /** Its own frozen setting, true at creation; assigning applies it in this client's GTA (FREEZE_ENTITY_POSITION), at once or when it is created. freezePosition does not change it. */
+    /** Its own frozen setting, false at creation as GTA makes it; assigning applies it in this client's GTA (FREEZE_ENTITY_POSITION), at once or when it is created. freezePosition does not change it. */
     frozen: boolean;
-    /** Fuel level, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 before the first report or when the field could not be read. */
-    readonly fuelLevel: number;
+    /** Fuel level, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 before the first report or when the field could not be read. Assigning writes it into this client’s GTA vehicle, or into the one made for it when it does not exist yet, the tank-empty bit too; on a car another client simulates its owner’s next report sets it back. A value that is not a finite number throws a TypeError; a negative one or one of 100000 or more is not taken, as GTA's memory is not written with it, and the value stays as it was. */
+    fuelLevel: number;
     /** Current gear from the state its GTA vehicle reports (about every 100 ms, when it changes); assigning a number (truncated, clamped to 0–255) writes it into its GTA vehicle on this client. */
     gear: number;
+    /** The value setMeta stored under the key on it, a copy; undefined for none. Its own data on this client, kept until destroy(). */
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomVehicleMeta, K, any>;
+    /** The keys of its own data (setMeta). */
+    getMetaDataKeys(): string[];
+    /** The same as getMetaDataKeys. */
+    getMetaKeys(): string[];
     /** Resolves at once with speed: m/s from the state its GTA vehicle reports, 0 before the first report. */
     getSpeedAsync(): Promise<number | null>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getStreamSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomVehicleStreamSyncedMeta, K, any>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomVehicleStreamSyncedMeta, K, any>;
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaKeys(): string[];
+    /** undefined: the server syncs no data to an entity this client made. */
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomVehicleSyncedMeta, K, any>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomVehicleSyncedMeta, K, any>;
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getSyncedMetaKeys(): string[];
+    getSyncInfo(...args: any[]): any;
     /** Always undefined: a local entity is this client's own and has no synced data. */
     getVariable(key: string): undefined;
     /** The camber of wheel 0–7, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 for a wheel it does not have and before the first report. */
     getWheelCamber(wheel: number): number;
+    /** One bit (0..15) of the wheel’s flag word in GTA (0x10, bit 4, is a powered wheel); false without a GTA vehicle here. Wheel 0..7, else a RangeError. */
+    getWheelConfigFlag(wheel: number, flag: number): boolean;
+    /** One bit (0..31) of the wheel’s dynamic flag word in GTA (CWheel’s word GTA itself clears and sets as the wheel runs; bit 2 while the car is given throttle); false without a GTA vehicle here. Wheel 0..7, else a RangeError. */
+    getWheelDynamicFlag(wheel: number, flag: number): boolean;
     /** The height of wheel 0–7, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 for a wheel it does not have and before the first report. */
     getWheelHeight(wheel: number): number;
     /** The rim radius of wheel 0–7, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 for a wheel it does not have and before the first report. */
@@ -4003,12 +4612,23 @@ export class LocalVehicle {
     getWheelTyreRadius(wheel: number): number;
     /** The tyre width of wheel 0–7, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 for a wheel it does not have and before the first report. */
     getWheelTyreWidth(wheel: number): number;
+    readonly handling: any;
+    /** Whether its own data (setMeta) holds the key. */
+    hasMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasSyncedMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasSyncedMetaData(key: string): boolean;
     /** Always false: a local entity is this client's own and has no synced data. */
     hasVariable(key: string): boolean;
     /** Its negative id (-1, -2 ...), unique among this client's local entities; its class's getByID finds it. */
     readonly id: number;
-    /** Its turn indicators, 0 off, 1 left, 2 right, 3 both, read from its GTA vehicle's memory and reported about every 100 ms when they change; 0 before the first report. */
-    readonly indicatorLights: number;
+    /** Its blinker byte, the bits of VehicleIndicatorLights (1 left, 2 right, 4 and 8 both, 64 the interior light), read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 before the first report. Assigning sets the two blinkers with SET_VEHICLE_INDICATOR_LIGHTS and writes the other bits to the byte; anything but an integer 0..255 throws a RangeError. */
+    indicatorLights: number;
     /** Asks GTA whether it is dead (IS_ENTITY_DEAD); null when it has no GTA entity yet or the game did not answer within 150 ms. */
     isDeadAsync(): Promise<boolean | null>;
     /** Always false: this client made it. */
@@ -4021,16 +4641,24 @@ export class LocalVehicle {
     readonly lockState: number;
     /** Its top gear, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 before the first report or when the field could not be read. */
     readonly maxGear: number;
+    /** A new plain object of its own data (setMeta) on each read. */
+    readonly metaData: Record<string, any>;
     /** Its model hash; assigning a name or hash (0, the same model or a destroyed entity is ignored) deletes its GTA entity (gameEntityDestroy) and creates it again with the new model. */
     get model(): number;
     set model(value: string | number);
+    /** null: a local entity has no network owner. */
+    readonly netOwner: null;
     /** Always false: a vehicle takes no noOffset. */
     noOffset: boolean;
-    /** Oil level, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 before the first report or when the field could not be read. */
-    readonly oilLevel: number;
+    /** Oil level, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 before the first report or when the field could not be read. Assigning writes it into this client’s GTA vehicle, or into the one made for it when it does not exist yet; on a car another client simulates its owner’s next report sets it back. A value that is not a finite number throws a TypeError; a negative one or one of 100000 or more is not taken, as GTA's memory is not written with it, and the value stays as it was. */
+    oilLevel: number;
+    /** The oil lamp of the dashboard: what a script set, else what GTA last drew for this vehicle while the local player drives it, else false. Assigning puts the lamp into the dashboard GTA draws for this vehicle whenever the local player drives it, until resetDashboardLights or the session’s end. Not set, with a warning once, while it has no GTA entity here or on a build where GTA’s dashboard update is not found. */
+    oilLight: boolean;
+    /** The petrol lamp of the dashboard: what a script set, else what GTA last drew for this vehicle while the local player drives it, else false. Assigning puts the lamp into the dashboard GTA draws for this vehicle whenever the local player drives it, until resetDashboardLights or the session’s end. Not set, with a warning once, while it has no GTA entity here or on a build where GTA’s dashboard update is not found. */
+    petrolLight: boolean;
     /** Petrol tank health (GET_VEHICLE_PETROL_TANK_HEALTH, a whole number) from the state its GTA vehicle reports (about every 100 ms, when it changes); 1000 before the first report. */
     readonly petrolTankHealth: number;
-    /** Its position, a copy on each read. Assigning sets the given components (the others stay), moves its GTA entity on this client and checks streaming again, which may create or delete it. */
+    /** Its position, a copy on each read: where its GTA entity is now (GET_ENTITY_COORDS, so physics and placeOnGroundProperly show), the last known while it has none. Assigning sets the given components (the others stay), moves its GTA entity on this client and checks streaming again, which may create or delete it. */
     get pos(): Vector3Like;
     set pos(value: Partial<Vector3Like>);
     /** The same as id. */
@@ -4039,7 +4667,9 @@ export class LocalVehicle {
     readonly remoteID: number;
     /** Keeps 255 as its alpha for the creation of its GTA entity and, when it has one, resets it on this client (RESET_ENTITY_ALPHA); resolves false without a GTA entity yet or when GTA refused. */
     resetAlpha(): Promise<boolean>;
-    /** Its rotation in degrees (z is the heading), a copy on each read. Assigning sets the given components and turns its GTA entity on this client. */
+    /** The dashboard lamps back to GTA’s own: what a script set on this vehicle is dropped. */
+    resetDashboardLights(): void;
+    /** Its rotation in radians (z is the heading), a copy on each read: as its GTA entity is turned now (GET_ENTITY_ROTATION), the last known while it has none. Assigning sets the given components and turns its GTA entity on this client. */
     get rot(): Vector3Like;
     set rot(value: Partial<Vector3Like>);
     /** Engine revs 0–1 from the state its GTA vehicle reports (about every 100 ms, when it changes); assigning a number (clamped to 0–1) writes it into its GTA vehicle on this client. */
@@ -4052,14 +4682,23 @@ export class LocalVehicle {
     setAlpha(alpha: number, skin?: boolean): Promise<boolean>;
     /** Sets collision (the same as assigning it) and, when it has a GTA entity, turns its collision on or off on this client with SET_ENTITY_COLLISION (keepPhysics true by default); resolves true once GTA ran it, false without a GTA entity yet (collision applies at its creation) or when GTA refused. */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
+    /** Stores a copy of the value under the key on it and fires metaChange; an object given alone sets each of its entries. Its own data on this client, kept until destroy(). */
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomVehicleMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomVehicleMeta, any>): void;
     /** Sets pos (the same as assigning it, so streaming and a re-creation use the new place) and, when it has a GTA entity, moves it on this client with SET_ENTITY_COORDS; resolves true once GTA ran it, false without a GTA entity yet or when GTA refused. */
     setPos(x: number, y: number, z: number): Promise<boolean>;
-    /** Sets rot (the same as assigning it, so a re-creation keeps it) and, when it has a GTA entity, turns it on this client with SET_ENTITY_ROTATION (degrees); resolves true once GTA ran it, false without a GTA entity yet or when GTA refused. */
+    /** Sets rot (the same as assigning it, so a re-creation keeps it) and, when it has a GTA entity, turns it on this client with SET_ENTITY_ROTATION (radians; GTA gets degrees); resolves true once GTA ran it, false without a GTA entity yet or when GTA refused. */
     setRot(x: number, y: number, z: number): Promise<boolean>;
+    /** Sets its gears up again from its handling, as GTA does when it makes the vehicle (MODIFY_VEHICLE_TOP_SPEED with 0, which also drops a top speed change made with that native); nothing before it is spawned. */
+    setupTransmission(): void;
     /** Sets visible (the same as assigning it) and, when it has a GTA entity, shows or hides it with SET_ENTITY_VISIBLE; resolves true once GTA ran it, false without a GTA entity yet (visible applies at its creation) or when GTA refused. */
     setVisible(visible: boolean): Promise<boolean>;
     /** Stores the camber of wheel 0–7 and writes it into its GTA vehicle on this client, at once or once it is created; ignored for a wheel outside 0–7 or a value that is not finite or beyond ±100. The next reported state reads it back from GTA. */
     setWheelCamber(wheel: number, value: number): void;
+    /** Sets or clears one bit (0..15) of the wheel’s flag word in this client’s GTA vehicle, the other bits kept. Wheel 0..7, else a RangeError. */
+    setWheelConfigFlag(wheel: number, flag: number, value: boolean): void;
+    /** Sets or clears one bit (0..31) of the wheel’s dynamic flag word in this client’s GTA vehicle, the other bits kept; GTA may set the bit anew on the wheel’s next step. Wheel 0..7, else a RangeError. */
+    setWheelDynamicFlag(wheel: number, flag: number, value: boolean): void;
     /** Stores the height of wheel 0–7 and writes it into its GTA vehicle on this client, at once or once it is created; ignored for a wheel outside 0–7 or a value that is not finite or beyond ±100. The next reported state reads it back from GTA. */
     setWheelHeight(wheel: number, value: number): void;
     /** Stores the rim radius of wheel 0–7 and writes it into its GTA vehicle on this client, at once or once it is created; ignored for a wheel outside 0–7 or a value that is not finite or beyond ±100. The next reported state reads it back from GTA. */
@@ -4070,19 +4709,22 @@ export class LocalVehicle {
     setWheelTyreRadius(wheel: number, value: number): void;
     /** Stores the tyre width of wheel 0–7 and writes it into its GTA vehicle on this client, at once or once it is created; ignored for a wheel outside 0–7 or a value that is not finite or beyond ±100. The next reported state reads it back from GTA. */
     setWheelTyreWidth(wheel: number, value: number): void;
-    /** Its speed in m/s from the state its GTA vehicle reports (about every 100 ms, when it changes); 0 before the first report. */
+    /** How fast its wheels turn, in m/s at the tyre (averaged over its wheels), read off its GTA copy on each read: it differs from the body's speed while the wheels spin or lock, and is negative while they turn backwards. 0 for a vehicle without wheels, while it has no GTA entity here, and on a build where the wheel offsets are not found (logged once). */
     readonly speed: number;
     /** Its velocity in m/s, a copy of what is reported with its state (about every 100 ms, when it changes); {0,0,0} before the first report. */
     readonly speedVector: Vector3Like;
-    /** Steering angle in degrees from the state its GTA vehicle reports (about every 100 ms, when it changes); 0 before the first report. */
-    readonly steeringAngle: number;
+    /** Steering angle in degrees from the state its GTA vehicle reports (about every 100 ms, when it changes); 0 before the first report. Assigning a finite number of degrees (clamped to -180..180; else a TypeError) writes it into its GTA vehicle, once it exists; GTA steers it back unless the engine is off and the write is repeated every tick. */
+    get steeringAngle(): number;
+    set steeringAngle(value: number);
     /** Whether it has a GTA entity on this client now (scriptID is not 0). */
     readonly streamed: boolean;
     /** The distance in metres within which it exists in GTA while useStreaming is true; given to the constructor, 300 by default, at least 1. */
     readonly streamingDistance: number;
-    /** Suspension height, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 before the first report or when the field could not be read. */
-    readonly suspensionHeight: number;
-    /** Always 1 (BaseObjectType.Vehicle). */
+    /** An empty object: the server syncs no data to an entity this client made. */
+    readonly streamSyncedMetaData: Record<string, any>;
+    /** Suspension height, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 before the first report or when the field could not be read. Assigning writes it into this client’s GTA vehicle, or into the one made for it when it does not exist yet; on a car another client simulates its owner’s next report sets it back. A value that is not a finite number throws a TypeError; one beyond ±100 is not taken, as GTA's memory is not written with it, and the value stays as it was. */
+    suspensionHeight: number;
+    /** Always 25 (BaseObjectType.LocalVehicle). It is still a Vehicle: instanceof Vehicle is true. */
     readonly type: number;
     /** Given to the constructor: true makes it exist in GTA only within streamingDistance of the local player (checked whenever the local player's state changes); false, while the local player is in its dimension. */
     readonly useStreaming: boolean;
@@ -4090,9 +4732,9 @@ export class LocalVehicle {
     readonly valid: boolean;
     /** Its own visibility, true at creation; assigning shows or hides its GTA entity on this client, at once or when it is created (hiding also sets its alpha to 0, showing to 255). setVisible does not change it. */
     visible: boolean;
-    /** Resolves once it has a GTA entity (at once when it has). Rejects when it is destroyed, when the engine gives up making it (localEntityFailed; at once while that stands, until it is requested again: a new model, or out of range or its dimension and back) and, when a timeout is given, after that many ms (0, negative or not a number counts as 1 ms); without a timeout it waits as long as it takes. */
+    /** Resolves once it has a GTA entity (at once when it has). Rejects when it is destroyed, when the engine gives up making it (localEntityFailed; at once while that stands, until it is requested again: a new model, or out of range or its dimension and back) and after timeout ms (2000 by default; 0, negative or not a number counts as 1 ms). */
     waitForSpawn(timeout?: number): Promise<void>;
-    /** How many wheels it has (at most 8) from the state its GTA vehicle reports (about every 100 ms, when it changes); 0 before the first report. A setWheel… call raises it. */
+    /** How many wheels it has (at most 8) from the state its GTA vehicle reports (about every 100 ms, when it changes); 0 before the first report. A setWheel… call does not change it, and once it is known one for a wheel past it is not sent. */
     readonly wheelsCount: number;
 }
 
@@ -4186,28 +4828,30 @@ export class MapZoomData {
 export class Marker {
     /** Creates a marker that this client alone draws every frame, in dimension 0, with scale 1 and colour 255, 255, 255, 255 by default (channels clamped to 0–255). It shows at any distance unless `useStreaming` is `true`, then within `streamingDistance` metres (300 by default). */
     constructor(type: number, position: Vector3Like, color?: { r: number; g: number; b: number; a?: number }, useStreaming?: boolean, streamingDistance?: number);
-    /** The server's markers this client has, as plain objects with fewer members (drawn at any distance, without spinning or bobbing; assigning their pos, dimension, markerType, scale, rot, dir, color, visible or faceCamera changes them for this client only), then the local markers of every resource. A new array on each read. */
-    static readonly all: Array<Marker | { type: 22; id: number; remoteId: number; remoteID: number; isRemote: true; scriptID: number; valid: boolean; isStreamedIn: boolean; pos: Vector3Like; dimension: number; markerType: number; scale: Vector3Like; rot: Vector3Like; dir: Vector3Like; color: { r: number; g: number; b: number; a: number }; visible: boolean; faceCamera: boolean; streamingDistance: 0; rotate: false; bobUpAndDown: false; isGlobal: boolean; target: Player | null; getSyncedMeta(key: string): unknown; hasSyncedMeta(key: string): boolean; getSyncedMetaKeys(): string[] }>;
+    /** The server's markers this client has, as plain objects with fewer members (drawn within their streamingDistance, without spinning or bobbing; assigning their pos, dimension, markerType, scale, rot, dir, color, visible or faceCamera changes them for this client only), then the local markers of every resource. A new array on each read. */
+    static readonly all: Array<Marker | { type: 22; id: number; remoteId: number; remoteID: number; isRemote: true; scriptID: number; valid: boolean; isStreamedIn: boolean; pos: Vector3Like; dimension: number; markerType: number; scale: Vector3Like; rot: Vector3Like; dir: Vector3Like; color: { r: number; g: number; b: number; a: number }; visible: boolean; faceCamera: boolean; streamingDistance: number; rotate: false; bobUpAndDown: false; isGlobal: boolean; target: Player | null; getSyncedMeta(key: string): unknown; hasSyncedMeta(key: string): boolean; getSyncedMetaKeys(): string[] }>;
     /** How many markers Marker.all holds. */
     static readonly count: number;
     /** A local marker by its id (negative), else the server's by its id; null for none. */
-    static get(id: number): Marker | { type: 22; id: number; remoteId: number; remoteID: number; isRemote: true; scriptID: number; valid: boolean; isStreamedIn: boolean; pos: Vector3Like; dimension: number; markerType: number; scale: Vector3Like; rot: Vector3Like; dir: Vector3Like; color: { r: number; g: number; b: number; a: number }; visible: boolean; faceCamera: boolean; streamingDistance: 0; rotate: false; bobUpAndDown: false; isGlobal: boolean; target: Player | null; getSyncedMeta(key: string): unknown; hasSyncedMeta(key: string): boolean; getSyncedMetaKeys(): string[] } | null;
+    static get(id: number): Marker | { type: 22; id: number; remoteId: number; remoteID: number; isRemote: true; scriptID: number; valid: boolean; isStreamedIn: boolean; pos: Vector3Like; dimension: number; markerType: number; scale: Vector3Like; rot: Vector3Like; dir: Vector3Like; color: { r: number; g: number; b: number; a: number }; visible: boolean; faceCamera: boolean; streamingDistance: number; rotate: false; bobUpAndDown: false; isGlobal: boolean; target: Player | null; getSyncedMeta(key: string): unknown; hasSyncedMeta(key: string): boolean; getSyncedMetaKeys(): string[] } | null;
     /** The same as Marker.get. */
-    static getByID(id: number): Marker | { type: 22; id: number; remoteId: number; remoteID: number; isRemote: true; scriptID: number; valid: boolean; isStreamedIn: boolean; pos: Vector3Like; dimension: number; markerType: number; scale: Vector3Like; rot: Vector3Like; dir: Vector3Like; color: { r: number; g: number; b: number; a: number }; visible: boolean; faceCamera: boolean; streamingDistance: 0; rotate: false; bobUpAndDown: false; isGlobal: boolean; target: Player | null; getSyncedMeta(key: string): unknown; hasSyncedMeta(key: string): boolean; getSyncedMetaKeys(): string[] } | null;
+    static getByID(id: number): Marker | { type: 22; id: number; remoteId: number; remoteID: number; isRemote: true; scriptID: number; valid: boolean; isStreamedIn: boolean; pos: Vector3Like; dimension: number; markerType: number; scale: Vector3Like; rot: Vector3Like; dir: Vector3Like; color: { r: number; g: number; b: number; a: number }; visible: boolean; faceCamera: boolean; streamingDistance: number; rotate: false; bobUpAndDown: false; isGlobal: boolean; target: Player | null; getSyncedMeta(key: string): unknown; hasSyncedMeta(key: string): boolean; getSyncedMetaKeys(): string[] } | null;
     /** The server's marker with that id, as a plain object; null for none (local markers are not searched). */
-    static getByRemoteID(id: number): { type: 22; id: number; remoteId: number; remoteID: number; isRemote: true; scriptID: number; valid: boolean; isStreamedIn: boolean; pos: Vector3Like; dimension: number; markerType: number; scale: Vector3Like; rot: Vector3Like; dir: Vector3Like; color: { r: number; g: number; b: number; a: number }; visible: boolean; faceCamera: boolean; streamingDistance: 0; rotate: false; bobUpAndDown: false; isGlobal: boolean; target: Player | null; getSyncedMeta(key: string): unknown; hasSyncedMeta(key: string): boolean; getSyncedMetaKeys(): string[] } | null;
+    static getByRemoteID(id: number): { type: 22; id: number; remoteId: number; remoteID: number; isRemote: true; scriptID: number; valid: boolean; isStreamedIn: boolean; pos: Vector3Like; dimension: number; markerType: number; scale: Vector3Like; rot: Vector3Like; dir: Vector3Like; color: { r: number; g: number; b: number; a: number }; visible: boolean; faceCamera: boolean; streamingDistance: number; rotate: false; bobUpAndDown: false; isGlobal: boolean; target: Player | null; getSyncedMeta(key: string): unknown; hasSyncedMeta(key: string): boolean; getSyncedMetaKeys(): string[] } | null;
     /** Bobs the marker up and down (DRAW_MARKER), false by default. The server's markers read false: the client draws them without bobbing. */
     bobUpAndDown: boolean;
     /** Colour, each component clamped to 0..255 and truncated; on assigning a missing r, g or b becomes 0 and a missing a 255, white by default. On the server's marker, assigning recolours it for this client only (a missing component kept, unclamped). */
     get color(): { r: number; g: number; b: number; a: number };
     set color(value: { r?: number; g?: number; b?: number; a?: number });
-    /** Stops drawing the marker: valid turns false and baseObjectRemove fires; later calls do nothing. A resource's markers are destroyed when it stops, and the server's ones have no destroy. */
+    /** Stops drawing the marker: valid turns false and baseObjectRemove fires; later calls do nothing. A resource's markers are destroyed when it stops, and the server's ones have no destroy. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it is drawn in: the local player's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated. On the server's marker, assigning moves it for this client only. */
     dimension: number;
     /** Direction vector passed to DRAW_MARKER, a copy, {0, 0, 0} by default; on assigning a missing or non-numeric component keeps its value. On the server's marker, assigning changes it for this client only. */
     get dir(): Vector3Like;
     set dir(value: Partial<Vector3Like>);
+    /** DRAW_MARKER’s drawOnEnts: drawn on entities too; false by default. */
+    drawOnEnts: boolean;
     /** Turns the marker to face the camera, false by default. On the server's marker, assigning changes it for this client only. */
     faceCamera: boolean;
     /** A local marker's id is negative and unique on this client; the server's markers have the server's id. */
@@ -4216,10 +4860,12 @@ export class Marker {
     readonly isGlobal: boolean;
     /** False for a local marker; the server's markers read true. */
     readonly isRemote: boolean;
-    /** Whether it is drawn now: valid, visible, in the local player's dimension and, when made with streaming, within streamingDistance of the local player. The server's marker: while it is visible and in the local player's dimension (the client draws it at any distance). */
+    /** Whether it is drawn now: valid, visible, in the local player's dimension and, when made with streaming, within streamingDistance of the local player. The server's marker: while it is visible, in the local player's dimension and within its streamingDistance of the local player (0: at any distance); of more than 96 such markers the client draws the nearest 96. */
     readonly isStreamedIn: boolean;
     /** Marker type (MarkerType), truncated, drawn with DRAW_MARKER every frame. On the server's marker, assigning changes it for this client only (sent as markerType). */
     markerType: number;
+    /** DRAW_MARKER’s p19 (its rotation order), 2 by default, as the marker was always drawn. */
+    p19: number;
     /** Where it is drawn, a copy; on assigning a missing or non-numeric component keeps its value. On the server's marker, assigning moves it for this client only, a missing component becoming 0. */
     get pos(): Vector3Like;
     set pos(value: Partial<Vector3Like>);
@@ -4235,10 +4881,14 @@ export class Marker {
     /** Size on each axis, a copy, {1, 1, 1} by default for a local marker; on assigning a missing or non-numeric component keeps its value. On the server's marker, assigning changes it for this client only. */
     get scale(): Vector3Like;
     set scale(value: Partial<Vector3Like>);
-    /** 0 for a marker made without streaming (drawn at any distance); with streaming, the distance from the local player within which it is drawn: as given, at least 1, 300 by default. The server's markers read 0: the client draws them at any distance. */
+    /** 0 for a marker made without streaming (drawn at any distance); with streaming, the distance from the local player within which it is drawn: as given, at least 1, 300 by default. The server's marker: the distance the server gave it, 300 by default, 0 for any distance. */
     readonly streamingDistance: number;
     /** Always null for a local marker; the server's markers return the player they were made for, or null. */
     readonly target: null;
+    /** DRAW_MARKER’s texture dictionary; undefined (the default) or "" draws none. */
+    textureDict: string | undefined;
+    /** DRAW_MARKER’s texture name; undefined (the default) or "" draws none. */
+    textureName: string | undefined;
     /** BaseObjectType.Marker (22). */
     readonly type: 22;
     /** True until destroy() or the stop of its resource. The server's markers are valid while this client keeps them. */
@@ -4316,7 +4966,7 @@ export class MemoryBuffer {
     short(offset: number): number | null;
     /** The size in bytes given to the constructor (0..1024); free() does not change it. */
     readonly size: number;
-    /** length bytes from offset decoded as UTF-8 (NUL bytes kept, invalid bytes as U+FFFD); null after free(). A negative or fractional offset or length, or a range past the end, throws a RangeError. */
+    /** length bytes from offset decoded as UTF-8 up to the first zero byte (invalid bytes as U+FFFD); null after free(). A negative or fractional offset or length, or a range past the end, throws a RangeError. */
     string(offset: number, length: number): string | null;
     /** The unsigned 8-bit integer at offset; null after free(). A negative or fractional offset, or one that reads past the end, throws a RangeError. */
     ubyte(offset: number): number | null;
@@ -4363,11 +5013,11 @@ export class Object {
     static getByRemoteID(id: number): Object | null;
     /** The object with this GTA handle: a server object streamed to this client or a LocalObject this client made; null for any other handle. */
     static getByScriptID(scriptID: number): Object | LocalObject | null;
-    /** Those of Object.all that exist in this client's GTA now. */
+    /** Those of Object.all whose isStreamedIn is true: the server streams them to this client. */
     static readonly streamedIn: Object[];
     /** Alpha 0–255: GET_ENTITY_ALPHA of its GTA object by the newest snapshot while it is streamed in, else the alpha the server set (255 by default). */
     readonly alpha: number;
-    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY; useSoftPinning and collision default to false, fixedRot to true. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
+    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); useSoftPinning, collision and fixedRot default to false. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
     attachTo(entity: { scriptID: number } | number, bone?: number, offset?: Partial<Vector3Like>, rotation?: Partial<Vector3Like>, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
     /** Whether the server has its collision on, by the newest snapshot; true when the server sent none. */
     readonly collision: boolean;
@@ -4377,22 +5027,24 @@ export class Object {
     deleteStreamSyncedMetaData(key: string): void;
     /** Drops the key from this client's copy of its synced data (setSyncedMeta on the server), without an event. A client cannot change the server's data: nothing is sent, and the server's next change of the key brings it back. */
     deleteSyncedMetaData(key: string): void;
-    /** Deletes its GTA entity on this client (DELETE_ENTITY) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
-    destroy(): Promise<boolean>;
-    /** Detaches its GTA entity on this client (DETACH_ENTITY, dynamic, with collision); resolves false when it has no GTA entity here or GTA refused. */
-    detach(): Promise<boolean>;
-    /** The dimension it is in, by the newest snapshot. */
-    readonly dimension: number;
+    /** Refuses at once with a warning: this is the server's entity, destroyed on the server; a client script destroys only its own local objects (LocalVehicle and the like have their own destroy). Nothing in the game is changed. */
+    destroy(): void;
+    /** Detaches its GTA entity on this client (DETACH_ENTITY with collision; dynamic only when dynamic is true); resolves false when it has no GTA entity here or GTA refused. */
+    detach(dynamic?: boolean): Promise<boolean>;
+    /** The dimension it is in, by the newest snapshot. Assigning keeps a dimension for this client's scripts (a number is truncated to an integer, anything else is 0): it reads back until the server changes the entity's dimension or the entity leaves; what GTA shows here and what the server streams stay by the server's dimension. */
+    get dimension(): number;
+    set dimension(value: number);
     /** Whether its GTA entity exists on this client: false while it has none here (not streamed in) and once the snapshots stop listing it; otherwise what the newest snapshot found (DOES_ENTITY_EXIST). */
     exists(): boolean;
     /** Asks GTA whether its handle exists (DOES_ENTITY_EXIST): false at once when it has no GTA entity here, null when the game did not answer within 150 ms. */
     existsAsync(): Promise<boolean | null>;
     /** Freezes (true) or releases its GTA entity on this client (FREEZE_ENTITY_POSITION); resolves false when it has no GTA entity here or GTA refused. The frozen property does not change. */
     freezePosition(frozen: boolean): Promise<boolean>;
-    /** Whether the server has it frozen, by the newest snapshot; false when the server sent none. */
-    readonly frozen: boolean;
+    /** Whether the server has it frozen, by the newest snapshot; false when the server sent none. Assigning freezes or frees this client's GTA copy (FREEZE_ENTITY_POSITION); the value assigned reads back until the server changes its own flag or the entity leaves. */
+    get frozen(): boolean;
+    set frozen(value: boolean);
     /** The value setMeta stored under the key on this client, the same value that was stored; undefined for none. The data never leaves the client; an entity's is cleared when the server streams it out of this client and when the session ends. */
-    getMeta(key: string): any;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomEntityMeta, K, any>;
     /** The keys of this client's own data on it (setMeta). */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -4400,19 +5052,20 @@ export class Object {
     /** Resolves at once with speed: GET_ENTITY_SPEED in m/s by the newest snapshot, 0 while it is not streamed in. */
     getSpeedAsync(): Promise<number | null>;
     /** The same as getStreamSyncedMetaData: the server's stream-synced value under the key, decoded; undefined for none. */
-    getStreamSyncedMeta(key: string): any;
+    getStreamSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomEntityStreamSyncedMeta, K, any>;
     /** The value the server set as stream-synced data on it (setStreamSyncedMeta), decoded, with a server object in it resolved to this client's object; undefined for none. A value setStreamSyncedMetaData put here reads back as it was set. Cleared when the server streams the entity out of this client. */
-    getStreamSyncedMetaData(key: string): any;
+    getStreamSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomEntityStreamSyncedMeta, K, any>;
     /** The keys of the stream-synced data this client has for it. */
     getStreamSyncedMetaDataKeys(): string[];
     /** The same as getStreamSyncedMetaDataKeys. */
     getStreamSyncedMetaKeys(): string[];
     /** The same as getSyncedMetaData: the server's synced value under the key, decoded; undefined for none. */
-    getSyncedMeta(key: string): any;
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomEntitySyncedMeta, K, any>;
     /** The value the server set as synced data on it (setSyncedMeta), decoded, with a server object in it resolved to this client's object; undefined for none. */
-    getSyncedMetaData(key: string): any;
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomEntitySyncedMeta, K, any>;
     /** The keys of the synced data (setSyncedMeta on the server) this client has for it. */
     getSyncedMetaKeys(): string[];
+    getSyncInfo(...args: any[]): any;
     /** The same as getSyncedMeta: the server's synced value under the key, decoded; undefined for none. */
     getVariable(key: string): any;
     /** Whether this client's own data on it (setMeta) holds the key. */
@@ -4452,15 +5105,15 @@ export class Object {
     /** The player whose client simulates it (its network owner), by the newest snapshot; null for none. */
     readonly netOwner: PlayerLocal | Player | null;
     /** Its position by the newest snapshot: read from GTA while it is streamed in, else the last synced one. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** The same as id. */
     readonly remoteId: number;
     /** The same as id. */
     readonly remoteID: number;
     /** Resets the alpha of its GTA entity on this client (RESET_ENTITY_ALPHA); resolves false when it has no GTA entity here or GTA refused. */
     resetAlpha(): Promise<boolean>;
-    /** Its rotation in degrees (z is the heading) by the newest snapshot: read from GTA while it is streamed in, else the last synced one. */
-    readonly rot: Vector3Like;
+    /** Its rotation in radians (z is the heading) by the newest snapshot: read from GTA while it is streamed in, else the last synced one. */
+    readonly rot: Vector3;
     /** Its GTA handle on this client by the newest snapshot; 0 while it has no GTA entity here and once the snapshots stop listing it. */
     readonly scriptID: number;
     /** Sets the alpha of its GTA entity on this client (SET_ENTITY_ALPHA): alpha is clamped to 0–255 and made whole (a non-number counts as 0) and skin is passed on as the native's skin flag. Resolves false when it has no GTA entity here or GTA refused. */
@@ -4468,14 +5121,14 @@ export class Object {
     /** Turns collision of its GTA entity on or off on this client (SET_ENTITY_COLLISION); keepPhysics defaults to true. Resolves false when it has no GTA entity here or GTA refused. The collision property does not change. */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
     /** Stores the value under the key on this client and fires metaChange; an object given alone sets each of its entries. The data never leaves the client; an entity's is cleared when the server streams it out of this client and when the session ends. */
-    setMeta(key: string, value: any): void;
-    setMeta(values: Record<string, any>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomEntityMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomEntityMeta, any>): void;
     /** Moves its GTA entity on this client (SET_ENTITY_COORDS, clearing the area) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
     setPos(x: number, y: number, z: number): Promise<boolean>;
-    /** Turns its GTA entity on this client (SET_ENTITY_ROTATION, degrees, rotation order 2) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
+    /** Turns its GTA entity on this client (radians; SET_ENTITY_ROTATION gets degrees, rotation order 2) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
     setRot(x: number, y: number, z: number): Promise<boolean>;
     /** Puts the value under the key into this client's copy of its stream-synced data, read back as it was set, without an event. A client cannot change the server's data: nothing is sent, so the server and other clients never see it; a change of the key from the server overwrites it, and it is cleared when the server streams the entity out of this client. */
-    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData<K extends string>(key: K, value: CustomMetaValue<ICustomEntityStreamSyncedMeta, K, any>): void;
     /** Shows or hides its GTA entity on this client with SET_ENTITY_VISIBLE; resolves true once GTA ran it, false when it has no GTA entity here or GTA refused. */
     setVisible(visible: boolean): Promise<boolean>;
     /** Its speed in m/s: GET_ENTITY_SPEED by the newest snapshot; 0 while it is not streamed in. */
@@ -4510,17 +5163,17 @@ export class Ped {
     static getByRemoteID(id: number): Ped | NativePed | null;
     /** The ped with this GTA handle: an old-path one streamed in, a LocalPed this client made or a native NPC; null for any other handle, a player's included. */
     static getByScriptID(scriptID: number): Ped | NativePed | LocalPed | null;
-    /** Those of Ped.all that exist in this client's GTA now. */
+    /** Those of Ped.all whose isStreamedIn is true: the server streams them to this client (a native NPC: its GTA has it). */
     static readonly streamedIn: Array<Ped | NativePed>;
     /** Alpha 0–255 of its GTA entity (GET_ENTITY_ALPHA) by the newest snapshot; 255 while it is not streamed in. */
     readonly alpha: number;
-    /** Its armour from its last sync, by the newest snapshot. */
+    /** Its armour from its last sync, by the newest snapshot. A native NPC reads it off its copy in this game (GTA syncs it from the NPC’s owner), 0 while this game has none. */
     readonly armour: number;
-    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY; useSoftPinning and collision default to false, fixedRot to true. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
+    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); useSoftPinning, collision and fixedRot default to false. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
     attachTo(entity: { scriptID: number } | number, bone?: number, offset?: Partial<Vector3Like>, rotation?: Partial<Vector3Like>, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
     /** Whether the server has its collision on, by the newest snapshot; true when the server sent none. */
     readonly collision: boolean;
-    /** Hash of the weapon in its hands from its last sync, unsigned, by the newest snapshot; 0 when unknown. */
+    /** Hash of the weapon in its hands from its last sync, unsigned, by the newest snapshot; 0 when unknown. A native NPC reads it off its copy in this game (GTA syncs it from the NPC’s owner), 0 while this game has none. */
     readonly currentWeapon: number;
     /** Removes the key from this client's own data on it (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
     deleteMeta(key: string): void;
@@ -4528,22 +5181,24 @@ export class Ped {
     deleteStreamSyncedMetaData(key: string): void;
     /** Drops the key from this client's copy of its synced data (setSyncedMeta on the server), without an event. A client cannot change the server's data: nothing is sent, and the server's next change of the key brings it back. */
     deleteSyncedMetaData(key: string): void;
-    /** Deletes its GTA entity on this client (DELETE_ENTITY) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
-    destroy(): Promise<boolean>;
-    /** Detaches its GTA entity on this client (DETACH_ENTITY, dynamic, with collision); resolves false when it has no GTA entity here or GTA refused. */
-    detach(): Promise<boolean>;
-    /** The dimension it is in, by the newest snapshot. */
-    readonly dimension: number;
+    /** Refuses at once with a warning: this is the server's entity, destroyed on the server; a client script destroys only its own local objects (LocalVehicle and the like have their own destroy). Nothing in the game is changed. */
+    destroy(): void;
+    /** Detaches its GTA entity on this client (DETACH_ENTITY with collision; dynamic only when dynamic is true); resolves false when it has no GTA entity here or GTA refused. */
+    detach(dynamic?: boolean): Promise<boolean>;
+    /** The dimension it is in, by the newest snapshot. Assigning keeps a dimension for this client's scripts (a number is truncated to an integer, anything else is 0): it reads back until the server changes the entity's dimension or the entity leaves; what GTA shows here and what the server streams stay by the server's dimension. */
+    get dimension(): number;
+    set dimension(value: number);
     /** Whether its GTA entity exists on this client: false while it has none here (not streamed in) and once the snapshots stop listing it; otherwise what the newest snapshot found (DOES_ENTITY_EXIST). */
     exists(): boolean;
     /** Asks GTA whether its handle exists (DOES_ENTITY_EXIST): false at once when it has no GTA entity here, null when the game did not answer within 150 ms. */
     existsAsync(): Promise<boolean | null>;
     /** Freezes (true) or releases its GTA entity on this client (FREEZE_ENTITY_POSITION); resolves false when it has no GTA entity here or GTA refused. The frozen property does not change. */
     freezePosition(frozen: boolean): Promise<boolean>;
-    /** Whether the server has it frozen, by the newest snapshot; false when the server sent none. */
-    readonly frozen: boolean;
+    /** Whether the server has it frozen, by the newest snapshot; false when the server sent none. Assigning freezes or frees this client's GTA copy (FREEZE_ENTITY_POSITION); the value assigned reads back until the server changes its own flag or the entity leaves. */
+    get frozen(): boolean;
+    set frozen(value: boolean);
     /** The value setMeta stored under the key on this client, the same value that was stored; undefined for none. The data never leaves the client; an entity's is cleared when the server streams it out of this client and when the session ends. */
-    getMeta(key: string): any;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomPedMeta, K, any>;
     /** The keys of this client's own data on it (setMeta). */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -4551,19 +5206,20 @@ export class Ped {
     /** Resolves at once with speed: GET_ENTITY_SPEED in m/s by the newest snapshot, 0 while it is not streamed in. */
     getSpeedAsync(): Promise<number | null>;
     /** The same as getStreamSyncedMetaData: the server's stream-synced value under the key, decoded; undefined for none. */
-    getStreamSyncedMeta(key: string): any;
+    getStreamSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomPedStreamSyncedMeta, K, any>;
     /** The value the server set as stream-synced data on it (setStreamSyncedMeta), decoded, with a server object in it resolved to this client's object; undefined for none. A value setStreamSyncedMetaData put here reads back as it was set. Cleared when the server streams the entity out of this client. */
-    getStreamSyncedMetaData(key: string): any;
+    getStreamSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPedStreamSyncedMeta, K, any>;
     /** The keys of the stream-synced data this client has for it. */
     getStreamSyncedMetaDataKeys(): string[];
     /** The same as getStreamSyncedMetaDataKeys. */
     getStreamSyncedMetaKeys(): string[];
     /** The same as getSyncedMetaData: the server's synced value under the key, decoded; undefined for none. */
-    getSyncedMeta(key: string): any;
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomPedSyncedMeta, K, any>;
     /** The value the server set as synced data on it (setSyncedMeta), decoded, with a server object in it resolved to this client's object; undefined for none. */
-    getSyncedMetaData(key: string): any;
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPedSyncedMeta, K, any>;
     /** The keys of the synced data (setSyncedMeta on the server) this client has for it. */
     getSyncedMetaKeys(): string[];
+    getSyncInfo(...args: any[]): any;
     /** The same as getSyncedMeta: the server's synced value under the key, decoded; undefined for none. */
     getVariable(key: string): any;
     /** Whether this client's own data on it (setMeta) holds the key. */
@@ -4580,7 +5236,7 @@ export class Ped {
     hasVariable(key: string): boolean;
     /** Its heading in degrees: rot.z by the newest snapshot. */
     readonly heading: number;
-    /** Its health from its last sync, by the newest snapshot. */
+    /** Its health from its last sync, by the newest snapshot. A native NPC reads it off its copy in this game (GTA syncs it from the NPC’s owner), 0 while this game has none. */
     readonly health: number;
     /** Its server id, by which its class's get finds it. */
     readonly id: number;
@@ -4596,7 +5252,7 @@ export class Ped {
     readonly isSpawned: boolean;
     /** Whether the server streams it to this client and the newest snapshot did not find its GTA entity gone; false once the snapshots stop listing it. It may still wait for its GTA entity (see isSpawned). */
     readonly isStreamedIn: boolean;
-    /** Its maximum health from its last sync, by the newest snapshot; 200 when none was sent. */
+    /** Its maximum health from its last sync, by the newest snapshot; 200 when none was sent. A native NPC reads it off its copy in this game (GTA syncs it from the NPC’s owner), 0 while this game has none. */
     readonly maxHealth: number;
     /** A new plain object of this client's own data on it (setMeta) on each read. */
     readonly metaData: Record<string, any>;
@@ -4607,15 +5263,15 @@ export class Ped {
     /** The player whose client simulates it (its network owner), by the newest snapshot; null for none. */
     readonly netOwner: PlayerLocal | Player | null;
     /** Its position by the newest snapshot: read from GTA while it is streamed in, else the last synced one. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** The same as id. */
     readonly remoteId: number;
     /** The same as id. */
     readonly remoteID: number;
     /** Resets the alpha of its GTA entity on this client (RESET_ENTITY_ALPHA); resolves false when it has no GTA entity here or GTA refused. */
     resetAlpha(): Promise<boolean>;
-    /** Its rotation in degrees (z is the heading) by the newest snapshot: read from GTA while it is streamed in, else the last synced one. */
-    readonly rot: Vector3Like;
+    /** Its rotation in radians (z is the heading) by the newest snapshot: read from GTA while it is streamed in, else the last synced one. */
+    readonly rot: Vector3;
     /** Its GTA handle on this client by the newest snapshot; 0 while it has no GTA entity here and once the snapshots stop listing it. */
     readonly scriptID: number;
     /** Sets the alpha of its GTA entity on this client (SET_ENTITY_ALPHA): alpha is clamped to 0–255 and made whole (a non-number counts as 0) and skin is passed on as the native's skin flag. Resolves false when it has no GTA entity here or GTA refused. */
@@ -4623,14 +5279,14 @@ export class Ped {
     /** Turns collision of its GTA entity on or off on this client (SET_ENTITY_COLLISION); keepPhysics defaults to true. Resolves false when it has no GTA entity here or GTA refused. The collision property does not change. */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
     /** Stores the value under the key on this client and fires metaChange; an object given alone sets each of its entries. The data never leaves the client; an entity's is cleared when the server streams it out of this client and when the session ends. */
-    setMeta(key: string, value: any): void;
-    setMeta(values: Record<string, any>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomPedMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomPedMeta, any>): void;
     /** Moves its GTA entity on this client (SET_ENTITY_COORDS, clearing the area) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
     setPos(x: number, y: number, z: number): Promise<boolean>;
-    /** Turns its GTA entity on this client (SET_ENTITY_ROTATION, degrees, rotation order 2) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
+    /** Turns its GTA entity on this client (radians; SET_ENTITY_ROTATION gets degrees, rotation order 2) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
     setRot(x: number, y: number, z: number): Promise<boolean>;
     /** Puts the value under the key into this client's copy of its stream-synced data, read back as it was set, without an event. A client cannot change the server's data: nothing is sent, so the server and other clients never see it; a change of the key from the server overwrites it, and it is cleared when the server streams the entity out of this client. */
-    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData<K extends string>(key: K, value: CustomMetaValue<ICustomPedStreamSyncedMeta, K, any>): void;
     /** Shows or hides its GTA entity on this client with SET_ENTITY_VISIBLE; resolves true once GTA ran it, false when it has no GTA entity here or GTA refused. */
     setVisible(visible: boolean): Promise<boolean>;
     /** Its speed in m/s: GET_ENTITY_SPEED by the newest snapshot; 0 while it is not streamed in. */
@@ -5221,10 +5877,15 @@ export const PedConfigFlag: {
 export const Permission: {
     readonly All: any;
     readonly Clipboard: any;
+    readonly CLIPBOARD_ACCESS: any;
+    readonly EXTENDED_VOICE_API: any;
     readonly Microphone: any;
     readonly None: any;
+    readonly NONE: any;
+    readonly SCREEN_CAPTURE: any;
     readonly ScreenCapture: any;
     readonly WebRTC: any;
+    readonly WEBRTC: any;
 };
 
 export const PermissionState: {
@@ -5236,7 +5897,7 @@ export const PermissionState: {
 
 export class Player {
     private constructor();
-    /** The local player first (once it has an id), then every other player in this client's snapshot; on the native path only those whose ped is in GTA. Each read makes new objects that keep the snapshot of that moment. */
+    /** The local player first (once it has an id), then every other player in this client's snapshot; on the native path only those whose ped is in GTA. One object per player: the same one on every read, in events and in lookups, reading the newest snapshot. */
     static readonly all: Array<Player | PlayerLocal>;
     /** The number of Player.all. */
     static readonly count: number;
@@ -5250,15 +5911,15 @@ export class Player {
     static getByScriptID(scriptID: number): Player | PlayerLocal | null;
     /** The local player: always the same object, its values updated every 50 ms while in the game. */
     static readonly local: PlayerLocal;
-    /** The remote players of Player.all streamed in on this client; the local player is not included. */
+    /** The remote players of Player.all whose isStreamedIn is true: the server streams them to this client; the local player is not included. */
     static readonly streamedIn: Player[];
-    /** Where the player aims, from the newest snapshot: the point their client reports while they aim or shoot, {0, 0, 0} otherwise. Always {0, 0, 0} on the native path: its snapshot item does not carry it, and no native reads another player's aim. */
+    /** Where the player aims, from the newest snapshot: the point where their crosshair meets the world, as their client reports it while they aim or shoot. {0, 0, 0} while an entity is the target (entityAimOffset tells where on it), and when no aim is known. On the native path the server passes it on at most ten times a second while they aim, and a stop once. */
     readonly aimPos: Vector3Like;
     /** The alpha of the player's ped (GET_ENTITY_ALPHA, 0..255) by the newest snapshot; 255 when the ped is not in GTA. */
     readonly alpha: number;
-    /** Armour by the newest snapshot: the synced value on the old path, the ped's GET_PED_ARMOUR on the native path; 0 when the snapshot has none. */
+    /** Armour by the newest snapshot: the synced value on the old path, the ped's GET_PED_ARMOUR on the native path; a native-path item without it reads its ped's in GTA at once (GET_PED_ARMOUR), and 0 only when neither is known. */
     readonly armour: number;
-    /** Attaches the player's ped in this client's GTA to a bone of another entity (an object with scriptID, or a GTA handle) with ATTACH_ENTITY_TO_ENTITY; useSoftPinning and collision default to false, fixedRot to true. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
+    /** Attaches the player's ped in this client's GTA to a bone of another entity (an object with scriptID, or a GTA handle) with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); useSoftPinning, collision and fixedRot default to false. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
     attachTo(entity: { scriptID: number } | number, bone?: number, offset?: Vector3Like, rotation?: Vector3Like, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
     /** The server's collision flag for the player by the newest snapshot; true when the server sent none. */
     readonly collision: boolean;
@@ -5266,7 +5927,7 @@ export class Player {
     readonly currentAmmo: number;
     /** The hash of the weapon in hand: on the old path from the newest snapshot, on the native path GET_SELECTED_PED_WEAPON of GTA's copy of the ped on each read while in the game. */
     readonly currentWeapon: number;
-    /** Component hashes of the weapon in hand, a new array on each read: on the old path from the newest snapshot; on the native path which of eight common attachments (suppressors, flashlights, scopes) GTA's copy of the ped has, read while in the game. hasWeaponComponent asks GTA about any component. */
+    /** Component hashes of the weapon in hand, a new array on each read: on the old path from the newest snapshot; on the native path every component GTA knows the weapon takes that GTA's copy of the ped has, read while in the game (which of eight common attachments it has, on a build where GTA's component list is not found). hasWeaponComponent asks GTA about any component. */
     readonly currentWeaponComponents: number[];
     /** The tint of the weapon in hand: on the old path from the newest snapshot, on the native path GET_PED_WEAPON_TINT_INDEX of GTA's copy of the ped on each read while in the game. */
     readonly currentWeaponTintIndex: number;
@@ -5276,33 +5937,35 @@ export class Player {
     deleteStreamSyncedMetaData(key: string): void;
     /** Removes the key from this client's copy of the player's synced metadata, without an event. A client cannot change the server's data: nothing is sent, and the server's next change of the key brings it back. */
     deleteSyncedMetaData(key: string): void;
-    /** Resolves false and warns: a remote player's ped cannot be deleted from the client. */
-    destroy(): Promise<boolean>;
-    /** Detaches the player's ped in this client's GTA (DETACH_ENTITY, dynamic and with collision); resolves true once the call ran, false without a ped or when it failed. */
-    detach(): Promise<boolean>;
-    /** The player's dimension by the newest snapshot. On the native path it is the one of their stream-in (a change that keeps them visible is not seen), 0 without one. */
-    readonly dimension: number;
-    /** The entity the player aims at, from the newest snapshot: the one this client knows by that id, null for none. Always null on the native path: its snapshot item does not carry it. */
+    /** Refuses at once with a warning: this is the server's entity, destroyed on the server; a client script destroys only its own local objects (LocalVehicle and the like have their own destroy). Nothing in the game is changed. */
+    destroy(): void;
+    /** Detaches the player's ped in this client's GTA (DETACH_ENTITY with collision; dynamic only when dynamic is true); resolves true once the call ran, false without a ped or when it failed. */
+    detach(dynamic?: boolean): Promise<boolean>;
+    /** The player's dimension by the newest snapshot. On the native path it is the one of their stream-in (a change that keeps them visible is not seen), 0 without one. Assigning keeps a dimension for this client's scripts (a number is truncated to an integer, anything else is 0): it reads back until the server changes the entity's dimension or the entity leaves; what GTA shows here and what the server streams stay by the server's dimension. */
+    get dimension(): number;
+    set dimension(value: number);
+    /** The entity the player aims at, from the newest snapshot: the one this client knows by the server's id, else the native vehicle or NPC bound to GTA's object id their client named; null for none or one this client does not know. */
     readonly entityAimingAt: Player | PlayerLocal | Vehicle | Ped | Object | VirtualEntity | null;
-    /** aimPos minus the position of entityAimingAt, from the newest snapshot; {0, 0, 0} without a target, and always on the native path, whose snapshot item carries no aim. */
+    /** Where the aim meets entityAimingAt: the aim point minus the target's position, in world axes as on the server's Player; {0, 0, 0} without a target. */
     readonly entityAimOffset: Vector3Like;
     /** Whether this client's GTA has the player's ped: a ped handle that the newest snapshot found existing (DOES_ENTITY_EXIST); false while the player is not streamed in and once the snapshots stop listing them. */
     exists(): boolean;
     /** Asks GTA now whether the ped of this object's handle exists (DOES_ENTITY_EXIST): false without a handle, null when the game does not answer within 150 ms. */
     existsAsync(): Promise<boolean | null>;
-    /** The voice filter this client applies to the player (getVoiceFilter); assigning an AudioFilter or its hash sets it (addVoiceFilter), null removes it. */
+    /** The voice filter this client applies to the player (getVoiceFilter): the AudioFilter object that was assigned, or null. Assigning an AudioFilter sets it (addVoiceFilter), null removes it; any other value throws a TypeError (addVoiceFilter still takes a hash). */
     get filter(): AudioFilter | null;
-    set filter(value: AudioFilter | number | null);
+    set filter(value: AudioFilter | null);
     /** Whether the player's weapon flashlight is on: on the old path from the newest snapshot, on the native path IS_FLASH_LIGHT_ON of GTA's copy of the ped on each read while in the game. */
     readonly flashlightActive: boolean;
     /** How the player moves: 0 still, 1 walking, 2 running, 3 sprinting; not a speed (the server's forwardSpeed carries the same value). On the old path as their client reports it, from the newest snapshot; on the native path read from GTA's copy of the ped while in the game (IS_PED_SPRINTING, IS_PED_RUNNING, IS_PED_WALKING, else from its speed). */
     readonly forwardSpeed: number;
     /** Freezes or unfreezes the player's ped in this client's GTA (FREEZE_ENTITY_POSITION); resolves true once the call ran, false without a ped or when it failed. frozen does not change: it is the server's flag. */
     freezePosition(frozen: boolean): Promise<boolean>;
-    /** The server's frozen flag for the player by the newest snapshot; false when the server sent none. freezePosition does not change it. */
-    readonly frozen: boolean;
-    /** A value of this client's own metadata of the player (setMeta) as it was set; undefined for none. Kept while the player stays in this client's snapshot; dropped when they leave it or the session ends. */
-    getMeta(key: string): any;
+    /** The server's frozen flag for the player by the newest snapshot; false when the server sent none. freezePosition does not change it. Assigning freezes or frees this client's GTA copy (FREEZE_ENTITY_POSITION); the value assigned reads back until the server changes its own flag or the entity leaves. */
+    get frozen(): boolean;
+    set frozen(value: boolean);
+    /** A value of this client's own metadata of the player (setMeta), a copy of what was set; undefined for none. Kept while the player stays in this client's snapshot; dropped when they leave it or the session ends. */
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomPlayerMeta, K, any>;
     /** The keys of this client's own metadata of the player (setMeta); getMetaKeys is the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -5310,19 +5973,20 @@ export class Player {
     /** Resolves speed at once (by the newest snapshot); it does not ask GTA. */
     getSpeedAsync(): Promise<number>;
     /** A value of the player's stream-synced metadata (setStreamSyncedMeta on the server), server references turned into this client's objects; undefined for none. Lost when the player leaves this client's snapshot. */
-    getStreamSyncedMeta(key: string): any;
+    getStreamSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomPlayerStreamSyncedMeta, K, any>;
     /** The same as getStreamSyncedMeta. */
-    getStreamSyncedMetaData(key: string): any;
+    getStreamSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPlayerStreamSyncedMeta, K, any>;
     /** The keys of the player's stream-synced metadata on this client; getStreamSyncedMetaKeys is the same. */
     getStreamSyncedMetaDataKeys(): string[];
     /** The same as getStreamSyncedMetaDataKeys. */
     getStreamSyncedMetaKeys(): string[];
     /** A value of the player's synced metadata (setSyncedMeta on the server), server references turned into this client's objects; undefined for none. Kept while the player is out of streaming range. Emptied when the session ends. */
-    getSyncedMeta(key: string): any;
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomPlayerSyncedMeta, K, any>;
     /** The same as getSyncedMeta. */
-    getSyncedMetaData(key: string): any;
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPlayerSyncedMeta, K, any>;
     /** The keys of the player's synced metadata on this client. */
     getSyncedMetaKeys(): string[];
+    getSyncInfo(...args: any[]): any;
     /** The same as getSyncedMeta. */
     getVariable(key: string): any;
     /** currentWeaponTintIndex when the weapon (a hash or name) is the one in hand, else 0. */
@@ -5343,9 +6007,9 @@ export class Player {
     hasWeaponComponent(weapon: number | string, component: number | string): boolean;
     /** The z rotation in degrees by the newest snapshot; 0 without one. */
     readonly heading: number;
-    /** The rotation of the player's camera while they aim or shoot, as their client reports it, from the newest snapshot; {0, 0, 0} otherwise. Not the head: the name comes with what the wire carries. Always {0, 0, 0} on the native path: its snapshot item does not carry it. */
+    /** Where the player's head looks, in radians as every rotation, a new Vector3 on each read. On the native path the world rotation of the head bone (SKEL_Head) of GTA's copy of the ped, read while in the game ({0, 0, 0} where GTA does not answer). On the old path what their client reports, from the newest snapshot: the rotation of their gameplay camera. */
     readonly headRot: Vector3Like;
-    /** Health by the newest snapshot: the synced value on the old path, the ped's GET_ENTITY_HEALTH on the native path; 0 when the snapshot has none. */
+    /** Health by the newest snapshot: the synced value on the old path, the ped's GET_ENTITY_HEALTH on the native path; a native-path item without it reads its ped's in GTA at once (GET_ENTITY_HEALTH), and 0 only when neither is known. */
     readonly health: number;
     /** The player's server id; after this player leaves a new one may get the same id. */
     readonly id: number;
@@ -5371,7 +6035,7 @@ export class Player {
     readonly isJumping: boolean;
     /** Whether the player is getting out of a vehicle: on the old path as their client reports it, from the newest snapshot; on the native path an exit task in a vehicle (GET_IS_TASK_ACTIVE 2 or 167) or IS_PED_JUMPING_OUT_OF_VEHICLE of GTA's copy of the ped on each read while in the game. */
     readonly isLeavingVehicle: boolean;
-    /** Whether the player is climbing (IS_PED_CLIMBING, so climbing over a fence or wall counts too): on the old path as their client reports it, from the newest snapshot; on the native path IS_PED_CLIMBING of GTA's copy of the ped on each read while in the game. */
+    /** Whether the player is on a ladder: on the native path GTA's ladder task (GET_IS_TASK_ACTIVE type 1, CTaskClimbLadder) of GTA's copy of the ped on each read while in the game; on the old path the flag their client reports, from the newest snapshot, which is IS_PED_CLIMBING (a fence or wall climbed over counts too). */
     readonly isOnLadder: boolean;
     /** Whether the player is in free fall or under a parachute: on the old path as their client reports it, from the newest snapshot; on the native path GET_PED_PARACHUTE_STATE 0–2 of GTA's copy of the ped on each read while in the game. */
     readonly isParachuting: boolean;
@@ -5405,37 +6069,37 @@ export class Player {
     readonly name: string;
     /** The model of the player's ped in GTA (GET_ENTITY_MODEL) by the newest snapshot; 0 without a ped. */
     readonly nativeModel: number;
-    /** The player itself, as a new object from the current snapshot (Player.get); null once the player is gone. */
+    /** The player itself, the same object Player.get gives; null once the player is gone. */
     readonly netOwner: Player | null;
     /** How loud this client plays the player in non-spatial voice channels, 0..2 (1 by default); assigning is setVoiceNonSpatialVolume. */
     nonSpatialVolume: number;
     /** The position by the newest snapshot: the ped's own when it is in GTA, else the last synced one; {0, 0, 0} without one. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** The same as id. */
     readonly remoteId: number;
     /** The same as id. */
     readonly remoteID: number;
     /** Resets the alpha of the player's ped in this client's GTA (RESET_ENTITY_ALPHA); resolves true once the call ran, false without a ped or when it failed. */
     resetAlpha(): Promise<boolean>;
-    /** The rotation in degrees by the newest snapshot; {0, 0, 0} without one. */
-    readonly rot: Vector3Like;
+    /** The rotation in radians, by the newest snapshot; {0, 0, 0} without one. */
+    readonly rot: Vector3;
     /** The GTA handle of the player's ped by the newest snapshot; 0 when it is not in this client's GTA and once the snapshots stop listing the player. */
     readonly scriptID: number;
-    /** The player's seat: 1 the driver's, 2 and up the passengers', 0 outside a vehicle. On the old path from the newest snapshot; on the native path the seat of GTA's copy of the ped in the vehicle it is in, read while in the game. */
+    /** The player's seat: 1 the driver's, 2 and up the passengers', 0 outside a vehicle. On the old path from the newest snapshot; on the native path the seat of GTA's copy of the ped in the vehicle it is in, read while in the game; for the local player in a LocalVehicle its seat there, read while in the game. */
     readonly seat: number;
     /** Sets the alpha of the player's ped in this client's GTA (SET_ENTITY_ALPHA, clamped to 0–255 and made whole); resolves true once the call ran, false without a ped or when it failed. */
     setAlpha(alpha: number, skin?: boolean): Promise<boolean>;
     /** Turns collision of the player's ped in this client's GTA on or off (SET_ENTITY_COLLISION, keepPhysics true by default); resolves true once the call ran, false without a ped or when it failed. collision does not change: it is the server's flag. */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
-    /** Sets a key of this client's own metadata of the player, or each key of an object, and fires metaChange (player, key, value, old value). Not synced. Kept while the player stays in this client's snapshot; dropped when they leave it or the session ends. */
-    setMeta(key: string, value: any): void;
-    setMeta(values: Record<string, any>): void;
+    /** Sets a key of this client's own metadata of the player, or each key of an object, and fires metaChange (player, key, value, old value). Not synced. Kept while the player stays in this client's snapshot; dropped when they leave it or the session ends. The local player's is kept for the whole session, from before its first snapshot too. A copy is stored and a copy read back: arrays and plain objects are copied, a Vector3 or RGBA made anew, an entity or function the same object. */
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomPlayerMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomPlayerMeta, any>): void;
     /** Resolves false and warns: a remote player's position is the server's. */
     setPos(x: number, y: number, z: number): Promise<boolean>;
     /** Resolves false and warns: a remote player's rotation is the server's. */
     setRot(x: number, y: number, z: number): Promise<boolean>;
     /** Writes the value into this client's copy of the player's stream-synced metadata, without an event; getStreamSyncedMeta returns it as given. A client cannot change the server's data: nothing is sent, and the server's next change of the key replaces it. */
-    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData<K extends string>(key: K, value: CustomMetaValue<ICustomPlayerStreamSyncedMeta, K, any>): void;
     /** Shows or hides the player's ped in this client's GTA (SET_ENTITY_VISIBLE); resolves true once GTA ran it, false without a ped here or when GTA refused. The server's next visibility change for the player, or on the native path the sync of the ped by its owner, puts theirs back. */
     setVisible(visible: boolean): Promise<boolean>;
     /** How loud this client plays the player in spatial voice channels, 0..2 (1 by default); assigning is setVoiceSpatialVolume. */
@@ -5456,8 +6120,8 @@ export class Player {
     readonly type: 0;
     /** Whether this client still has the player: the newest snapshot lists them (the same player, not another one under the id) and did not find their ped gone. It turns false once the snapshots stop listing the player. */
     readonly valid: boolean;
-    /** The vehicle the player sits in, null outside one: on the old path from the newest snapshot; on the native path the server's vehicle (old-path or native) that GTA's copy of the ped is in, read while in the game. */
-    readonly vehicle: Vehicle | null;
+    /** The vehicle the player sits in, null outside one: on the old path from the newest snapshot; on the native path the server's vehicle (old-path or native) that GTA's copy of the ped is in, read while in the game. For the local player a LocalVehicle too: the one GTA has the ped in, read while in the game, when the snapshot names no server vehicle. */
+    readonly vehicle: Vehicle | LocalVehicle | null;
     /** Whether the player's ped is visible (IS_ENTITY_VISIBLE) by the newest snapshot; without a ped, the server's flag, true when it sent none. */
     readonly visible: boolean;
 }
@@ -5466,7 +6130,7 @@ export class Player {
 export class PlayerLocal {
     /** Not a constructor: the type of `varion.Player.local`, the local player, the only object of its kind. */
     private constructor();
-    /** A point 80 m along the gameplay camera while the local player aims or shoots, {0, 0, 0} otherwise; updated every 50 ms while in the game. */
+    /** Where the crosshair meets the world while the local player aims or shoots (GTA's line test from the gameplay camera; the point 1000 m along it when it meets nothing), updated every 50 ms while in the game. {0, 0, 0} while an entity is the target (entityAimOffset tells where on it), and while not aiming. */
     readonly aimPos: Vector3Like;
     /** The alpha of the local ped in GTA (GET_ENTITY_ALPHA, 0..255) on each read while in the game; 255 without a ped. */
     readonly alpha: number;
@@ -5474,7 +6138,7 @@ export class PlayerLocal {
     readonly ammoInClip: number;
     /** Armour (GET_PED_ARMOUR, clamped to 0..maxArmour); 0 before the first snapshot, then updated every 50 ms while in the game. */
     readonly armour: number;
-    /** Attaches the local player's ped in this client's GTA to a bone of another entity (an object with scriptID, or a GTA handle) with ATTACH_ENTITY_TO_ENTITY; useSoftPinning and collision default to false, fixedRot to true. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
+    /** Attaches the local player's ped in this client's GTA to a bone of another entity (an object with scriptID, or a GTA handle) with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); useSoftPinning, collision and fixedRot default to false. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
     attachTo(entity: { scriptID: number } | number, bone?: number, offset?: Vector3Like, rotation?: Vector3Like, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
     /** Whether the local ped collides: in the game GTA's GET_ENTITY_COLLISION_DISABLED for it, so setCollision shows here; without a ped, and outside the game, the server's flag (true when it sent none). */
     readonly collision: boolean;
@@ -5482,8 +6146,10 @@ export class PlayerLocal {
     readonly currentAmmo: number;
     /** The hash of the weapon in hand (GET_SELECTED_PED_WEAPON); 0 before the first snapshot, then updated every 50 ms while in the game. weapon is the same. */
     readonly currentWeapon: number;
-    /** Which of eight common attachments (suppressors, flashlights, scopes) the weapon in hand has, as the client engine checks them at most once a second; a new array on each read. Other components never appear here; hasWeaponComponent asks GTA about any. */
+    /** Every component GTA knows the weapon in hand takes that the local ped has, as the client engine checks them at most once a second; a new array on each read. On a build where GTA's component list is not found, which of eight common attachments (suppressors, flashlights, scopes) it has. */
     readonly currentWeaponComponents: number[];
+    /** The WeaponData of the weapon in hand (one object per weapon kind); null when GTA has no weapon info for it, or outside the game. */
+    readonly currentWeaponData: WeaponData | null;
     /** The tint of the weapon in hand (GET_PED_WEAPON_TINT_INDEX, 0..7), re-checked at most once a second. */
     readonly currentWeaponTintIndex: number;
     /** Removes a key of this client's own metadata of the local player (setMeta) and fires metaChange (Player.local, key, undefined, old value); a missing key does nothing. */
@@ -5494,13 +6160,13 @@ export class PlayerLocal {
     deleteSyncedMetaData(key: string): void;
     /** Never deletes the local player's ped: resolves false and logs a warning, as for any player. */
     destroy(): Promise<boolean>;
-    /** Detaches the local player's ped (DETACH_ENTITY, dynamic and with collision); resolves true once the call ran, false without a ped or when it failed. */
-    detach(): Promise<boolean>;
+    /** Detaches the local player's ped (DETACH_ENTITY with collision; dynamic only when dynamic is true); resolves true once the call ran, false without a ped or when it failed. */
+    detach(dynamic?: boolean): Promise<boolean>;
     /** The local player's dimension as the server set it: updated with each snapshot and at once when the server changes it; 0 before. */
     readonly dimension: number;
-    /** The entity the local player free-aims at (GET_ENTITY_PLAYER_IS_FREE_AIMING_AT) while aiming or shooting, if this client knows it by its id; null otherwise. */
-    readonly entityAimingAt: Player | PlayerLocal | Vehicle | Ped | Object | VirtualEntity | null;
-    /** aimPos minus the position of entityAimingAt; {0, 0, 0} without a target. */
+    /** The entity the local player free-aims at: while in the game GTA's answer on each read (GET_ENTITY_PLAYER_IS_FREE_AIMING_AT), found by its handle among every entity this client knows -- players, server entities, native vehicles and NPCs, local entities; null for none or one it does not know. Elsewhere the id the client engine reports while aiming or shooting (old-path entities only). */
+    readonly entityAimingAt: Player | PlayerLocal | Vehicle | Ped | Object | VirtualEntity | LocalVehicle | LocalPed | LocalObject | null;
+    /** Where the aim meets entityAimingAt: the aim point minus the target's position, in world axes; {0, 0, 0} without a target. */
     readonly entityAimOffset: Vector3Like;
     /** Whether the local player's ped exists in GTA: the local player has an id and a ped handle (scriptID is not 0). */
     exists(): boolean;
@@ -5515,10 +6181,11 @@ export class PlayerLocal {
     readonly forwardSpeed: number;
     /** Freezes or unfreezes the local player's ped (FREEZE_ENTITY_POSITION); resolves true once the call ran, false without a ped or when it failed. frozen does not change: it is the server's flag. */
     freezePosition(frozen: boolean): Promise<boolean>;
-    /** The server's frozen flag for the local player, false when it sent none. GTA has no getter for a frozen position, so freezePosition here does not show in it. */
-    readonly frozen: boolean;
+    /** The server's frozen flag for the local player, false when it sent none; assigning freezes or frees the local ped (FREEZE_ENTITY_POSITION) and reads back until the server changes its flag. GTA has no getter for a frozen position, so freezePosition here does not show in it. */
+    get frozen(): boolean;
+    set frozen(value: boolean);
     /** A value of this client's own metadata of the local player (setMeta) as it was set; undefined for none. Kept until the session ends. */
-    getMeta(key: string): any;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomLocalPlayerMeta, K, any>;
     /** The keys of this client's own metadata of the local player (setMeta); getMetaKeys is the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -5526,19 +6193,20 @@ export class PlayerLocal {
     /** Resolves speed at once; it does not ask GTA. */
     getSpeedAsync(): Promise<number>;
     /** A value of the local player's stream-synced metadata (setStreamSyncedMeta on the server), server references turned into this client's objects; undefined for none. Emptied when the session ends. */
-    getStreamSyncedMeta(key: string): any;
+    getStreamSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomPlayerStreamSyncedMeta, K, any>;
     /** The same as getStreamSyncedMeta. */
-    getStreamSyncedMetaData(key: string): any;
+    getStreamSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPlayerStreamSyncedMeta, K, any>;
     /** The keys of the local player's stream-synced metadata on this client; getStreamSyncedMetaKeys is the same. */
     getStreamSyncedMetaDataKeys(): string[];
     /** The same as getStreamSyncedMetaDataKeys. */
     getStreamSyncedMetaKeys(): string[];
     /** A value of the local player's synced metadata (setSyncedMeta on the server), server references turned into this client's objects; undefined for none. Emptied when the session ends. */
-    getSyncedMeta(key: string): any;
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomPlayerSyncedMeta, K, any>;
     /** The same as getSyncedMeta. */
-    getSyncedMetaData(key: string): any;
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPlayerSyncedMeta, K, any>;
     /** The keys of the local player's synced metadata on this client. */
     getSyncedMetaKeys(): string[];
+    getSyncInfo(...args: any[]): any;
     /** The same as getSyncedMeta. */
     getVariable(key: string): any;
     /** Ammo of a weapon the server gave the player (a hash or name) as the client tracks it, the grant minus what GTA spent; 0 for infinite ammo or a weapon not given. */
@@ -5565,7 +6233,7 @@ export class PlayerLocal {
     hasWeaponComponent(weapon: number | string, component: number | string): boolean;
     /** Its heading in degrees: rot.z of the newest snapshot. */
     readonly heading: number;
-    /** The gameplay camera's rotation while the local player aims or shoots, {0, 0, 0} otherwise; not the head: the name comes with what the client engine sends. Updated every 50 ms while in the game. */
+    /** Where the local ped's head looks, in radians as every rotation: the world rotation of its head bone (SKEL_Head) on each read while in the game. Elsewhere what the client engine reports every 50 ms: the gameplay camera's rotation. */
     readonly headRot: Vector3Like;
     /** Health (GET_ENTITY_HEALTH, clamped to 0..maxHealth); 200 before the first snapshot, and that read warns once. Then updated every 50 ms while in the game. */
     readonly health: number;
@@ -5595,7 +6263,7 @@ export class PlayerLocal {
     readonly isJumping: boolean;
     /** Whether the local ped is in a vehicle with its exit task running or jumping out; updated every 50 ms while in the game. */
     readonly isLeavingVehicle: boolean;
-    /** Whether the local ped is climbing (IS_PED_CLIMBING): a ladder, and also a fence or wall it climbs over. Updated every 50 ms while in the game. */
+    /** Whether the local ped is on a ladder: GTA's ladder task (GET_IS_TASK_ACTIVE type 1, CTaskClimbLadder) on each read while in the game, so climbing over a fence or wall does not count. Elsewhere the client engine's flag, updated every 50 ms, which is IS_PED_CLIMBING. */
     readonly isOnLadder: boolean;
     /** Whether the local ped is in free fall, under an open canopy or landing (GET_PED_PARACHUTE_STATE 0..2); updated every 50 ms while in the game. */
     readonly isParachuting: boolean;
@@ -5615,12 +6283,12 @@ export class PlayerLocal {
     readonly isSynced: boolean;
     /** Whether this client sends the microphone now (a frame within the last 450 ms), updated with each snapshot. */
     readonly isTalking: boolean;
-    /** The maximum armour the server set for the local player; 100 before the first snapshot. */
+    /** The maximum armour the server set for the local player; 100 before the first snapshot. A snapshot without it keeps the last known value. */
     readonly maxArmour: number;
-    /** The maximum health the server set for the local player; 200 before the first snapshot. */
+    /** The maximum health the server set for the local player; 200 before the first snapshot. A snapshot without it keeps the last known value. */
     readonly maxHealth: number;
-    /** The scale of stamina: always 100. */
-    readonly maxStamina: number;
+    /** The most stamina it can have: CPlayerInfo's in GTA (100 on a build where its offset is not found). Assigning writes it at once and cuts the stamina down to it; 0 or less throws a RangeError, a write GTA refused is logged. */
+    maxStamina: number;
     /** This client's own metadata of the local player (setMeta) as a new object on each read. */
     readonly metaData: Record<string, any>;
     /** The loudness 0..1 of the last microphone frame this client sent, 0 when none within 150 ms; updated with each snapshot. */
@@ -5637,16 +6305,18 @@ export class PlayerLocal {
     readonly netOwner: PlayerLocal;
     /** The non-spatial voice volume this client keeps for the local player's id, 0..2 (1 by default), as for every Player; a client never plays its own voice. */
     nonSpatialVolume: number;
-    /** Position (GET_ENTITY_COORDS), updated every 50 ms while in the game; {0, 0, 0} before the first snapshot, and that read warns once. */
-    readonly pos: Vector3Like;
+    /** Position (GET_ENTITY_COORDS), updated every 50 ms while in the game; {0, 0, 0} before the first snapshot, and that read warns once. Assigning a vector of finite x, y and z (else a TypeError) moves the local ped there (SET_ENTITY_COORDS, as setPos), and the next read returns it. */
+    get pos(): Vector3Like;
+    set pos(value: Vector3Like);
     /** The same as id. */
     readonly remoteId: number;
     /** The same as id. */
     readonly remoteID: number;
     /** Resets the alpha of the local player's ped (RESET_ENTITY_ALPHA); resolves true once the call ran, false without a ped or when it failed. */
     resetAlpha(): Promise<boolean>;
-    /** Rotation in degrees (GET_ENTITY_ROTATION); {0, 0, 0} before the first snapshot, then updated every 50 ms while in the game. */
-    readonly rot: Vector3Like;
+    /** Rotation in radians (GET_ENTITY_ROTATION gives degrees); {0, 0, 0} before the first snapshot, then updated every 50 ms while in the game. Assigning radians (finite x, y and z, else a TypeError) turns the local ped (SET_ENTITY_ROTATION in degrees, order 2), and the next read returns it. */
+    get rot(): Vector3Like;
+    set rot(value: Vector3Like);
     /** The GTA handle of the local ped; 0 before it is known. */
     readonly scriptID: number;
     /** The local player's seat: 1 the driver's, 2 and up the passengers', 0 outside a vehicle; updated every 50 ms while in the game. */
@@ -5656,14 +6326,14 @@ export class PlayerLocal {
     /** Turns collision of the local player's ped on or off (SET_ENTITY_COLLISION, keepPhysics true by default); resolves true once the call ran, false without a ped or when it failed. collision does not change: it is the server's flag. */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
     /** Sets a key of this client's own metadata of the local player, or each key of an object, and fires metaChange (Player.local, key, value, old value). Not synced. Kept until the session ends. */
-    setMeta(key: string, value: any): void;
-    setMeta(values: Record<string, any>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomLocalPlayerMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomLocalPlayerMeta, any>): void;
     /** Teleports the local player's ped (SET_ENTITY_COORDS, clearing the area); resolves true once the call ran, false without a ped or when it failed (logging an error). */
     setPos(x: number, y: number, z: number): Promise<boolean>;
-    /** Sets the rotation of the local player's ped in degrees (SET_ENTITY_ROTATION, order 2); resolves true once the call ran, false without a ped or when it failed (logging an error). */
+    /** Sets the rotation of the local player's ped in radians (SET_ENTITY_ROTATION takes degrees, order 2); resolves true once the call ran, false without a ped or when it failed (logging an error). */
     setRot(x: number, y: number, z: number): Promise<boolean>;
     /** Writes the value into this client's copy of the player's stream-synced metadata, without an event; getStreamSyncedMeta returns it as given. A client cannot change the server's data: nothing is sent, and the server's next change of the key replaces it. */
-    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData<K extends string>(key: K, value: CustomMetaValue<ICustomPlayerStreamSyncedMeta, K, any>): void;
     /** Shows or hides the local player's ped (SET_ENTITY_VISIBLE); resolves true once GTA ran it, false without a ped or when GTA refused. visible reads it in the game; the server's next visibility change for the player applies its own. */
     setVisible(visible: boolean): Promise<boolean>;
     /** The spatial voice volume this client keeps for the local player's id, 0..2 (1 by default), as for every Player; a client never plays its own voice. */
@@ -5672,8 +6342,8 @@ export class PlayerLocal {
     readonly speed: number;
     /** The local ped's velocity (GET_ENTITY_VELOCITY); updated every 50 ms while in the game. */
     readonly speedVector: Vector3Like;
-    /** Sprint stamina left, 0..100 (GET_PLAYER_SPRINT_STAMINA_REMAINING); 100 until it is read. */
-    readonly stamina: number;
+    /** Its stamina: CPlayerInfo's in GTA, read every 50 ms while in the game (on a build where its offset is not found, the sprint stamina left, 0..100). Assigning writes it into GTA at once, cut to 0..maxStamina, and reads back at once; a value that is not a number throws a TypeError, a write GTA refused is logged. */
+    stamina: number;
     /** Sideways speed in m/s while strafing, -10..10, else 0; updated every 50 ms while in the game. */
     readonly strafeSpeed: number;
     /** The same as isStreamedIn: whether the local player has a server id. */
@@ -5693,7 +6363,7 @@ export class PlayerLocal {
     /** The same as currentWeapon. */
     readonly weapon: number;
     /** The weapons the server gave the player, sorted by hash, with their tint and the components it added; a new array on each read. Weapons picked up in GTA are not listed. */
-    readonly weapons: Array<{ hash: number; tintIndex: number; components: number[] }>;
+    readonly weapons: IWeapon[];
 }
 
 export class PointBlip {
@@ -5729,7 +6399,7 @@ export class PointBlip {
     crewIndicatorVisible: boolean;
     /** Removes the key from the blip's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
     deleteMeta(key: string): void;
-    /** Removes the blip from GTA (REMOVE_BLIP): valid turns false and baseObjectRemove fires; later calls do nothing. A resource's blips are destroyed when it stops. */
+    /** Removes the blip from GTA (REMOVE_BLIP): valid turns false and baseObjectRemove fires; later calls do nothing. A resource's blips are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it shows in: the local player's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated, and checked again with each update of the local player. */
     dimension: number;
@@ -5748,13 +6418,13 @@ export class PointBlip {
     /** Sent as SHOW_FRIEND_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
     friendIndicatorVisible: boolean;
     /** The value setMeta stored under the key, undefined for none: the blip's own metadata on this client. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomBlipMeta, K, unknown>;
     /** The keys of the blip's own metadata (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
     getMetaKeys(): string[];
     /** Always undefined: a local blip has no synced metadata. */
-    getSyncedMeta(key: string): unknown;
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomBaseObjectSyncedMeta, K, unknown>;
     /** Always []: a local blip has no synced metadata. */
     getSyncedMetaKeys(): string[];
     /** A GTA text label to name the blip with (SET_BLIP_NAME_FROM_TEXT_FILE), empty by default; while set it wins over name, and assigning name clears it. */
@@ -5775,7 +6445,7 @@ export class PointBlip {
     readonly isAttached: boolean;
     /** Whether GTA shows the blip as friendly (SET_BLIP_AS_FRIENDLY), false until assigned. That native recolours the blip whatever its toggle (false leaves colour 49), so a local blip gets it only while friendly, after its colour (and again when a blipType change makes it anew); turning it off sends it with false and then the blip's colour again. */
     isFriendly: boolean;
-    /** True while the dimension is -2147483648, which shows the blip in every dimension. */
+    /** Always true: a blip made on this client is for no one player, in whatever dimension. */
     readonly isGlobal: boolean;
     /** Sent as SET_BLIP_HIDDEN_ON_LEGEND once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
     isHiddenOnLegend: boolean;
@@ -5794,7 +6464,8 @@ export class PointBlip {
     /** Sent as SHOW_OUTLINE_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
     outlineIndicatorVisible: boolean;
     /** Its position, a copy; assigning moves it (SET_BLIP_COORDS), a missing or non-numeric component becoming 0. */
-    pos: Vector3Like;
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
     /** SET_BLIP_PRIORITY, truncated; sent once GTA has the blip and again when a blipType change makes it anew. 0 until assigned. */
     priority: number;
     /** Assigning true pulses the blip once (PULSE_BLIP); false sends nothing, and the value read is only what was assigned. */
@@ -5809,23 +6480,24 @@ export class PointBlip {
     route: boolean;
     /** Colour index of the GPS route (SET_BLIP_ROUTE_COLOUR), clamped to 0..255 and truncated; 0 by default. */
     routeColor: number;
-    /** Icon size (SET_BLIP_SCALE), 1 by default, at least 0. */
+    /** The drawn size's x (size.x), 1 by default; assigning sets size to it on both axes (SET_BLIP_SCALE), at least 0. */
     scale: number;
     /** GTA's handle of the blip: 0 until GTA has made it and after destroy(); a blipType change makes the blip again with a new handle. */
     readonly scriptID: number;
     /** Secondary colour (SET_BLIP_SECONDARY_COLOUR): an {r, g, b} object, each clamped to 0..255, or a number 0xRRGGBBAA; read back as assigned, {r: 0, g: 0, b: 0, a: 255} by default. */
     secondaryColor: number | { r?: number; g?: number; b?: number; a?: number };
     /** Stores the value under the key in the blip's own metadata on this client and fires metaChange (blip, key, value, old value); an object sets each of its entries. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomBlipMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomBlipMeta, unknown>): void;
     /** Shown on the minimap only nearby (SET_BLIP_AS_SHORT_RANGE), false by default. */
     shortRange: boolean;
     /** Draws the blip's sight cone (SET_BLIP_SHOW_CONE, hue 0); sent again when a blipType change makes the blip anew, false until assigned. */
     showCone: boolean;
     /** Sent as SET_BLIP_AS_MINIMAL_ON_EDGE, the native isMinimalOnEdge uses too, so the last assignment of either wins (shrinked when a blipType change makes the blip anew); false until assigned. */
     shrinked: boolean;
-    /** {1, 1} by default; assigning sends SET_BLIP_SCALE_2D (each at least 0), which is not sent again when a blipType change makes the blip anew. */
-    size: Vector2Like;
+    /** The drawn scale per axis (SET_BLIP_SCALE_2D), {1, 1} by default, each at least 0; size.x is scale. */
+    get size(): Vector2;
+    set size(value: Vector2Like);
     /** Icon (BlipSprite), 1 by default; truncated, at least 0 (SET_BLIP_SPRITE). */
     sprite: number;
     /** Sent as SHOW_TICK_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
@@ -5851,10 +6523,22 @@ export class Profiler {
     static readonly dispatchedEvents: number;
     /** GTA's frame rate, counted over about a second (at most 1000), as of the last snapshot; 0 before the first one. */
     static readonly fps: number;
+    /** Resolves with the bytes the script engine holds. QuickJS counts only its whole runtime, which every resource shares, so size is all of them and externalBytes is 0. */
+    static getMemoryProfile(): Promise<{ size: number; externalBytes: number }>;
+    /** The heap statistics of this client’s script engine, a new object on each read. QuickJS keeps one heap with no separate committed size, so totalHeapSize and mallocedMemory are the bytes in use; peakMallocedMemory is the largest this client read; all 0 outside the game’s engine. */
+    static readonly heapStats: { readonly heapSizeLimit: number; readonly totalHeapSize: number; readonly usedHeapSize: number; readonly mallocedMemory: number; readonly peakMallocedMemory: number };
     /** How many native calls the scripts have made since the script runtime started, as of the last snapshot; 0 before the first one. */
     static readonly nativeCalls: number;
+    /** How many CPU profiles run. */
+    static readonly profilesRunning: number;
+    /** Microseconds between CPU profile samples, 100 by default; setting it throws while a profile runs. The engine can only sample where QuickJS checks for interrupts (about every 10000 bytecode steps), so samples come at least this far apart, not exactly this far. */
+    static samplingInterval: number;
+    /** Starts a CPU profile of every resource’s scripts (they share one engine). Throws when a profile of that name runs, when 100 run, or outside the game’s engine. Only script time is sampled; time spent outside the scripts shows as (program). */
+    static startProfiling(profileName?: string): void;
     /** The last snapshot's figures in one object (fps, tickMs, nativeCalls, dispatchedEvents, clientEvents, webviews); the runtime's own object, updated in place, {} before the first snapshot. */
     static readonly stats: { fps?: number; tickMs?: number; nativeCalls?: number; dispatchedEvents?: number; clientEvents?: number; webviews?: number };
+    /** Stops the CPU profile started under that name and returns it; throws when no profile of that name runs. */
+    static stopProfiling(profileName?: string): CpuProfile;
     /** The average game frame in milliseconds, 1000 / fps over about a second, from the last snapshot; 0 before the first one. Profiler.stats.tickMs is the time between the client's snapshots. */
     static readonly tickMs: number;
     /** How many WebViews of scripts the client holds, shown or not, as of the last snapshot; 0 before the first one. */
@@ -5959,7 +6643,7 @@ export class RadiusBlip {
     crewIndicatorVisible: boolean;
     /** Removes the key from the blip's own metadata (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
     deleteMeta(key: string): void;
-    /** Removes the blip from GTA (REMOVE_BLIP): valid turns false and baseObjectRemove fires; later calls do nothing. A resource's blips are destroyed when it stops. */
+    /** Removes the blip from GTA (REMOVE_BLIP): valid turns false and baseObjectRemove fires; later calls do nothing. A resource's blips are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** The dimension it shows in: the local player's must see it -- the same one, every one at -2147483648, and 0 also from a negative dimension; 0 by default, truncated, and checked again with each update of the local player. */
     dimension: number;
@@ -5978,13 +6662,13 @@ export class RadiusBlip {
     /** Sent as SHOW_FRIEND_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
     friendIndicatorVisible: boolean;
     /** The value setMeta stored under the key, undefined for none: the blip's own metadata on this client. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomBlipMeta, K, unknown>;
     /** The keys of the blip's own metadata (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
     getMetaKeys(): string[];
     /** Always undefined: a local blip has no synced metadata. */
-    getSyncedMeta(key: string): unknown;
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomBaseObjectSyncedMeta, K, unknown>;
     /** Always []: a local blip has no synced metadata. */
     getSyncedMetaKeys(): string[];
     /** A GTA text label to name the blip with (SET_BLIP_NAME_FROM_TEXT_FILE), empty by default; while set it wins over name, and assigning name clears it. */
@@ -6005,7 +6689,7 @@ export class RadiusBlip {
     readonly isAttached: false;
     /** Whether GTA shows the blip as friendly (SET_BLIP_AS_FRIENDLY), false until assigned. That native recolours the blip whatever its toggle (false leaves colour 49), so a local blip gets it only while friendly, after its colour (and again when a blipType change makes it anew); turning it off sends it with false and then the blip's colour again. */
     isFriendly: boolean;
-    /** True while the dimension is -2147483648, which shows the blip in every dimension. */
+    /** Always true: a blip made on this client is for no one player, in whatever dimension. */
     readonly isGlobal: boolean;
     /** Sent as SET_BLIP_HIDDEN_ON_LEGEND once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
     isHiddenOnLegend: boolean;
@@ -6024,7 +6708,8 @@ export class RadiusBlip {
     /** Sent as SHOW_OUTLINE_INDICATOR_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
     outlineIndicatorVisible: boolean;
     /** Its position, a copy; assigning moves it (SET_BLIP_COORDS), a missing or non-numeric component becoming 0. */
-    pos: Vector3Like;
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
     /** SET_BLIP_PRIORITY, truncated; sent once GTA has the blip and again when a blipType change makes it anew. 0 until assigned. */
     priority: number;
     /** Assigning true pulses the blip once (PULSE_BLIP); false sends nothing, and the value read is only what was assigned. */
@@ -6041,23 +6726,24 @@ export class RadiusBlip {
     route: boolean;
     /** Colour index of the GPS route (SET_BLIP_ROUTE_COLOUR), clamped to 0..255 and truncated; 0 by default. */
     routeColor: number;
-    /** Icon size (SET_BLIP_SCALE), 1 by default, at least 0. */
+    /** The drawn size's x (size.x), 1 by default; assigning sets size to it on both axes (SET_BLIP_SCALE), at least 0. */
     scale: number;
     /** GTA's handle of the blip: 0 until GTA has made it and after destroy(); a blipType change makes the blip again with a new handle. */
     readonly scriptID: number;
     /** Secondary colour (SET_BLIP_SECONDARY_COLOUR): an {r, g, b} object, each clamped to 0..255, or a number 0xRRGGBBAA; read back as assigned, {r: 0, g: 0, b: 0, a: 255} by default. */
     secondaryColor: number | { r?: number; g?: number; b?: number; a?: number };
     /** Stores the value under the key in the blip's own metadata on this client and fires metaChange (blip, key, value, old value); an object sets each of its entries. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomBlipMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomBlipMeta, unknown>): void;
     /** Shown on the minimap only nearby (SET_BLIP_AS_SHORT_RANGE), false by default. */
     shortRange: boolean;
     /** Draws the blip's sight cone (SET_BLIP_SHOW_CONE, hue 0); sent again when a blipType change makes the blip anew, false until assigned. */
     showCone: boolean;
     /** Sent as SET_BLIP_AS_MINIMAL_ON_EDGE, the native isMinimalOnEdge uses too, so the last assignment of either wins (shrinked when a blipType change makes the blip anew); false until assigned. */
     shrinked: boolean;
-    /** {1, 1} by default; assigning sends SET_BLIP_SCALE_2D (each at least 0), which is not sent again when a blipType change makes the blip anew. */
-    size: Vector2Like;
+    /** The drawn scale per axis (SET_BLIP_SCALE_2D), {1, 1} by default, each at least 0; size.x is scale. */
+    get size(): Vector2;
+    set size(value: Vector2Like);
     /** Icon (BlipSprite), 1 by default; truncated, at least 0 (SET_BLIP_SPRITE). */
     sprite: number;
     /** Sent as SHOW_TICK_ON_BLIP once GTA has the blip, and again when a blipType change makes it anew; false until assigned. */
@@ -6073,6 +6759,12 @@ export class RadiusBlip {
     /** Resolves once GTA has made the blip (after a blipType change, the new one); rejects with the error when making it failed. */
     waitForSpawn(): Promise<void>;
 }
+
+export const Rendering: {
+    /** Draws a sphere of the centre, radius and colour (alpha 255 by default) for this frame only: GTA's DRAW_MARKER_SPHERE. segments is accepted and ignored (GTA draws its own mesh), and depth testing is not switchable (Varion has no setDepthtesting). A centre that is not an object throws a TypeError. Call it every frame, e.g. from everyTick. */
+    drawSphere(center: Vector3Like, radius: number, color?: { r: number; g: number; b: number; a?: number }, segments?: number): void;
+    setDepthtesting(...args: any[]): any;
+};
 
 export class Resource {
     /** Cannot be constructed: `new` throws a `TypeError`. Resources come from `Resource.current`, `Resource.all` and `Resource.getByName(name)` (`Resource.get(name)`). */
@@ -6095,7 +6787,7 @@ export class Resource {
     readonly dependants: string[];
     /** Names of the resources this one depends on, from its manifest. */
     readonly dependencies: string[];
-    /** What the resource's code exported through varion.exports; other resources call those functions through it. Emptied when the resource stops; a restart fills the same object again. */
+    /** What the resource's client-main exports with `export` (its live bindings, `default` too) and what its code put in varion.exports; other resources call those functions through it. In the game's engine a client-main that exports something runs as an ES module, strict code; the other engines run it as one script and keep only varion.exports. Emptied when the resource stops; a restart fills the same object again. */
     readonly exports: Record<string, any>;
     /** True from the resource's start until its stop. */
     readonly isStarted: boolean;
@@ -6127,6 +6819,7 @@ export const TextAlign: {
     readonly Center: any;
     readonly Left: any;
     readonly Right: any;
+    readonly Rigth: any;
 };
 
 export class TextLabel {
@@ -6148,20 +6841,20 @@ export class TextLabel {
     /** Text colour, each component clamped to 0..255; on assigning a missing one keeps its value. White by default. */
     get color(): { r: number; g: number; b: number; a: number };
     set color(value: { r?: number; g?: number; b?: number; a?: number });
-    /** Removes the label: valid turns false and baseObjectRemove fires; later calls do nothing. A resource's labels are destroyed when it stops, and the server's ones have no destroy. */
+    /** Removes the label: valid turns false and baseObjectRemove fires; later calls do nothing. A resource's labels are destroyed when it stops, and the server's ones have no destroy. After it every member but valid throws "Invalid base object". */
     destroy(): void;
     /** Its dimension, 0 by default, truncated. A label shows to the local player whose dimension sees it: the same one, every one at -2147483648, and 0 also from a negative dimension -- for local labels and the server's alike; isStreamedIn says it for a local label. */
     dimension: number;
     /** Kept and sent, true by default; the label is drawn as screen text facing the camera either way. */
     faceCamera: boolean;
-    /** The font as given: a name, or a number as text. A name is one of GameFont's, written any way (Chalet London 0, House Script 1, Monospace 2, Chalet Comprime Cologne 4, Pricedown 7; any other name 0); a number is truncated, at least 0. */
+    /** The font as given: a name, or a number as text. A name is one of GameFont's, written any way (Chalet London 0, House Script 1, Monospace 2, Chalet Comprime Cologne 4, Pricedown 7; any other name 0); a number is truncated, at least 0. The server's label names its font id the same way ("Chalet London" for 0), an unknown id as text. */
     get font(): string;
     set font(value: string | number);
     /** Font size, at least 1, 18 by default; the drawn size is scale × fontSize × 0.35 / 18, clamped to 0.1..2. */
     fontSize: number;
     /** A negative number of its own for a label this client made; the server's id (a positive number) for one of the server. */
     id: number;
-    /** True for a label drawn at any distance (made without streaming); false when it is drawn only within streamingDistance. */
+    /** True when the label is for no one player: always for a label made on this client, streamed or not, and for the server's, which makes them for everyone. */
     readonly isGlobal: boolean;
     /** True for a label of the server, false for one this client made. */
     readonly isRemote: boolean;
@@ -6173,13 +6866,15 @@ export class TextLabel {
     /** Outline width, a whole number of at least 0; 0 draws no outline. */
     outlineWidth: number;
     /** Where the label is, a copy; on assigning a missing or non-numeric component becomes 0. */
-    pos: Vector3Like;
+    get pos(): Vector3;
+    set pos(value: Vector3Like);
     /** The server's id of a label of the server; 0 for one this client made. */
     readonly remoteId: number;
     /** The server's id of a label of the server; 0 for one this client made. */
     readonly remoteID: number;
     /** Kept and sent, {0, 0, 0} by default, but not used for drawing. */
-    rot: Vector3Like;
+    get rot(): Vector3;
+    set rot(value: Vector3Like);
     /** Size multiplier, at least 0, 1 by default; the drawn size is scale × fontSize × 0.35 / 18, clamped to 0.1..2. */
     scale: number;
     /** Distance from the local player within which a label made with streaming is drawn (at least 0); 0 for a label without streaming and for the server's labels. */
@@ -6207,7 +6902,7 @@ export const Utils: {
     /** a + b component-wise, as a plain object; a missing or non-numeric component counts as 0. */
     add(a: Vector3Like, b: Vector3Like): Vector3Like;
     /** Throws an Error with message ("Assertion failed" by default) when condition is falsy. */
-    assert(condition: any, message?: string): void;
+    assert(condition: unknown, message?: string): asserts condition;
     /** value limited to min..max; a non-number counts as 0, so max must be given. When min is above max the result is max. */
     clamp(value: number, min: number, max: number): number;
     readonly ConsoleCommand: typeof UtilsConsoleCommand;
@@ -6223,11 +6918,11 @@ export const Utils: {
     dot(a: Vector3Like, b: Vector3Like): number;
     /** Draws the text every frame with drawText2dThisFrame's arguments until destroy() of the returned EveryTick object; align is a varion.TextAlign. */
     drawText2d(text: string, pos?: Vector2Like, font?: number, scale?: number, color?: { r?: number; g?: number; b?: number; a?: number }, outline?: boolean, dropShadow?: boolean, align?: number): { id: number; destroy(): void };
-    /** Draws text on the screen for this frame only: pos in fractions of the screen (0.5, 0.5 by default), font a GameFont (0), scale 0.5, colour white (components clamped to 0..255), outline and drop shadow unless false. align is a varion.TextAlign (Center 0 by default, Left 1, Right 2, GTA's own codes); right-aligned text ends at pos.x. Call it every frame, e.g. from everyTick. */
+    /** Draws text on the screen for this frame only, of any length (it goes to GTA in 99-character pieces) (no proportional spacing, a dark edge, a black drop shadow): pos in fractions of the screen (0.5, 0.5 by default), font a GameFont (0), scale 0.5, colour white (components clamped to 0..255), outline and drop shadow unless false. align is a varion.TextAlign (Center 0 by default, Left 1, Right 2, GTA's own codes); right-aligned text ends at pos.x. An argument of the wrong type throws a TypeError; a missing or null one takes its default. Call it every frame, e.g. from everyTick. */
     drawText2dThisFrame(text: string, pos?: Vector2Like, font?: number, scale?: number, color?: { r?: number; g?: number; b?: number; a?: number }, outline?: boolean, dropShadow?: boolean, align?: number): void;
     /** Draws the text every frame with drawText3dThisFrame's arguments until destroy() of the returned EveryTick object; align is a varion.TextAlign. */
     drawText3d(text: string, pos?: Vector3Like, font?: number, scale?: number, color?: { r?: number; g?: number; b?: number; a?: number }, outline?: boolean, dropShadow?: boolean, align?: number): { id: number; destroy(): void };
-    /** As drawText2dThisFrame, at a world position ((0, 0, 0) by default, through SET_DRAW_ORIGIN) and for this frame only; align is a varion.TextAlign, and right alignment keeps GTA's default wrap there. */
+    /** As drawText2dThisFrame, at a world position ((0, 0, 0) by default, through SET_DRAW_ORIGIN) and for this frame only; align is a varion.TextAlign, and right alignment keeps GTA's default wrap there. An argument of the wrong type throws a TypeError. */
     drawText3dThisFrame(text: string, pos?: Vector3Like, font?: number, scale?: number, color?: { r?: number; g?: number; b?: number; a?: number }, outline?: boolean, dropShadow?: boolean, align?: number): void;
     readonly EveryTick: typeof UtilsEveryTick;
     /** The streamed-in object nearest to options.pos (the local player's position by default) within options.range metres (any distance by default); a tie goes to the lower id, null when there is none. */
@@ -6250,8 +6945,8 @@ export const Utils: {
     getPlayersInDimension(dimension: number): Player[];
     /** varion.getVehiclesInDimension: the vehicles this client knows in that dimension, plus the native ones when it is the local player's. */
     getVehiclesInDimension(dimension: number): Array<Vehicle | NativeVehicle>;
-    /** value as JSON indented by 2 spaces; an object inside itself is written as "[Circular]", while one met again on another branch is written in full; undefined for undefined or a function, and a BigInt throws a TypeError. */
-    inspect(value: any): string | undefined;
+    /** Always a string: value as JSON indented by 2 spaces, with what JSON has no form for written as Node's util.inspect writes it (undefined, 5n, [Function: name], Symbol(x)); an object inside itself is written as "[Circular]", while one met again on another branch is written in full. Of the options (Node's util.inspect) it applies depth (deeper objects as "[Object]", arrays as "[Array]"), maxArrayLength, maxStringLength, sorted and compact: true (one line); the others do not apply to JSON and are ignored. */
+    inspect(value: any, options?: IInspectOptions): string;
     readonly Interval: typeof UtilsInterval;
     /** Whether Number(value) is NaN: true for undefined and text that is not a number, false for null and "". */
     isNaN(value: any): boolean;
@@ -6298,7 +6993,7 @@ export const Utils: {
     vectorLength(v: Vector3Like): number;
     /** Resolves after that many milliseconds (default 0: the next frame); timers are checked once a frame. Rejects with code VARION_RESOURCE_STOPPED when the resource stops first. */
     wait(milliseconds?: number): Promise<void>;
-    /** Calls predicate now and then about once a frame, awaiting a Promise it returns, and resolves to its first truthy value. Rejects when it throws, after timeoutMs (default 5000; code VARION_TIMEOUT) or when the resource stops (VARION_RESOURCE_STOPPED); a predicate that is not a function rejects with a TypeError. */
+    /** Calls predicate now and then about once a frame, awaiting a Promise it returns, and resolves to its first truthy value. Rejects when it throws, after timeoutMs (2000 by default; code VARION_TIMEOUT) or when the resource stops (VARION_RESOURCE_STOPPED); a predicate that is not a function rejects with a TypeError. */
     waitFor<T>(predicate: () => T, timeoutMs?: number): Promise<Exclude<Awaited<T>, false | 0 | "" | null | undefined>>;
 };
 
@@ -6318,7 +7013,7 @@ export class UtilsEveryTick {
     /** Stops the calls every frame; later calls do nothing. */
     destroy(): void;
     /** The id varion.everyTick gave this callback: clearEveryTick and clearTimer take it too. */
-    id: number;
+    readonly id: number;
 }
 
 /** Runtime path: `varion.Utils.Interval` */
@@ -6327,7 +7022,7 @@ export class UtilsInterval {
     /** Stops the repeated calls; later calls do nothing. */
     destroy(): void;
     /** The id varion.setInterval gave this timer: clearInterval and clearTimer take it too. */
-    id: number;
+    readonly id: number;
 }
 
 /** Runtime path: `varion.Utils.Keybind` */
@@ -6345,7 +7040,7 @@ export class UtilsKeybind {
 /** Runtime path: `varion.Utils.Marker` */
 export class UtilsMarker {
     /** Draws a GTA marker every frame only for this client, in every dimension, until destroy(). Defaults: type 1, scale 1, colour 255, 255, 255, 180, no direction or rotation; a type or scale component of 0 is kept, as only a missing or non-numeric one takes the default. */
-    constructor(pos: Vector3Like, options?: { type?: number; dir?: Vector3Like; rot?: Vector3Like; scale?: Vector3Like | number; color?: { r: number; g: number; b: number; a?: number }; bobUpAndDown?: boolean; faceCamera?: boolean; p19?: number; rotate?: boolean; textureDict?: string; textureName?: string; drawOnEnts?: boolean; visible?: boolean });
+    constructor(pos: Vector3Like, options?: IMarkerOptions);
     /** Bobs the marker up and down; options.bobUpAndDown, false by default. */
     bobUpAndDown: boolean;
     /** Colour, read every frame and clamped to 0..255 when drawn (a missing alpha draws as 255); options.color, {r: 255, g: 255, b: 255, a: 180} by default. */
@@ -6386,7 +7081,7 @@ export class UtilsNextTick {
     /** Cancels the call if it has not run yet; later calls do nothing. */
     destroy(): void;
     /** The id varion.nextTick gave this callback: clearNextTick and clearTimer take it too. */
-    id: number;
+    readonly id: number;
 }
 
 /** Runtime path: `varion.Utils.Timeout` */
@@ -6395,7 +7090,7 @@ export class UtilsTimeout {
     /** Cancels the call if it has not run yet; later calls do nothing. */
     destroy(): void;
     /** The id varion.setTimeout gave this timer: clearTimeout and clearTimer take it too. */
-    id: number;
+    readonly id: number;
 }
 
 /** Runtime path: `varion.Utils.Timer` */
@@ -6405,7 +7100,7 @@ export class UtilsTimer {
     /** Cancels the timer; later calls do nothing. */
     destroy(): void;
     /** The id varion.setTimeout or varion.setInterval gave it; varion.clearTimer(id) cancels it too. */
-    id: number;
+    readonly id: number;
 }
 
 export class Vector2 {
@@ -6441,7 +7136,7 @@ export class Vector2 {
     distanceTo(value: Vector2Like | number[] | number): number;
     /** The squared distance to the point; the argument is read as distanceTo reads it. */
     distanceToSquared(value: Vector2Like | number[] | number): number;
-    /** This divided by the argument, component-wise, as a new Vector2 (division by 0 gives Infinity or NaN). The argument is x, y; an array; an object with x, y; or one number for both. */
+    /** A new Vector2: this divided by (x, y), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. A zero divisor component throws an Error "Division by zero". */
     div(x: number, y: number): Vector2;
     div(value: Vector2Like | number[] | number): Vector2;
     /** The dot product with the argument: x, y; an array; an object with x, y; or one number for both components. */
@@ -6449,7 +7144,7 @@ export class Vector2 {
     dot(value: Vector2Like | number[] | number): number;
     /** (1 / x, 1 / y) as a new Vector2 (1 / 0 is Infinity). */
     inverse(): Vector2;
-    /** Whether the distance to value is at most range. */
+    /** Whether every axis differs by at most range and the distance is at most range; a negative range is never in range. */
     isInRange(value: Vector2Like | number[] | number, range: number): boolean;
     /** Its length, Math.hypot(x, y). */
     readonly length: number;
@@ -6473,7 +7168,7 @@ export class Vector2 {
     toFixed(precision?: number): Vector2;
     /** Each component multiplied by π / 180 (degrees to radians), as a new Vector2. */
     toRadians(): Vector2;
-    /** Text of the form "Vector2{ x: 1, y: 2 }". */
+    /** Text such as "Vector2{ x: 1.0000, y: 2.0000 }", four decimals per component. */
     toString(): string;
     /** The x component, a plain number: the constructor turns a non-number into 0, assigning does not check it. */
     x: number;
@@ -6521,7 +7216,7 @@ export class Vector3 {
     distanceTo(value: Vector3Like | number[] | number): number;
     /** The squared distance to the point; the argument is read as distanceTo reads it. */
     distanceToSquared(value: Vector3Like | number[] | number): number;
-    /** This divided by the argument, component-wise, as a new Vector3 (division by 0 gives Infinity or NaN). The argument is x, y, z; an array; an object with x, y, z; or one number for all three. */
+    /** A new Vector3: this divided by (x, y, z), a vector or array component-wise, or one number on every component; a missing or non-numeric component counts as 0. A zero divisor component throws an Error "Division by zero". */
     div(x: number, y: number, z: number): Vector3;
     div(value: Vector3Like | number[] | number): Vector3;
     /** The dot product with the argument: x, y, z; an array; an object with x, y, z; or one number for all three components. */
@@ -6529,7 +7224,7 @@ export class Vector3 {
     dot(value: Vector3Like | number[] | number): number;
     /** (1 / x, 1 / y, 1 / z) as a new Vector3 (1 / 0 is Infinity). */
     inverse(): Vector3;
-    /** Whether the distance to value is at most range. */
+    /** Whether every axis differs by at most range and the distance is at most range; a negative range is never in range. */
     isInRange(value: Vector3Like | number[] | number, range: number): boolean;
     /** Its length, Math.hypot(x, y, z). */
     readonly length: number;
@@ -6553,7 +7248,7 @@ export class Vector3 {
     toFixed(precision?: number): Vector3;
     /** Each component multiplied by π / 180 (degrees to radians), as a new Vector3. */
     toRadians(): Vector3;
-    /** Text of the form "Vector3{ x: 1, y: 2, z: 3 }". */
+    /** Text such as "Vector3{ x: 1.0000, y: 2.0000, z: 3.0000 }", four decimals per component. */
     toString(): string;
     /** The x component, a plain number: the constructor turns a non-number into 0, assigning does not check it. */
     x: number;
@@ -6579,12 +7274,16 @@ export class Vehicle {
     static getByRemoteID(id: number): Vehicle | NativeVehicle | null;
     /** The vehicle with this GTA handle: an old-path one streamed in, a LocalVehicle this client made or a native one; null for any other handle. */
     static getByScriptID(scriptID: number): Vehicle | NativeVehicle | LocalVehicle | null;
-    /** Those of Vehicle.all that exist in this client's GTA now. */
+    /** Those of Vehicle.all whose isStreamedIn is true: the server streams them to this client (a native vehicle: its GTA has it). */
     static readonly streamedIn: Array<Vehicle | NativeVehicle>;
+    /** The ABS lamp of the dashboard: what a script set, else what GTA last drew for this vehicle while the local player drives it, else false. Assigning puts the lamp into the dashboard GTA draws for this vehicle whenever the local player drives it, until resetDashboardLights or the session’s end. Not set, with a warning once, while it has no GTA entity here or on a build where GTA’s dashboard update is not found. */
+    absLight: boolean;
     /** Alpha 0–255 of its GTA entity (GET_ENTITY_ALPHA) by the newest snapshot; 255 while it is not streamed in. */
     readonly alpha: number;
-    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY; useSoftPinning and collision default to false, fixedRot to true. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
+    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); useSoftPinning, collision and fixedRot default to false. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
     attachTo(entity: { scriptID: number } | number, bone?: number, offset?: Partial<Vector3Like>, rotation?: Partial<Vector3Like>, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
+    /** The battery lamp of the dashboard: what a script set, else what GTA last drew for this vehicle while the local player drives it, else false. Assigning puts the lamp into the dashboard GTA draws for this vehicle whenever the local player drives it, until resetDashboardLights or the session’s end. Not set, with a warning once, while it has no GTA entity here or on a build where GTA’s dashboard update is not found. */
+    batteryLight: boolean;
     /** Whether the server has its collision on, by the newest snapshot; true when the server sent none. */
     readonly collision: boolean;
     /** Removes the key from this client's own data on it (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
@@ -6593,32 +7292,37 @@ export class Vehicle {
     deleteStreamSyncedMetaData(key: string): void;
     /** Drops the key from this client's copy of its synced data (setSyncedMeta on the server), without an event. A client cannot change the server's data: nothing is sent, and the server's next change of the key brings it back. */
     deleteSyncedMetaData(key: string): void;
-    /** Deletes its GTA entity on this client (DELETE_ENTITY) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
-    destroy(): Promise<boolean>;
-    /** Detaches its GTA entity on this client (DETACH_ENTITY, dynamic, with collision); resolves false when it has no GTA entity here or GTA refused. */
-    detach(): Promise<boolean>;
-    /** The dimension it is in, by the newest snapshot. */
-    readonly dimension: number;
+    /** Refuses at once with a warning: this is the server's entity, destroyed on the server; a client script destroys only its own local objects (LocalVehicle and the like have their own destroy). Nothing in the game is changed. */
+    destroy(): void;
+    /** Detaches its GTA entity on this client (DETACH_ENTITY with collision; dynamic only when dynamic is true); resolves false when it has no GTA entity here or GTA refused. */
+    detach(dynamic?: boolean): Promise<boolean>;
+    /** The dimension it is in, by the newest snapshot. Assigning keeps a dimension for this client's scripts (a number is truncated to an integer, anything else is 0): it reads back until the server changes the entity's dimension or the entity leaves; what GTA shows here and what the server streams stay by the server's dimension. */
+    get dimension(): number;
+    set dimension(value: number);
     /** Engine health (GET_VEHICLE_ENGINE_HEALTH, a whole number) by its last sync; 1000 before the first. */
     readonly engineHealth: number;
+    /** The engine lamp of the dashboard: what a script set, else what GTA last drew for this vehicle while the local player drives it, else false. Assigning puts the lamp into the dashboard GTA draws for this vehicle whenever the local player drives it, until resetDashboardLights or the session’s end. Not set, with a warning once, while it has no GTA entity here or on a build where GTA’s dashboard update is not found. */
+    engineLight: boolean;
     /** Whether its engine runs (GET_IS_VEHICLE_ENGINE_RUNNING on the client that simulates it), by its last sync. */
     readonly engineOn: boolean;
-    /** Engine temperature read from this client's GTA copy of it; 0 while it is not streamed in or the field could not be read. */
-    readonly engineTemperature: number;
+    /** Engine temperature read from this client's GTA copy of it; 0 while it is not streamed in or the field could not be read. Assigning writes it into this client’s GTA vehicle; on a car another client simulates its owner’s next report sets it back. A value that is not a finite number throws a TypeError; one of 100000 or more either way is not taken, as GTA's memory is not written with it, and the value stays as it was. */
+    engineTemperature: number;
     /** Whether its GTA entity exists on this client: false while it has none here (not streamed in) and once the snapshots stop listing it; otherwise what the newest snapshot found (DOES_ENTITY_EXIST). */
     exists(): boolean;
     /** Asks GTA whether its handle exists (DOES_ENTITY_EXIST): false at once when it has no GTA entity here, null when the game did not answer within 150 ms. */
     existsAsync(): Promise<boolean | null>;
     /** Freezes (true) or releases its GTA entity on this client (FREEZE_ENTITY_POSITION); resolves false when it has no GTA entity here or GTA refused. The frozen property does not change. */
     freezePosition(frozen: boolean): Promise<boolean>;
-    /** Whether the server has it frozen, by the newest snapshot; false when the server sent none. */
-    readonly frozen: boolean;
-    /** Fuel level read from this client's GTA copy of it; 0 while it is not streamed in or the field could not be read. */
-    readonly fuelLevel: number;
-    /** Current gear by its last sync. */
-    readonly gear: number;
+    /** Whether the server has it frozen, by the newest snapshot; false when the server sent none. Assigning freezes or frees this client's GTA copy (FREEZE_ENTITY_POSITION); the value assigned reads back until the server changes its own flag or the entity leaves. */
+    get frozen(): boolean;
+    set frozen(value: boolean);
+    /** Fuel level read from this client's GTA copy of it; 0 while it is not streamed in or the field could not be read. Assigning writes it into this client’s GTA vehicle, the tank-empty bit too; on a car another client simulates its owner’s next report sets it back. A value that is not a finite number throws a TypeError; a negative one or one of 100000 or more is not taken, as GTA's memory is not written with it, and the value stays as it was. */
+    fuelLevel: number;
+    /** Current gear by its last sync. Assigning a finite number (truncated, clamped to 0-255; else a TypeError) writes it into this client's GTA vehicle (the current-gear field, as LocalVehicle's gear) and reads back until the next sync. On a copy of a car another client simulates, its owner's next report sets it back. */
+    get gear(): number;
+    set gear(value: number);
     /** The value setMeta stored under the key on this client, the same value that was stored; undefined for none. The data never leaves the client; an entity's is cleared when the server streams it out of this client and when the session ends. */
-    getMeta(key: string): any;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomVehicleMeta, K, any>;
     /** The keys of this client's own data on it (setMeta). */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -6626,23 +7330,28 @@ export class Vehicle {
     /** Resolves at once with speed: GET_ENTITY_SPEED in m/s by the newest snapshot, 0 while it is not streamed in. */
     getSpeedAsync(): Promise<number | null>;
     /** The same as getStreamSyncedMetaData: the server's stream-synced value under the key, decoded; undefined for none. */
-    getStreamSyncedMeta(key: string): any;
+    getStreamSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomVehicleStreamSyncedMeta, K, any>;
     /** The value the server set as stream-synced data on it (setStreamSyncedMeta), decoded, with a server object in it resolved to this client's object; undefined for none. A value setStreamSyncedMetaData put here reads back as it was set. Cleared when the server streams the entity out of this client. */
-    getStreamSyncedMetaData(key: string): any;
+    getStreamSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomVehicleStreamSyncedMeta, K, any>;
     /** The keys of the stream-synced data this client has for it. */
     getStreamSyncedMetaDataKeys(): string[];
     /** The same as getStreamSyncedMetaDataKeys. */
     getStreamSyncedMetaKeys(): string[];
     /** The same as getSyncedMetaData: the server's synced value under the key, decoded; undefined for none. */
-    getSyncedMeta(key: string): any;
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomVehicleSyncedMeta, K, any>;
     /** The value the server set as synced data on it (setSyncedMeta), decoded, with a server object in it resolved to this client's object; undefined for none. */
-    getSyncedMetaData(key: string): any;
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomVehicleSyncedMeta, K, any>;
     /** The keys of the synced data (setSyncedMeta on the server) this client has for it. */
     getSyncedMetaKeys(): string[];
+    getSyncInfo(...args: any[]): any;
     /** The same as getSyncedMeta: the server's synced value under the key, decoded; undefined for none. */
     getVariable(key: string): any;
     /** The camber of wheel 0–7 as this client's GTA copy has it (else the server's synced value); 0 for a wheel it does not have or does not know. */
     getWheelCamber(wheel: number): number;
+    /** One bit (0..15) of the wheel’s flag word in GTA (0x10, bit 4, is a powered wheel); false without a GTA vehicle here. Wheel 0..7, else a RangeError. */
+    getWheelConfigFlag(wheel: number, flag: number): boolean;
+    /** One bit (0..31) of the wheel’s dynamic flag word in GTA (CWheel’s word GTA itself clears and sets as the wheel runs; bit 2 while the car is given throttle); false without a GTA vehicle here. Wheel 0..7, else a RangeError. */
+    getWheelDynamicFlag(wheel: number, flag: number): boolean;
     /** The height of wheel 0–7 as this client's GTA copy has it (else the server's synced value); 0 for a wheel it does not have or does not know. */
     getWheelHeight(wheel: number): number;
     /** The rim radius of wheel 0–7 as this client's GTA copy has it (else the server's synced value); 0 for a wheel it does not have or does not know. */
@@ -6655,7 +7364,7 @@ export class Vehicle {
     getWheelTyreRadius(wheel: number): number;
     /** The tyre width of wheel 0–7 as this client's GTA copy has it (else the server's synced value); 0 for a wheel it does not have or does not know. */
     getWheelTyreWidth(wheel: number): number;
-    /** A new HandlingData on each read, the same as varion.getVehicleHandling for its model and GTA handle (see there which fields come from GTA); its handlingNameHash is the model hash. */
+    /** A new HandlingData on each read, for its model and GTA handle as varion.getVehicleHandling, but the vehicle's own: the first write through it gives this vehicle a copy of its model's handling in GTA, so the write changes this vehicle only and is not kept for the model. The copy lasts until the session ends, when the vehicle takes its model's handling again. A write is refused with a warning while the vehicle has no GTA entity here or its handling cannot be copied. */
     readonly handling: HandlingData;
     /** Whether this client's own data on it (setMeta) holds the key. */
     hasMeta(key: string): boolean;
@@ -6673,7 +7382,7 @@ export class Vehicle {
     readonly heading: number;
     /** Its server id, by which its class's get finds it. */
     readonly id: number;
-    /** Its turn indicators as this client's copy shows them (the blinker byte GET_VEHICLE_INDICATOR_LIGHTS reads): 0 off, 1 left, 2 right, 3 both, as VehicleIndicatorLights.BlinkLeft and BlinkRight. Assigning is SET_VEHICLE_INDICATOR_LIGHTS here: on the car this client simulates (its driver's) the server takes it and every copy blinks it; on a copy of someone else's car the server's state is set back within a moment. Anything but 0..3 throws a RangeError. */
+    /** Its blinker byte as this client's copy has it, the bits of VehicleIndicatorLights: 1 left, 2 right, 4 and 8 both, 64 the interior light (a native vehicle reads its copy's byte too). Assigning sets the two blinkers with SET_VEHICLE_INDICATOR_LIGHTS here: on the car this client simulates (its driver's) the server takes them and every copy blinks them; on a copy of someone else's car the server's state is set back within a moment. The other bits are written to this client's copy only. The value reads back at once, until the next snapshot says what the car shows. Anything but an integer 0..255 throws a RangeError. */
     indicatorLights: number;
     /** Whether it is wrecked: IS_ENTITY_DEAD by the newest snapshot while it has a GTA entity here, else the destroyed flag of its owner's sync. */
     readonly isDead: boolean;
@@ -6701,22 +7410,29 @@ export class Vehicle {
     readonly nativeModel: number;
     /** The player whose client simulates it (its network owner), by the newest snapshot; null for none. */
     readonly netOwner: PlayerLocal | Player | null;
-    /** Oil level read from this client's GTA copy of it; 0 while it is not streamed in or the field could not be read. */
-    readonly oilLevel: number;
+    /** Oil level read from this client's GTA copy of it; 0 while it is not streamed in or the field could not be read. Assigning writes it into this client’s GTA vehicle; on a car another client simulates its owner’s next report sets it back. A value that is not a finite number throws a TypeError; a negative one or one of 100000 or more is not taken, as GTA's memory is not written with it, and the value stays as it was. */
+    oilLevel: number;
+    /** The oil lamp of the dashboard: what a script set, else what GTA last drew for this vehicle while the local player drives it, else false. Assigning puts the lamp into the dashboard GTA draws for this vehicle whenever the local player drives it, until resetDashboardLights or the session’s end. Not set, with a warning once, while it has no GTA entity here or on a build where GTA’s dashboard update is not found. */
+    oilLight: boolean;
+    /** The petrol lamp of the dashboard: what a script set, else what GTA last drew for this vehicle while the local player drives it, else false. Assigning puts the lamp into the dashboard GTA draws for this vehicle whenever the local player drives it, until resetDashboardLights or the session’s end. Not set, with a warning once, while it has no GTA entity here or on a build where GTA’s dashboard update is not found. */
+    petrolLight: boolean;
     /** Petrol tank health (GET_VEHICLE_PETROL_TANK_HEALTH, a whole number) by its last sync; 1000 before the first. */
     readonly petrolTankHealth: number;
     /** Its position by the newest snapshot: read from GTA while it is streamed in, else the last synced one. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** The same as id. */
     readonly remoteId: number;
     /** The same as id. */
     readonly remoteID: number;
     /** Resets the alpha of its GTA entity on this client (RESET_ENTITY_ALPHA); resolves false when it has no GTA entity here or GTA refused. */
     resetAlpha(): Promise<boolean>;
-    /** Its rotation in degrees (z is the heading) by the newest snapshot: read from GTA while it is streamed in, else the last synced one. */
-    readonly rot: Vector3Like;
-    /** Engine revs 0–1 by its last sync, in steps of 1/255. */
-    readonly rpm: number;
+    /** The dashboard lamps back to GTA’s own: what a script set on this vehicle is dropped. */
+    resetDashboardLights(): void;
+    /** Its rotation in radians (z is the heading) by the newest snapshot: read from GTA while it is streamed in, else the last synced one. */
+    readonly rot: Vector3;
+    /** Engine revs 0-1 by its last sync, in steps of 1/255. Assigning a finite number (clamped to 0-1; else a TypeError) writes it into this client's GTA vehicle (the current-rpm field, in GTA's 1/255 steps) and reads back until the next sync. On a copy of a car another client simulates, its owner's next report sets it back. */
+    get rpm(): number;
+    set rpm(value: number);
     /** Its GTA handle on this client by the newest snapshot; 0 while it has no GTA entity here and once the snapshots stop listing it. */
     readonly scriptID: number;
     /** Its seats including the driver's (GET_VEHICLE_MAX_NUMBER_OF_PASSENGERS + 1), read when this client created it in GTA; 0 before that. */
@@ -6726,18 +7442,24 @@ export class Vehicle {
     /** Turns collision of its GTA entity on or off on this client (SET_ENTITY_COLLISION); keepPhysics defaults to true. Resolves false when it has no GTA entity here or GTA refused. The collision property does not change. */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
     /** Stores the value under the key on this client and fires metaChange; an object given alone sets each of its entries. The data never leaves the client; an entity's is cleared when the server streams it out of this client and when the session ends. */
-    setMeta(key: string, value: any): void;
-    setMeta(values: Record<string, any>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomVehicleMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomVehicleMeta, any>): void;
     /** Moves its GTA entity on this client (SET_ENTITY_COORDS, clearing the area) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
     setPos(x: number, y: number, z: number): Promise<boolean>;
-    /** Turns its GTA entity on this client (SET_ENTITY_ROTATION, degrees, rotation order 2) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
+    /** Turns its GTA entity on this client (radians; SET_ENTITY_ROTATION gets degrees, rotation order 2) and resolves true once that ran; false when it has no GTA entity here or GTA refused. The server is not told. */
     setRot(x: number, y: number, z: number): Promise<boolean>;
     /** Puts the value under the key into this client's copy of its stream-synced data, read back as it was set, without an event. A client cannot change the server's data: nothing is sent, so the server and other clients never see it; a change of the key from the server overwrites it, and it is cleared when the server streams the entity out of this client. */
-    setStreamSyncedMetaData(key: string, value: any): void;
+    setStreamSyncedMetaData<K extends string>(key: K, value: CustomMetaValue<ICustomVehicleStreamSyncedMeta, K, any>): void;
+    /** Sets its gears up again from its handling, as GTA does when it makes the vehicle (MODIFY_VEHICLE_TOP_SPEED with 0, which also drops a top speed change made with that native); nothing while it has no GTA vehicle here. */
+    setupTransmission(): void;
     /** Shows or hides its GTA entity on this client with SET_ENTITY_VISIBLE; resolves true once GTA ran it, false when it has no GTA entity here or GTA refused. */
     setVisible(visible: boolean): Promise<boolean>;
     /** Writes the camber of wheel 0–7 into its GTA copy on this client only; ignored for a wheel outside 0–7, a value that is not finite or beyond ±100, and while it has no GTA entity here. The next snapshot reads the value back from GTA. */
     setWheelCamber(wheel: number, value: number): void;
+    /** Sets or clears one bit (0..15) of the wheel’s flag word in this client’s GTA vehicle, the other bits kept. Wheel 0..7, else a RangeError. */
+    setWheelConfigFlag(wheel: number, flag: number, value: boolean): void;
+    /** Sets or clears one bit (0..31) of the wheel’s dynamic flag word in this client’s GTA vehicle, the other bits kept; GTA may set the bit anew on the wheel’s next step. Wheel 0..7, else a RangeError. */
+    setWheelDynamicFlag(wheel: number, flag: number, value: boolean): void;
     /** Writes the height of wheel 0–7 into its GTA copy on this client only; ignored for a wheel outside 0–7, a value that is not finite or beyond ±100, and while it has no GTA entity here. The next snapshot reads the value back from GTA. */
     setWheelHeight(wheel: number, value: number): void;
     /** Writes the rim radius of wheel 0–7 into its GTA copy on this client only; ignored for a wheel outside 0–7, a value that is not finite or beyond ±100, and while it has no GTA entity here. The next snapshot reads the value back from GTA. */
@@ -6748,12 +7470,13 @@ export class Vehicle {
     setWheelTyreRadius(wheel: number, value: number): void;
     /** Writes the tyre width of wheel 0–7 into its GTA copy on this client only; ignored for a wheel outside 0–7, a value that is not finite or beyond ±100, and while it has no GTA entity here. The next snapshot reads the value back from GTA. */
     setWheelTyreWidth(wheel: number, value: number): void;
-    /** Its speed in m/s: GET_ENTITY_SPEED by the newest snapshot; 0 while it is not streamed in. */
+    /** How fast its wheels turn, in m/s at the tyre (averaged over its wheels), read off its GTA copy on each read: it differs from the body's speed while the wheels spin or lock, and is negative while they turn backwards. 0 for a vehicle without wheels, while it has no GTA entity here, and on a build where the wheel offsets are not found (logged once). */
     readonly speed: number;
     /** Its velocity in m/s from its last sync, by the newest snapshot. */
     readonly speedVector: Vector3Like;
-    /** Steering angle in degrees by its last sync. */
-    readonly steeringAngle: number;
+    /** Steering angle in degrees by its last sync. Assigning a finite number of degrees (clamped to -180..180; else a TypeError) writes it into this client's GTA vehicle and reads back until the next sync; GTA steers it back unless the engine is off and the write is repeated every tick. On a copy of a car another client simulates, its owner's next report sets it back. */
+    get steeringAngle(): number;
+    set steeringAngle(value: number);
     /** Whether the server streams it to this client, by the newest snapshot; false once the snapshots stop listing it. */
     readonly streamed: boolean;
     /** A new plain object of the stream-synced data this client has for it on each read. */
@@ -6764,7 +7487,7 @@ export class Vehicle {
     readonly valid: boolean;
     /** Whether it is visible: IS_ENTITY_VISIBLE by the newest snapshot while it is streamed in, else the server's setting (true when none was sent). */
     readonly visible: boolean;
-    /** How many wheels its GTA copy on this client has (at most 8), else as the server's wheel layout says; 0 when unknown. A setWheel… call raises it on this object. */
+    /** How many wheels its GTA copy on this client has (at most 8), else as the server's wheel layout says; 0 when unknown. A setWheel… call does not change it, and one for a wheel past it is not sent. */
     readonly wheelsCount: number;
 }
 
@@ -6781,8 +7504,13 @@ export const VehicleLockState: {
     readonly CanBeBrokenInto: any;
     readonly CanBeBrokenIntoPersist: any;
     readonly CannotBeTriedToEnter: any;
+    readonly ForceDoorsShut: any;
+    readonly InitiallyLocked: any;
     readonly Locked: any;
+    readonly LockedCanBeDamaged: any;
     readonly LockedForPlayer: any;
+    readonly LockoutPlayerOnly: any;
+    readonly LockPlayerInside: any;
     readonly None: any;
     readonly StickPlayerInside: any;
     readonly Unlocked: any;
@@ -6814,8 +7542,9 @@ export class VirtualEntity {
     destroy(): Promise<boolean>;
     /** Resolves false without doing anything: a virtual entity has no GTA entity (scriptID 0). */
     detach(): Promise<boolean>;
-    /** Its dimension, as the server sent it. */
-    readonly dimension: number;
+    /** Its dimension, as the server sent it. Assigning keeps a dimension for this client's scripts (a number is truncated to an integer, anything else is 0): it reads back until the server changes the entity's dimension or the entity leaves; what GTA shows here and what the server streams stay by the server's dimension. */
+    get dimension(): number;
+    set dimension(value: number);
     /** The same as valid. */
     exists(): boolean;
     /** Resolves whether this client still knows the virtual entity (it is in the server's latest snapshot); a virtual entity never has a GTA handle to ask about. */
@@ -6825,7 +7554,7 @@ export class VirtualEntity {
     /** Always false: a virtual entity has no GTA entity to freeze. */
     readonly frozen: boolean;
     /** The value setMeta stored under the key on this client, undefined for none; this own metadata is dropped when the entity streams out. */
-    getMeta(key: string): unknown;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomBaseObjectMeta, K, unknown>;
     /** The keys of its own metadata (setMeta); getMetaKeys returns the same. */
     getMetaDataKeys(): string[];
     /** The same as getMetaDataKeys. */
@@ -6833,19 +7562,20 @@ export class VirtualEntity {
     /** Resolves 0: a virtual entity has no GTA entity and no speed. */
     getSpeedAsync(): Promise<number>;
     /** The stream-synced value the server set under the key, server objects in it as this client's; undefined for none. */
-    getStreamSyncedMeta(key: string): unknown;
+    getStreamSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomVirtualEntityStreamSyncedMeta, K, unknown>;
     /** The same as getStreamSyncedMeta. */
-    getStreamSyncedMetaData(key: string): unknown;
+    getStreamSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomVirtualEntityStreamSyncedMeta, K, unknown>;
     /** The keys of the stream-synced metadata; getStreamSyncedMetaKeys returns the same. */
     getStreamSyncedMetaDataKeys(): string[];
     /** The same as getStreamSyncedMetaDataKeys. */
     getStreamSyncedMetaKeys(): string[];
     /** The synced value the server set under the key, server objects in it as this client's; undefined for none. */
-    getSyncedMeta(key: string): unknown;
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomBaseObjectSyncedMeta, K, unknown>;
     /** The same as getSyncedMeta. */
-    getSyncedMetaData(key: string): unknown;
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomBaseObjectSyncedMeta, K, unknown>;
     /** The keys of the synced metadata the server set. */
     getSyncedMetaKeys(): string[];
+    getSyncInfo(...args: any[]): any;
     /** The same as getSyncedMeta: the synced value of the key, undefined for none. */
     getVariable(key: string): unknown;
     /** Its group; null when this client does not know it. */
@@ -6883,7 +7613,7 @@ export class VirtualEntity {
     /** Always 0: a virtual entity has no GTA entity, so no model. */
     readonly nativeModel: number;
     /** Its position by the newest snapshot; a kept object moves with it. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** Its server id, as id. */
     readonly remoteId: number;
     /** Its server id, as id. */
@@ -6891,7 +7621,7 @@ export class VirtualEntity {
     /** Resolves false without doing anything: a virtual entity has no GTA entity (scriptID 0). */
     resetAlpha(): Promise<boolean>;
     /** Its rotation by the newest snapshot; a kept object follows it. */
-    readonly rot: Vector3Like;
+    readonly rot: Vector3;
     /** Always 0: a virtual entity has no GTA entity. */
     readonly scriptID: number;
     /** Resolves false without doing anything: a virtual entity has no GTA entity (scriptID 0). */
@@ -6899,14 +7629,14 @@ export class VirtualEntity {
     /** Resolves false without doing anything: a virtual entity has no GTA entity (scriptID 0). */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
     /** Stores the value under the key in this client's own metadata of the entity and fires metaChange (entity, key, value, old value); an object sets each of its entries. Dropped when the entity streams out. */
-    setMeta(key: string, value: unknown): void;
-    setMeta(values: Record<string, unknown>): void;
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomBaseObjectMeta, K, unknown>): void;
+    setMeta(values: CustomMetaValues<ICustomBaseObjectMeta, unknown>): void;
     /** Resolves false without doing anything: a virtual entity has no GTA entity to move (scriptID 0), and its position is the server's. */
     setPos(x: number, y: number, z: number): Promise<boolean>;
     /** Resolves false without doing anything: a virtual entity has no GTA entity to turn (scriptID 0), and its rotation is the server's. */
     setRot(x: number, y: number, z: number): Promise<boolean>;
     /** Writes the value into this client's copy only, without an event. A client cannot change the server's data: nothing is sent, and the server's next value for the key replaces it. */
-    setStreamSyncedMetaData(key: string, value: unknown): void;
+    setStreamSyncedMetaData<K extends string>(key: K, value: CustomMetaValue<ICustomVirtualEntityStreamSyncedMeta, K, unknown>): void;
     /** Resolves false without doing anything: a virtual entity has no GTA entity (scriptID 0). */
     setVisible(visible: boolean): Promise<boolean>;
     /** Always 0: a virtual entity has no GTA entity whose speed could be read. */
@@ -6921,27 +7651,63 @@ export class VirtualEntity {
     readonly type: 9;
     /** Whether this client still has it: the newest snapshot lists it, which holds only streamed-in virtual entities; a kept object turns false once it streams out, and true again when it streams back in. */
     readonly valid: boolean;
-    /** The server's visible flag of it, true by default. */
-    readonly visible: boolean;
+    /** The server's visible flag of it, true by default. Assigning keeps a value for this client's scripts: a virtual entity has nothing in GTA to show or hide, so the value reads back until the server changes its flag or the entity leaves. */
+    get visible(): boolean;
+    set visible(value: boolean);
 }
 
 export class VirtualEntityGroup {
     /** No instances of its own: the server makes the groups, and this client gets them with get and all; new throws a TypeError. */
     private constructor();
-    /** The groups of virtual entities this client was sent in this session; a new array on each read. */
+    /** The groups of virtual entities this client was sent in this session; a new array on each read, the same object for a group on every read. */
     static readonly all: VirtualEntityGroup[];
     /** The grid cell of a point as "cx:cy": x and y divided by cellSize (at least 1, 100 by default) and floored. A helper that touches no group. */
     static cellKey(x: number, y: number, cellSize?: number): string;
-    /** The group with this id; null when this client does not know it. */
+    /** The group with this id, the same object on every call while the group is there; null when this client does not know it. */
     static get(id: number): VirtualEntityGroup | null;
+    /** The same as VirtualEntityGroup.get. */
+    static getByID(id: number): VirtualEntityGroup | null;
+    /** The same as VirtualEntityGroup.get: every group is the server's. */
+    static getByRemoteID(id: number): VirtualEntityGroup | null;
+    /** Removes the key and fires metaChange with undefined; nothing for a key not set. */
+    deleteMeta(key: string): void;
+    /** Does nothing: the server made the group, and only the server removes it. */
+    destroy(): void;
+    /** A copy of this client's own value under the key, as on every BaseObject; undefined when none. */
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomBaseObjectMeta, K, any>;
+    /** The keys this client set, a new array. */
+    getMetaDataKeys(): string[];
+    /** The same as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** Always undefined: the server syncs no metadata of a group. */
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomBaseObjectSyncedMeta, K, any>;
+    /** Always undefined: the server syncs no metadata of a group. */
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomBaseObjectSyncedMeta, K, any>;
+    /** Always an empty array. */
+    getSyncedMetaKeys(): string[];
+    /** Whether this client set a value under the key. */
+    hasMeta(key: string): boolean;
+    /** Always false. */
+    hasSyncedMeta(key: string): boolean;
+    /** Always false. */
+    hasSyncedMetaData(key: string): boolean;
     /** The group id. */
     readonly id: number;
     /** How many of its entities the server streams to a player at most, 128 by default. */
     readonly maxEntitiesInStream: number;
     /** Its streaming distance in metres, 400 by default. */
     readonly maxStreamingDistance: number;
+    /** Copies of this client's values by key, a new object. */
+    readonly metaData: Record<string, any>;
+    /** Keeps a copy of the value under the key on this client only and fires metaChange; an object alone sets each of its keys. */
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomBaseObjectMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomBaseObjectMeta, any>): void;
     /** Its entities streamed in to this client now. */
     readonly streamedIn: VirtualEntity[];
+    /** Always 21 (BaseObjectType.VirtualEntityGroup). */
+    readonly type: number;
+    /** Whether the server still has the group for this client: false once a snapshot no longer lists it or the session ends. */
+    readonly valid: boolean;
 }
 
 export const Voice: {
@@ -6956,7 +7722,7 @@ export const Voice: {
     /** Unmutes every player muted with mutePlayer. */
     clearLocallyMuted(): void;
     /** The microphones Windows reports, as frozen {name, uuid}: uuid is the endpoint id for inputDevice, null for the default one. */
-    getAvailableInputDevices(): Array<{ name: string; uuid: string | null }>;
+    getAvailableInputDevices(): IInputDevice[];
     /** The voice channel with this id, the active one when omitted; null for none. */
     getChannel(channelId?: number): VoiceChannel | null;
     /** The players of that channel this client knows, the active channel's when omitted; [] for none. */
@@ -7026,17 +7792,214 @@ export const WatermarkPosition: {
     readonly TopRight: any;
 };
 
+export class WeaponData {
+    constructor(...args: any[]);
+    /** Every weapon hash of GTA’s weapon info list, DLC weapons too (hashes, not objects); [] outside the game. */
+    static readonly allHashes: readonly number[];
+    /** The data of a weapon kind (its CWeaponInfo in GTA, every ped’s weapon of that kind), one object per kind; throws for a hash GTA has no weapon info of, or outside the game. */
+    static getForHash(weaponHash: number | string): WeaponData;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    accuracySpread: number;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    animReloadRate: number;
+    /** Read from the weapon kind’s CWeaponInfo in GTA’s memory; read-only. */
+    readonly clipSize: number;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    damage: number;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    headshotDamageModifier: number;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    lockOnRange: number;
+    /** Read from the weapon kind’s CWeaponInfo in GTA’s memory; read-only. */
+    readonly modelHash: number;
+    /** Read from the weapon kind’s CWeaponInfo in GTA’s memory; read-only. */
+    readonly nameHash: number;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    playerDamageModifier: number;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    range: number;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    recoilAccuracyMax: number;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    recoilAccuracyToAllowHeadshotPlayer: number;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    recoilRecoveryRate: number;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    recoilShakeAmplitude: number;
+    /** Read from the weapon kind’s CWeaponInfo in GTA’s memory; read-only. */
+    readonly timeBetweenShots: number;
+    /** The weapon kind’s CWeaponInfo field in GTA’s memory (every ped’s weapon of that kind); a write is remembered and GTA’s value put back when the session ends. A write GTA’s memory refused is logged. */
+    vehicleReloadTime: number;
+}
+
 export class WeaponObject {
-    /** Creates a weapon object only for this client with GTA's natives: it loads the weapon's model (REQUEST_WEAPON_ASSET, up to 10 s), makes the object at `pos` (CREATE_WEAPON_OBJECT) and turns it to `rot` in degrees. `model` is a weapon hash or name; `ammo` 0 and `showWorldModel` true by default. GTA's object appears asynchronously (`waitForSpawn()`, `scriptID`). */
-    constructor(model: number | string, pos: Vector3Like, rot?: Vector3Like, ammo?: number, showWorldModel?: boolean);
-    /** Removes its GTA object (DELETE_OBJECT), or the one GTA is still making as soon as it comes; valid turns false and scriptID 0. A second call does nothing; a resource's weapon objects are destroyed when it stops. */
+    /** Creates a weapon object only for this client, a LocalObject, with GTA's natives: it loads the weapon's model (REQUEST_WEAPON_ASSET, up to 10 s) and makes it at `pos` (CREATE_WEAPON_OBJECT) turned by `rot` in radians. `weapon` is a weapon hash or name; `ammoCount` 100 and `scale` 1 by default. `model` is kept as model, GTA makes the weapon's own; `createDefaultComponents` is not applied. Not frozen; with `useStreaming` it exists only within `streamingDistance` metres (300 by default) of the local player. GTA's object appears asynchronously (`waitForSpawn()`, `scriptID`, gameEntityCreate). */
+    constructor(weapon: number | string, pos: Vector3Like, rot?: Vector3Like, model?: number | string, ammoCount?: number, createDefaultComponents?: boolean, scale?: number, useStreaming?: boolean, streamingDistance?: number);
+    /** Every WeaponObject not destroyed, of every resource; a new array on each read. They are in LocalObject.all too. */
+    static readonly all: WeaponObject[];
+    /** The same as LocalObject.allWorld: the objects GTA placed itself. */
+    static readonly allWorld: readonly LocalObject[];
+    /** How many weapon objects WeaponObject.all holds. */
+    static readonly count: number;
+    /** The WeaponObject not destroyed with this id, given as its negative id or as the number without the sign; null for none or for a LocalObject that is no weapon object. */
+    static getByID(id: number): WeaponObject | null;
+    /** Always null: a weapon object has no server id. */
+    static getByRemoteID(id: number): WeaponObject | null;
+    /** The WeaponObject not destroyed whose GTA handle this is; null for 0 or below and for none. */
+    static getByScriptID(scriptID: number): WeaponObject | null;
+    /** Activates physics of its GTA object on this client (ACTIVATE_PHYSICS), at once or once it is created. */
+    activatePhysics(): void;
+    /** Its alpha 0–255, 255 at creation; assigning truncates and clamps the number (a non-number counts as 0) and applies it in this client's GTA (SET_ENTITY_ALPHA), at once or when it is created. It stays when frozen, collision or visible change; a hidden object is drawn with 0. */
+    alpha: number;
+    /** Attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); useSoftPinning, collision and fixedRot default to false. Resolves true once GTA ran it, false when either has no GTA entity here or GTA refused (logged). */
+    attachTo(entity: { scriptID: number } | number, bone?: number, offset?: Partial<Vector3Like>, rotation?: Partial<Vector3Like>, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
+    /** The same as attachTo: attaches its GTA entity to a bone of another entity (an object with scriptID, or a GTA handle) on this client with ATTACH_ENTITY_TO_ENTITY, the rotation in radians (GTA gets degrees); resolves false when either has no GTA entity here. */
+    attachToEntity(entity: { scriptID: number } | number, bone?: number, offset?: Partial<Vector3Like>, rotation?: Partial<Vector3Like>, useSoftPinning?: boolean, collision?: boolean, fixedRot?: boolean): Promise<boolean>;
+    /** Its own collision setting, true at creation; assigning applies it in this client's GTA (SET_ENTITY_COLLISION), at once or when it is created. setCollision does not change it. */
+    collision: boolean;
+    /** Removes the key from its own data (setMeta) and fires metaChange with the value undefined; nothing happens when the key is not there. */
+    deleteMeta(key: string): void;
+    /** Destroys it: its GTA entity is deleted (gameEntityDestroy fires if it had one, then baseObjectRemove), valid turns false and pending waitForSpawn promises reject. A second call does nothing; a resource's local entities are destroyed when it stops. After it every member but valid throws "Invalid base object". */
     destroy(): void;
-    /** GTA's handle of the weapon object: 0 until GTA has made it, when making it failed and after destroy(). */
+    /** Detaches its GTA entity on this client (DETACH_ENTITY with collision; dynamic only when dynamic is true); resolves false when it has no GTA entity here or GTA refused. */
+    detach(dynamic?: boolean): Promise<boolean>;
+    /** Its dimension, 0 by default; it exists in GTA only while the local player's dimension sees it: the same one, every one at -2147483648, and 0 also from a negative dimension. Assigning a finite number (anything else sets 0) creates or deletes its GTA entity at once to match. */
+    dimension: number;
+    /** Whether it was made dynamic (the constructor's dynamic flag), applied with SET_ENTITY_DYNAMIC when its GTA object is created. */
+    readonly dynamic: boolean;
+    /** The same as valid: true until destroy(), whether its GTA entity exists or not. */
+    exists(): boolean;
+    /** Asks GTA whether its handle exists (DOES_ENTITY_EXIST): false at once when it has no GTA entity here, null when the game did not answer within 150 ms. */
+    existsAsync(): Promise<boolean | null>;
+    /** Sets frozen (the same as assigning it) and, when it has a GTA entity, freezes (true) or releases it on this client with FREEZE_ENTITY_POSITION; resolves true once GTA ran it, false without a GTA entity yet (frozen applies at its creation) or when GTA refused. */
+    freezePosition(frozen: boolean): Promise<boolean>;
+    /** Its own frozen setting, false at creation as GTA makes it (one that is not dynamic stays put); assigning applies it in this client's GTA (FREEZE_ENTITY_POSITION), at once or when it is created. freezePosition does not change it. */
+    frozen: boolean;
+    /** The tint setComponentTintIndex gave the component; 0 for none. */
+    getComponentTintIndex(componentType: number | string): number;
+    /** The value setMeta stored under the key on it, a copy; undefined for none. Its own data on this client, kept until destroy(). */
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomEntityMeta, K, any>;
+    /** The keys of its own data (setMeta). */
+    getMetaDataKeys(): string[];
+    /** The same as getMetaDataKeys. */
+    getMetaKeys(): string[];
+    /** Its speed in m/s asked of GTA (GET_ENTITY_SPEED); null when it has no GTA entity yet or the game did not answer within 150 ms. */
+    getSpeedAsync(): Promise<number | null>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getStreamSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomEntityStreamSyncedMeta, K, any>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomEntityStreamSyncedMeta, K, any>;
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaDataKeys(): string[];
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getStreamSyncedMetaKeys(): string[];
+    /** undefined: the server syncs no data to an entity this client made. */
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomEntitySyncedMeta, K, any>;
+    /** undefined: the server syncs no data to an entity this client made. */
+    getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomEntitySyncedMeta, K, any>;
+    /** An empty array: the server syncs no data to an entity this client made. */
+    getSyncedMetaKeys(): string[];
+    getSyncInfo(...args: any[]): any;
+    /** Always undefined: a local entity is this client's own and has no synced data. */
+    getVariable(key: string): undefined;
+    /** Puts a component (hash or name) on the weapon (GIVE_WEAPON_COMPONENT_TO_WEAPON_OBJECT), at once or when the object is made. */
+    giveComponent(componentType: number | string): void;
+    /** Whether gravity acts on it, true by default; assigning applies it in this client's GTA (SET_ENTITY_HAS_GRAVITY), at once or when it is created. */
+    hasGravity: boolean;
+    /** Whether its own data (setMeta) holds the key. */
+    hasMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasStreamSyncedMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasStreamSyncedMetaData(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasSyncedMeta(key: string): boolean;
+    /** false: the server syncs no data to an entity this client made. */
+    hasSyncedMetaData(key: string): boolean;
+    /** Always false: a local entity is this client's own and has no synced data. */
+    hasVariable(key: string): boolean;
+    /** Its negative id (-1, -2 ...), unique among this client's local entities; its class's getByID finds it. */
+    readonly id: number;
+    /** The same as collision. */
+    readonly isCollisionEnabled: boolean;
+    /** Asks GTA whether it is dead (IS_ENTITY_DEAD); null when it has no GTA entity yet or the game did not answer within 150 ms. */
+    isDeadAsync(): Promise<boolean | null>;
+    /** Always false: this client made it. */
+    readonly isRemote: boolean;
+    /** Whether it has a GTA entity on this client now (scriptID is not 0). */
+    readonly isSpawned: boolean;
+    /** Whether it has a GTA entity on this client now (scriptID is not 0). */
+    readonly isStreamedIn: boolean;
+    /** True: it is a WeaponObject. */
+    readonly isWeaponObject: boolean;
+    /** True on an object GTA placed itself, as Utils.getClosestWorldObject gives it; false on one a script made. */
+    readonly isWorldObject: boolean;
+    /** Its LOD distance, 100 by default; assigning truncates and clamps to 0–65535 (a non-number counts as 0) and applies it in this client's GTA (SET_ENTITY_LOD_DIST), at once or when it is created. */
+    lodDistance: number;
+    /** A new plain object of its own data (setMeta) on each read. */
+    readonly metaData: Record<string, any>;
+    /** The model given to the constructor (0 when none was); GTA makes the weapon's own model. Assigning one deletes its GTA object (gameEntityDestroy) and makes it again. */
+    get model(): number;
+    set model(value: string | number);
+    /** null: a local entity has no network owner. */
+    readonly netOwner: null;
+    /** Places its GTA object on the ground on this client (PLACE_OBJECT_ON_GROUND_PROPERLY), at once or once it is created; the pos property does not change. */
+    placeOnGroundProperly(): void;
+    /** Its position, a copy on each read: where its GTA entity is now (GET_ENTITY_COORDS, so physics and placeOnGroundProperly show), the last known while it has none. Assigning sets the given components (the others stay), moves its GTA entity on this client and checks streaming again, which may create or delete it. */
+    get pos(): Vector3Like;
+    set pos(value: Partial<Vector3Like>);
+    /** The same as frozen; assigning sets frozen. */
+    positionFrozen: boolean;
+    /** The same as id. */
+    readonly remoteId: number;
+    /** The same as id. */
+    readonly remoteID: number;
+    /** Takes a component off the weapon (REMOVE_WEAPON_COMPONENT_FROM_WEAPON_OBJECT); one given before the object is made is not put on. */
+    removeComponent(componentType: number | string): void;
+    /** Sets alpha to 255. */
+    resetAlpha(): void;
+    /** Its rotation in radians (z is the heading), a copy on each read: as its GTA entity is turned now (GET_ENTITY_ROTATION), the last known while it has none. Assigning sets the given components and turns its GTA entity on this client. */
+    get rot(): Vector3Like;
+    set rot(value: Partial<Vector3Like>);
+    /** Its GTA handle on this client; 0 until it is created, while it is out of streaming range or in another dimension, and after destroy(). */
     readonly scriptID: number;
-    /** True until destroy() or the stop of its resource. */
+    /** Sets alpha (0–255, a whole number; the same as assigning it) and, when it has a GTA entity, applies it with SET_ENTITY_ALPHA (skin as given); resolves true once GTA ran it, false without a GTA entity yet (alpha applies at its creation) or when GTA refused. */
+    setAlpha(alpha: number, skin?: boolean): Promise<boolean>;
+    /** Sets collision (the same as assigning it) and, when it has a GTA entity, turns its collision on or off on this client with SET_ENTITY_COLLISION (keepPhysics true by default); resolves true once GTA ran it, false without a GTA entity yet (collision applies at its creation) or when GTA refused. */
+    setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
+    /** Sets the tint of a component (hash or name) of the weapon (SET_WEAPON_OBJECT_COMPONENT_TINT_INDEX), at once or when the object is made. */
+    setComponentTintIndex(componentType: number | string, tintIndex: number): void;
+    /** Stores a copy of the value under the key on it and fires metaChange; an object given alone sets each of its entries. Its own data on this client, kept until destroy(). */
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomEntityMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomEntityMeta, any>): void;
+    /** Sets pos (the same as assigning it, so streaming and a re-creation use the new place) and, when it has a GTA entity, moves it on this client with SET_ENTITY_COORDS; resolves true once GTA ran it, false without a GTA entity yet or when GTA refused. */
+    setPos(x: number, y: number, z: number): Promise<boolean>;
+    /** Sets rot (the same as assigning it, so a re-creation keeps it) and, when it has a GTA entity, turns it on this client with SET_ENTITY_ROTATION (radians; GTA gets degrees); resolves true once GTA ran it, false without a GTA entity yet or when GTA refused. */
+    setRot(x: number, y: number, z: number): Promise<boolean>;
+    /** Sets visible (the same as assigning it) and, when it has a GTA entity, shows or hides it with SET_ENTITY_VISIBLE; resolves true once GTA ran it, false without a GTA entity yet (visible applies at its creation) or when GTA refused. */
+    setVisible(visible: boolean): Promise<boolean>;
+    /** Whether it has a GTA entity on this client now (scriptID is not 0). */
+    readonly streamed: boolean;
+    /** The distance in metres within which it exists in GTA while useStreaming is true; given to the constructor, 300 by default, at least 1. */
+    readonly streamingDistance: number;
+    /** An empty object: the server syncs no data to an entity this client made. */
+    readonly streamSyncedMetaData: Record<string, any>;
+    /** Its texture variation (tint index), 0 by default; assigning truncates (a negative or non-number counts as 0) and applies it in this client's GTA (SET_OBJECT_TINT_INDEX), at once or when it is created. */
+    textureVariation: number;
+    /** The weapon tint, 0 at creation; assigning truncates it (below 0 counts as 0) and applies it in this client's GTA (SET_WEAPON_OBJECT_TINT_INDEX), at once or when the object is made. */
+    tintIndex: number;
+    /** Sets collision to toggle. toggleCollision(toggle, keepPhysics) also sets SET_ENTITY_COLLISION's keepPhysics; until a script gives it, keepPhysics follows collision. */
+    toggleCollision(toggle: boolean, keepPhysics?: boolean): void;
+    /** Always 19 (BaseObjectType.LocalObject), as every LocalObject. */
+    readonly type: number;
+    /** Given to the constructor: true makes it exist in GTA only within streamingDistance of the local player (checked whenever the local player's state changes); false, while the local player is in its dimension. */
+    readonly useStreaming: boolean;
+    /** True until destroy(). */
     readonly valid: boolean;
-    /** Resolves once GTA has made the weapon object; rejects when making it failed (the weapon's model did not load in 10 s, or CREATE_WEAPON_OBJECT gave no handle) or it was destroyed first. */
-    waitForSpawn(): Promise<void>;
+    /** Its own visibility, true at creation; assigning shows or hides its GTA entity on this client, at once or when it is created (hiding also sets its alpha to 0, showing to 255). setVisible does not change it. */
+    visible: boolean;
+    /** Resolves once GTA has made the weapon object (at once when it has). Rejects when it is destroyed, when making it failed (the weapon's model did not load in 10 s, or CREATE_WEAPON_OBJECT gave no handle) and after timeout ms (2000 by default). */
+    waitForSpawn(timeout?: number): Promise<void>;
 }
 
 export class WebSocketClient {
@@ -7069,7 +8032,7 @@ export class WebSocketClient {
     once<E extends string>(eventName: E, callback: E extends keyof WebSocketEventHandlers ? WebSocketEventHandlers[E] : (...args: any[]) => void): VarionEventHandle;
     /** Stored only, true by default: the client's socket transports do not choose compression, and false only causes a warning at start(). */
     perMessageDeflate: boolean;
-    /** Stored only, 0 by default: the client sends no ping frames of its own, and a value above 0 only causes a warning at start(). */
+    /** Seconds between the heartbeats of an idle connection, read at start(); 0 by default, which leaves the transport's own (30 s in the game). In the game the client's transport sends them, at least every 15 s (a shorter interval is sent as 15 s, with a warning); a browser's WebSocket cannot, and a value above 0 there only causes a warning at start(). */
     pingInterval: number;
     /** 0 connecting, 1 open, 2 closing, 3 closed (WebSocketReadyState); 3 before start() and from stop() on. */
     readonly readyState: number;
@@ -7099,14 +8062,14 @@ export const WebSocketReadyState: {
 };
 
 export class WebView {
-    /** Creates a WebView for an absolute http(s) URL on the server's HTTP or asset host (throws otherwise). It starts hidden, its page loading anyway, at 0.15 × 0.1 of the screen at (0, 0) until visible = true, which shows and focuses it; pos and size given here apply when it is shown. With isOverlay false it stays on the screen until attachTo places it over an entity. A number as the second argument throws: a view on a game texture is made with WebView.create({ drawable }). */
+    /** Creates a WebView for an absolute http(s) URL on the server's HTTP or asset host (throws otherwise); http://resource/<path> is that file of the calling resource. It is shown at once, over the whole screen unless pos and size (screen pixels) are given; it does not take focus (focus() gives it). isOverlay (false by default) is only what the view was made with: it stays on the screen until attachTo places it over an entity. A number as the second argument throws: a view on a game texture is made with WebView.create({ drawable }). */
     constructor(url: string, isOverlay?: boolean, pos?: Vector2Like, size?: Vector2Like);
     constructor(url: string, pos: Vector2Like, size?: Vector2Like);
     /** Every WebView not yet destroyed, of every resource. */
     static readonly all: WebView[];
     /** The number of WebView.all. */
     static readonly count: number;
-    /** Makes a WebView from options, like new WebView(url, overlay, pos, size), with headers sent along with its requests; it starts hidden unless visible is true, which also focuses it. Throws for options that are not an object or a url that is not an absolute http(s) URL on the server's HTTP or asset host. */
+    /** Makes a WebView from options, like new WebView(url, overlay, pos, size), with headers sent along with its requests; it is shown unless visible is false, without taking focus. Throws for options that are not an object or a url that is not an absolute http(s) URL on the server's HTTP or asset host. */
     static create(options: WebViewOptions): WebView;
     /** The view with this id; null when there is none or it was destroyed. */
     static getByID(id: number): WebView | null;
@@ -7116,15 +8079,15 @@ export class WebView {
     static readonly isGpuAccelerationActive: boolean;
     /** Plays the page's sound through this AudioOutput; once it has had one, the page is heard only through its outputs. A destroyed view or output, or one already added, is ignored. */
     addOutput(output: AudioOutput): void;
-    /** Shows the view as a screen box centred on an entity (script handle or object with scriptID) plus offset in metres, following it while that point is on screen; isOverlay turns false. The page is not drawn into the world; a target without a handle only logs a warning. */
+    /** Shows the view as a screen box centred on an entity (script handle or object with scriptID) plus offset in metres, following it while that point is on screen. The page is not drawn into the world; a target without a handle only logs a warning. */
     attachTo(target: number | { scriptID: number }, offset?: Vector3Like): void;
     /** Removes the key from this view's own metadata (setMeta). */
     deleteMeta(key: string): void;
     /** Closes the page and removes the view: its handlers and outputs go and webViewDestroyed fires with its id. The game controls follow: off while another visible view has focus or a script turned them off. */
     destroy(): void;
-    /** Undoes attachTo: the view is an overlay again (isOverlay true) and goes back to its pos and size. */
+    /** Undoes attachTo: the view goes back on the screen at its pos and size. */
     detach(): void;
-    /** Sends an event to the page; it arrives there through window.varion.trigger(name, ...). */
+    /** Sends an event to the page, where alt.on(name, handler) and alt.once handlers get it; a page that set window.varion.trigger itself gets it there too. The event does not come back to this WebView. */
     emit(eventName: string, ...args: any[]): void;
     /** The same as emit; there is no separate raw encoding. */
     emitRaw(eventName: string, ...args: any[]): void;
@@ -7138,7 +8101,7 @@ export class WebView {
     getEventListeners(eventName: string): Array<(...args: any[]) => void>;
     getEventListeners(): Record<string, Array<(...args: any[]) => void>>;
     /** The value setMeta stored under the key; undefined when there is none. */
-    getMeta(key: string): any;
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomWebViewMeta, K, any>;
     /** A copy of the outputs addOutput added; a destroyed output leaves the list. */
     getOutputs(): AudioOutput[];
     /** Whether setMeta stored a value under the key. */
@@ -7153,26 +8116,26 @@ export class WebView {
     readonly isLoaded: boolean;
     /** True from creation, reload() or a new url until the page loads or fails to load, whether the view is shown or hidden (a hidden view loads its page too); false once destroyed. */
     readonly isLoading: boolean;
-    /** True for a view on the screen, false after attachTo or for new WebView(url, false). Where the view is drawn follows attachTo and detach only: a view without an entity is drawn on the screen whatever isOverlay says, and isStreamedIn and worldOnScreen treat it so. */
-    isOverlay: boolean;
+    /** Whether the view was made as an overlay: new WebView(url, true) or WebView.create({ overlay: true }); false otherwise. It cannot be assigned and attachTo or detach leave it as it is. Every view is drawn on the same layer here (there is no separate GUI stage); where it is drawn follows attachTo and detach only. */
+    readonly isOverlay: boolean;
     /** As isLoaded: true once the page fired its load event, false again after reload(), a url change or a load error. */
     readonly isReady: boolean;
     /** False when the view is destroyed or hidden; for an attached view, whether its entity is streamed in; any other visible view is on the screen, so true. */
     readonly isStreamedIn: boolean;
-    /** The same as visible. */
-    readonly isVisible: boolean;
+    /** The same as visible, and assigning it does the same: shows or hides the view without giving it focus. */
+    isVisible: boolean;
     /** Removes the handler from that page event: every registration of it this resource made with on or once. */
     off(eventName: string, handler: (...args: any[]) => void): void;
-    /** Events the page sends with window.varion.emit(name, ...). */
+    /** Events the page sends with alt.emit(name, ...), or window.varion.emit. Arguments come as JSON values: numbers with every digit, NaN and Infinity as null. */
     on(eventName: string, handler: (...args: any[]) => void): VarionEventHandle;
-    /** Like on, for the next event of that name the page sends with window.varion.emit; then the handler is removed. */
+    /** Like on, for the next event of that name the page sends with alt.emit (or window.varion.emit); then the handler is removed. */
     once(eventName: string, handler: (...args: any[]) => void): VarionEventHandle;
     /** 0..1, 1 by default; an assigned value is clamped, a non-number gives 1. */
     opacity: number;
     /** Opens the page's developer tools in a separate window. */
     openDevTools(): void;
-    /** The top-left corner in fractions of the screen (0..1), (0, 0) by default; reading gives a copy, and assigning (a non-number as 0) moves the view. An attached view is placed by its entity instead. */
-    pos: Vector2Like;
+    /** The top-left corner in screen pixels: (0, 0) by default, whole numbers (a fraction is cut, a non-number is 0). Reading gives a new Vector2; assigning moves the view. An attached view is placed by its entity instead. */
+    pos: Vector2;
     /** Loads the page again, bypassing the cache when ignoreCache is true; isLoaded and isReady are false until it loads. */
     reload(ignoreCache?: boolean): void;
     /** Stops playing the page's sound through this output; a page left without outputs is silent. */
@@ -7181,25 +8144,26 @@ export class WebView {
     sendKey(key: number | string, down?: boolean): void;
     /** Sets a cookie in the web engine for url (the view's URL by default): text "name=value" with its attributes (Domain, Path, Secure, HttpOnly, SameSite, Priority, Expires, and Max-Age, which wins) or an object with name, value, domain, path ("/" by default), secure, httpOnly, expires in seconds since 1970, sameSite (varion.CookieSameSite, or None, Lax, Strict) and priority (varion.CookiePriority, or Low, Medium, High). An unknown sameSite leaves it unspecified, an unknown priority is medium. Anything else only logs a warning. */
     setCookie(cookie: string | { name?: string; value?: string; raw?: string; url?: string; domain?: string; path?: string; secure?: boolean; httpOnly?: boolean; expires?: number; sameSite?: string; priority?: string }): void;
-    /** Adds a header to the page's requests; the page loads again with it. */
+    /** Adds a header to the page's later requests: the page is not loaded again and keeps its state (a page that failed to load is tried again with it). */
     setExtraHeader(name: string, value: string): void;
-    /** Stores a value under the key in this view's own metadata; the page does not see it, and destroy() clears it. */
-    setMeta(key: string, value: any): void;
+    /** Stores a value under the key in this view's own metadata; the page does not see it, and destroy() clears it. setMeta({ key: value, ... }) stores each key. */
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomWebViewMeta, K, any>): void;
+    setMeta(values: CustomMetaValues<ICustomWebViewMeta, any>): void;
     /** The page's zoom as a factor (1 = 100%); 0 or a non-number is 1, and a negative value is ignored. */
     setZoomLevel(level: number): void;
-    /** Width and height in fractions of the screen, 0.15 × 0.1 by default; reading gives a copy. Assigning a component that is not above 0 makes it 1 (the whole screen). */
-    size: Vector2Like;
+    /** Width and height in screen pixels: the whole screen by default. Reading gives a new Vector2 (a component left at the whole screen reads as the screen's size now, and follows it); assigning takes whole pixels, and a component that is not above 0 is the whole screen. A view keeps its pixels when the screen changes size. */
+    size: Vector2;
     /** Always 5, BaseObjectType.WebView. */
     readonly type: number;
     /** Takes keyboard focus from this view (focused becomes false); when unfocusedUrl is set and differs from url, the page loads it. */
     unfocus(): void;
     /** "" by default. When set, giving up focus through unfocus(), focused = false or hiding loads this URL into the view (focus taken by another view does not); it is checked only then, and a URL the view may not load throws there. */
     unfocusedUrl: string;
-    /** The page's URL. Assigning another checks it as the constructor does (an absolute http(s) URL on the server's own hosts, without traversal or credentials; otherwise it throws) and loads it, shown or not. */
+    /** The page's URL. Assigning another checks it as the constructor does (an absolute http(s) URL on the server's own hosts, without traversal or credentials; otherwise it throws) and loads it, shown or not. http://resource/<path> is that file of the view's resource: it reads back as varion.assetUrl(resource, path). */
     url: string;
     /** True until destroy(); a resource's views are destroyed when the resource stops. */
     readonly valid: boolean;
-    /** Whether the view is shown. A new view starts hidden, its page loading anyway, at 0.15 × 0.1 of the screen at (0, 0) unless pos or size was set; showing it applies pos and size and focuses it, so it takes keyboard and mouse from GTA until it is unfocused or hidden. */
+    /** Whether the view is shown; a new view is shown unless WebView.create got visible: false (a hidden view loads its page too). Showing a view does not focus it: the view that had focus keeps it. Hiding a focused view takes its focus away. */
     visible: boolean;
     /** Whether the view is on screen: for an attached view, whether its entity's point is on screen by the client's last snapshot (false until the snapshot says so); for any other view, visible. */
     readonly worldOnScreen: boolean;
@@ -7214,7 +8178,7 @@ export class Worker {
     static addSharedArrayBuffer(buffer: SharedArrayBuffer): number;
     /** The buffer added under the id, null for none; in the game always null, since nothing can be added. */
     static getSharedArrayBuffer(id: number): SharedArrayBuffer | null;
-    /** 8: how many live Workers one resource may have; the next new Worker throws. The client itself allows at most 8 per resource and 16 in all, whatever this says. */
+    /** 8: how many live Workers one resource may have; the next new Worker throws. The client itself allows at most 8 per resource and 16 in all, whatever this says. Read-only: assigning changes nothing. */
     static readonly maxWorkers: number;
     /** Forgets the buffer and tells every worker; in the game each worker only gets that notice as a plain message. */
     static removeSharedArrayBuffer(id: number): void;
@@ -7232,9 +8196,9 @@ export class Worker {
     on(eventName: string, handler: (...args: any[]) => void): void;
     /** Like on, for the next such event only. */
     once(eventName: string, handler: (...args: any[]) => void): void;
-    /** Holds the worker's events and this side's messages until resume(); the worker itself keeps running. */
+    /** Stops the worker's event loop until resume(): in the game its timers that come due and the messages it gets wait, and this side holds its events and messages. Code the worker is running at that moment is not interrupted. The WebView2 page's workers only have their messages held. */
     pause(): void;
-    /** Sends the messages queued while paused and delivers the held events, in order. */
+    /** Starts the worker's event loop again: the held messages arrive in order, then its timers that came due run in due order, an interval once; then this side sends the messages queued while paused and delivers the held events. */
     resume(): void;
     /** Starts the worker once; later calls and a destroyed worker do nothing. In the game it runs the resource's file at filePath in its own engine without natives, fetch or WebSocket, and a file that cannot start is reported to error. */
     start(): void;
@@ -7258,16 +8222,25 @@ export class WorldObject {
     /** True for what the server made: other players, server vehicles, peds, objects and virtual entities, native vehicles and NPCs; false for the local player and for what this client made. Blips, markers, checkpoints and colshapes this client made read false. */
     readonly isRemote: boolean;
     /** Its position: a player's or server entity's by the newest snapshot (read from GTA while it is streamed in, else the last synced one); the local player's from its own state (the world origin before the first one, with a warning logged once); a native vehicle's or NPC's read from GTA on each read ({0,0,0} while it has none); a local entity's own, which assigning moves. A blip, marker, checkpoint or colshape this client made: where it is. */
-    readonly pos: Vector3Like;
+    readonly pos: Vector3;
     /** The same as id. A blip, marker, checkpoint or colshape this client made reads 0. */
     readonly remoteId: number;
     /** The same as id. A blip, marker, checkpoint or colshape this client made reads 0. */
     readonly remoteID: number;
-    /** Its BaseObjectType: Player 0, Vehicle 1, Ped 2, Object 3, VirtualEntity 9; a local entity has its kind's (1, 2 or 3). Blip 4, ColShape 7, Checkpoint 8, Marker 22 for those this client made. */
+    /** Its BaseObjectType: Player 0, Vehicle 1, Ped 2, Object 3, VirtualEntity 20; LocalObject 19, LocalPed 24, LocalVehicle 25; Blip 4, Colshape 7, Checkpoint 8, Marker 22. */
     readonly type: number;
     /** Whether this client still has it. A player or server entity: the newest snapshot lists it (the same entity, not another under its id) and did not find its GTA entity gone, so a kept object turns false once it leaves; the local player: it has an id; a native vehicle or NPC: the server still binds it to this client; a local entity: until destroy(). */
     readonly valid: boolean;
 }
+
+export const console: {
+    /** The F8 console the server gives this player: "off", "player" or "developer". */
+    readonly access: "off" | "player" | "developer";
+    /** Adds a command to the F8 console: it is offered while the player types and runs here, with what he typed after the name. A string the handler returns (or resolves with) is printed under the command. A command for "developer" runs only while console.access is "developer". The command goes with its resource. */
+    addCommand(options: string | ConsoleCommandOptions, handler: (...args: string[]) => string | void | Promise<string | void>): void;
+    /** Takes a command of this resource out of the console; false when there is none by that name. */
+    removeCommand(name: string): boolean;
+};
 
 export const game: {
     /** The same function as natives.invoke: calls a GTA native now by name or hash and returns its result, throwing when it is unknown, blocked or fails. */
@@ -7380,6 +8353,9 @@ export type VarionEventName =
     | "stream:mounted"
     | "streamSyncedMetaChange"
     | "syncedMetaChange"
+    | "taskChange"
+    | "varion:console:access"
+    | "varion:console:measure"
     | "virtualEntityPositionChange"
     | "virtualEntityStreamIn"
     | "virtualEntityStreamOut"
@@ -7407,9 +8383,9 @@ export interface VarionEvents {
     anyResourceStart(resourceName: string): void;
     /** A client resource stopped. */
     anyResourceStop(resourceName: string): void;
-    /** An object appeared on this client: an entity got its GTA entity, or a blip, marker, colshape or another object was made. */
+    /** An object appeared on this client: an entity got its GTA entity, a script made a blip, marker, colshape or another object, or the server's blip, marker, checkpoint, colshape or text label reached this client (once; a later change is the same object). */
     baseObjectCreate(baseObject: BaseObject): void;
-    /** An object went from this client; it is still readable in the handler. */
+    /** An object went from this client, the server's blips, markers, checkpoints, colshapes and text labels too; it is still valid in the handler. */
     baseObjectRemove(baseObject: BaseObject): void;
     /** The local player moved to another seat. Seats: 1 = driver, 2 = front passenger, 3-4 = rear. */
     changedVehicleSeat(vehicle: Vehicle, oldSeat: number, newSeat: number): void;
@@ -7421,7 +8397,7 @@ export interface VarionEvents {
     "connection:state"(phase: "idle" | "connecting" | "authenticated" | "resources" | "waiting" | "spawning" | "ready" | "error", message?: string): void;
     /** The twin of connection:complete; `hasMapChanged` is always false. */
     connectionComplete(hasMapChanged: boolean): void;
-    /** A line typed in the F8 console: the command in lower case and the words after it. Built-in commands come here too. */
+    /** A line typed in the F8 console: the command as typed and the words after it. Built-in commands (matched in any case) come here too. */
     consoleCommand(name: string, ...args: string[]): void;
     /** The connection to the server ended. The resources keep running. */
     disconnect(): void;
@@ -7437,12 +8413,12 @@ export interface VarionEvents {
     "discord:userChange"(user: DiscordUser, previous: DiscordUser): void;
     /** The local player got into a vehicle. Seats: 1 = driver, 2 = front passenger, 3-4 = rear. */
     enteredVehicle(vehicle: Vehicle, seat: number): void;
-    /** The local player entered a colshape. */
-    entityEnterColshape(colshape: Colshape, entity: Player): void;
+    /** An entity entered a colshape or checkpoint. A colshape of this client's scripts is tested with each local player snapshot against the local player, the players streamed in and, unless playersOnly, the streamed vehicles, peds and objects and the scripts' own entities; its checkpoints against players. A server colshape or checkpoint reports the local player. */
+    entityEnterColshape(colshape: Colshape | Checkpoint, entity: Entity): void;
     /** The local player hit an entity. */
     entityHitEntity(source: Player, target: Entity, weaponHash: number): void;
-    /** The local player left a colshape. */
-    entityLeaveColshape(colshape: Colshape, entity: Player): void;
+    /** An entity left a colshape or checkpoint (see entityEnterColshape). One that streams out while inside leaves too; destroying a colshape or checkpoint of this client's scripts makes whoever is inside leave, while it is still valid. */
+    entityLeaveColshape(colshape: Colshape | Checkpoint, entity: Entity): void;
     /** The server streamed an entity to this client. Raw data, not the entity: gameEntityCreate gives the entity once GTA has it. */
     entityStreamIn(info: { entityId: number; generation: number; entityType: number; model: number; scriptId: number }): void;
     /** The server took an entity away from this client. Raw data, not the entity: gameEntityDestroy gives the entity. */
@@ -7517,26 +8493,28 @@ export interface VarionEvents {
     playerWeaponShoot(weaponHash: number, totalAmmo: number, ammoInClip: number): void;
     /** The twin of gameEntityDestroy, right after it. */
     removeEntity(entity: Entity): void;
-    /** This resource failed to load or run. On the client `file` is empty and `line` 0; the client log has the details. */
+    /** This resource failed to load or run, or one of its event handlers or timers threw. On the client `file` is empty and `line` 0; the client log has the details. A throw in a resourceError handler is only logged. */
     resourceError(error: Error, file: string, line: number, stack: string): void;
-    /** Delivered to the resource being started, with its name. */
-    resourceStart(resourceName: string): void;
+    /** Delivered to the resource being started. errored, is always false here: a resource whose top-level code threw does not start. */
+    resourceStart(errored: boolean): void;
     /** Delivered to the resource being stopped, with its name. */
     resourceStop(resourceName: string): void;
     /** The twin of playerSpawn. */
     "spawn:success"(player: Player): void;
     /** The local player spawned; right after its playerSpawn. */
     spawned(): void;
-    /** The local player started getting into a vehicle; the seat it heads for (0 if GTA does not say). */
-    startEnteringVehicle(vehicle: Vehicle, seat: number, player: Player): void;
-    /** The local player started getting out of a vehicle. */
-    startLeavingVehicle(vehicle: Vehicle, seat: number, player: Player): void;
+    /** The local player started getting into a vehicle; the seat it heads for (0 if GTA does not say). Return false (synchronously) to stop the entry: GTA’s task has begun by then, and CLEAR_PED_TASKS on the local ped stops it. */
+    startEnteringVehicle(vehicle: Vehicle, seat: number, player: Player): boolean | void;
+    /** The local player started getting out of a vehicle. Return false (synchronously) to keep it in: CLEAR_PED_TASKS stops GTA's exit task and SET_PED_INTO_VEHICLE puts the ped back in its seat. */
+    startLeavingVehicle(vehicle: Vehicle, seat: number, player: Player): boolean | void;
     /** The client mounted the server's packs (clothes, maps): counts of what loaded and failed, `mountFailed` among them. */
     "stream:mounted"(report: Record<string, number | boolean | string>): void;
     /** The server changed stream-synced data of an object this client has. `value` is undefined after a delete. */
     streamSyncedMetaChange(entity: BaseObject, key: string, value: any, oldValue: any): void;
     /** The server changed synced data of an object this client has. `value` is undefined after a delete. */
     syncedMetaChange(entity: BaseObject, key: string, value: any, oldValue: any): void;
+    /** The task the local ped runs changed: the types (eTaskTypeIndex) of the innermost active task of its primary task tree, the old one and the new one, checked every script tick. A handler’s return value changes nothing: false does not cancel the task here. Not raised on a build where GTA’s task offsets are not found (logged once). */
+    taskChange(oldTask: number, newTask: number): void;
     /** A streamed virtual entity moved; worldObjectPositionChange gives its old position. */
     virtualEntityPositionChange(entity: VirtualEntity): void;
     /** A virtual entity streamed in. */
@@ -7557,8 +8535,8 @@ export interface VarionEvents {
     "voice:pushToTalk"(pressed: boolean): void;
     /** The voice connection changed state: a VoiceConnectionState. */
     voiceConnection(state: number): void;
-    /** A hit the local player took (`target` is the local player) or made (`sourceEntity` is). It cannot be cancelled here: the server decides. */
-    weaponDamage(target: Entity, weaponHash: number, damage: number, offset: Vector3, bodyPart: number, sourceEntity: Player | null): void;
+    /** A hit the local player took (`target` is the local player) or made (`sourceEntity` is). For a hit the local player made, the claim waits for the handlers (at most 300 ms) before it goes to the server: false cancels it, a number is sent as the damage instead; the server still decides with its own weaponDamage. A hit taken is told only. */
+    weaponDamage(target: Entity, weaponHash: number, damage: number, offset: Vector3, bodyPart: number, sourceEntity: Player | null): number | boolean | void;
     /** A WebView was destroyed; its id. */
     webViewDestroyed(id: number): void;
     /** The game window gained or lost focus. */
@@ -7574,9 +8552,9 @@ export interface VarionEvents {
 }
 
 declare const varion: {
-    /** GTA's own text lookup answers the label with this text (shop names of add-on vehicles and clothes, help and notification labels); case does not matter. One table for the whole game, emptied when the session ends. An empty label throws. */
-    addGxtText(label: string, text: string): void;
-    /** Applies a voice filter to how this client hears the player, given as an AudioFilter or its hash; only walkietalkie, phone and underwater change the sound. False for a player id outside 1..65534 or a hash of 0. removeVoiceFilter, removeVoicePlayer or the end of the session drop it. */
+    /** GTA's own text lookup answers the label with this text (shop names of add-on vehicles and clothes, help and notification labels); case does not matter. The label is its name or its hash (a number). One table for the whole game; a resource's labels go when it stops, and all when the session ends. An empty label throws. */
+    addGxtText(label: string | number, text: string): void;
+    /** Applies a voice filter to how this client hears the player, given as an AudioFilter or its hash: the effects a client script gave a filter of that name (AudioFilter add*Effect) shape the voice; a filter without effects changes it only when it is walkietalkie, phone or underwater. False for a player id outside 1..65534 or a hash of 0. removeVoiceFilter, removeVoicePlayer or the end of the session drop it. */
     addVoiceFilter(player: Player | PlayerLocal | number, filter: AudioFilter | number): boolean;
     /** Replaces this client's table of HandlingData values by model hash (a decimal string key) and saves it for this server, as setField does. The handling fields in it reach GTA once a vehicle of the model is in the game and stay there (checked once a second); an argument that is not an object is ignored. */
     applyHandlingOverrides(overrides: Record<string, Record<string, number>>): void;
@@ -7595,6 +8573,8 @@ declare const varion: {
     AudioOutputWorld: typeof AudioOutputWorld;
     BaseObject: typeof BaseObject;
     BaseObjectType: typeof BaseObjectType;
+    /** Begins a method call on the minimap’s Scaleform movie with GTA’s own call setup, as BEGIN_SCALEFORM_MOVIE_METHOD on a script’s movie: the parameters and END_SCALEFORM_MOVIE_METHOD follow through the ordinary natives. False when GTA did not set the call up, outside the game, and on a build where the minimap movie or the setup is not found. A name that is not a string throws a TypeError. */
+    beginScaleformMovieMethodMinimap(methodName: string): boolean;
     Blip: typeof Blip;
     BlipColor: typeof BlipColor;
     BlipSprite: typeof BlipSprite;
@@ -7606,19 +8586,19 @@ declare const varion: {
     callServer(rpcName: string, ...args: any[]): Promise<any>;
     Checkpoint: typeof Checkpoint;
     CheckpointType: typeof CheckpointType;
-    /** Stops the everyTick or nextTick callback with this id; an unknown id is ignored. */
+    /** Removes the timer of that number, whichever kind it is (setTimeout, setInterval, everyTick, nextTick, the id of a Timer: they share one numbering); an unknown number does nothing. */
     clearEveryTick(id: number): void;
-    /** Stops the setInterval with this id; an unknown id is ignored. */
+    /** Removes the timer of that number, whichever kind it is (setTimeout, setInterval, everyTick, nextTick, the id of a Timer: they share one numbering); an unknown number does nothing. */
     clearInterval(id: number): void;
     /** Unmutes every player this client muted for itself (Voice.mutePlayer, removeVoicePlayer); mutes in the server's voice channels stay. */
     clearLocallyMuted(): void;
-    /** Cancels a nextTick callback that has not run yet; the same function as clearEveryTick. */
+    /** Removes the timer of that number, whichever kind it is (setTimeout, setInterval, everyTick, nextTick, the id of a Timer: they share one numbering); an unknown number does nothing. */
     clearNextTick(id: number): void;
     /** Removes a ped's prop of that slot (CLEAR_PED_PROP), the ped given as an entity or its GTA handle; without a handle nothing happens. In the game a refused native call throws. */
     clearPedProp(ped: { scriptID: number } | number, component: number): void;
-    /** Cancels the pending setTimeout with this id; an unknown id is ignored. */
+    /** Removes the timer of that number, whichever kind it is (setTimeout, setInterval, everyTick, nextTick, the id of a Timer: they share one numbering); an unknown number does nothing. */
     clearTimeout(id: number): void;
-    /** Cancels the setTimeout, setInterval, everyTick or nextTick with this id (they share one numbering); an unknown id is ignored. */
+    /** Removes the timer of that number, whichever kind it is (setTimeout, setInterval, everyTick, nextTick, the id of a Timer: they share one numbering); an unknown number does nothing. */
     clearTimer(id: number): void;
     Colshape: typeof Colshape;
     ColShape: typeof ColShape;
@@ -7630,6 +8610,7 @@ declare const varion: {
     ColshapeSphere: typeof ColshapeSphere;
     ColShapeType: typeof ColShapeType;
     ConfigFlag: typeof ConfigFlag;
+    console: typeof console;
     CookiePriority: typeof CookiePriority;
     CookieSameSite: typeof CookieSameSite;
     /** Puts the text on the Windows clipboard once the player allows it (Permission.Clipboard, asked once). A refusal, or more than three writes at once and then one per 2 s, drops it silently; of several calls in one frame only the last is written. */
@@ -7647,18 +8628,18 @@ declare const varion: {
     Discord: typeof Discord;
     /** Whether the name is one of the values of varion.ConfigFlag ("DISABLE_IDLE_CAMERA" ...). */
     doesConfigFlagExist(flag: string): boolean;
-    /** A local event for this client's own handlers. Names of the runtime's own events (keydown, resourceStart, playerDeath, connection:* and others) and names starting with varion: are refused with a warning. */
-    emit(eventName: string, ...args: any[]): void;
+    /** A local event for this client's own handlers, which get copies (arrays and plain objects copied, a Vector3 or RGBA made anew, an entity or function the same object). Names of the runtime's own events (keydown, resourceStart, playerDeath, connection:* and others) and names starting with varion: are refused with a warning. */
+    emit<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomEmitEvent, K>): void;
     /** Fires a local event for every resource's handlers, as varion.emit does but without refusing the runtime's own event names, so it can fake keydown or playerSpawn; a handler that throws is logged. */
-    emitRaw(eventName: string, ...args: any[]): void;
-    /** The same function as callServer: calls the server's onRpc handler and resolves with its result. Rejects with its error, after 30 s without an answer (code VARION_RPC_TIMEOUT), when the session ends (VARION_SESSION_RESET) or the resource stops (VARION_RESOURCE_STOPPED), and with a TypeError for an argument that cannot be sent. */
-    emitRpc(rpcName: string, ...args: any[]): Promise<any>;
+    emitRaw<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomEmitEvent, K>): void;
+    /** The same function as callServer: calls the server's onRpc handler and resolves with its result; one made as the script loads, before the session is ready, goes once it is. Rejects with its error, after 30 s without an answer (code VARION_RPC_TIMEOUT), when the session ends (VARION_SESSION_RESET) or the resource stops (VARION_RESOURCE_STOPPED), and with a TypeError for an argument that cannot be sent. */
+    emitRpc<K extends string>(rpcName: K, ...args: CustomEventArgs<ICustomClientServerRpc, K>): Promise<CustomRpcResult<ICustomClientServerRpc, K>>;
     /** A server object among the arguments goes as a reference; a value that cannot be sent (a cycle, a BigInt, a Map or Set, binary data) throws here. */
-    emitServer(eventName: string, ...args: any[]): void;
+    emitServer<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomClientServerEvent, K>): void;
     /** The same path as emitServer (JSON with entity references); there is no separate raw codec, so a Map or Set, binary data or a BigInt beyond 2^53 throws here instead of arriving changed. */
-    emitServerRaw(eventName: string, ...args: any[]): void;
+    emitServerRaw<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomClientServerEvent, K>): void;
     /** Like emitServer, but sent unreliably: it may never arrive. A server object among the arguments goes as a reference; a value that cannot be sent throws a TypeError here. */
-    emitServerUnreliable(eventName: string, ...args: any[]): void;
+    emitServerUnreliable<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomClientServerEvent, K>): void;
     Entity: typeof Entity;
     /** The same function as logError: a line at error level in the F8 console and the client's script log, under the calling resource's name. */
     error(...args: any[]): void;
@@ -7671,8 +8652,9 @@ declare const varion: {
     File: typeof File;
     FileEncoding: typeof FileEncoding;
     FocusData: typeof FocusData;
+    Font: typeof Font;
     game: typeof game;
-    /** Whether GTA gets keyboard and mouse now: false while a script turned the controls off (toggleGameControls) or a visible WebView has focus. The client confirms the state with each input snapshot. */
+    /** Whether GTA gets keyboard and mouse now: false while any resource has turned the controls off (toggleGameControls) or a visible WebView has focus. The client confirms the state with each input snapshot. */
     gameControlsEnabled(): boolean;
     GameFont: typeof GameFont;
     Gamepad: typeof Gamepad;
@@ -7683,42 +8665,42 @@ declare const varion: {
     getCamForwardVector(): Vector3Like;
     /** The vertical field of view in degrees of the camera on screen from the last snapshot: the gameplay camera's (GET_GAMEPLAY_CAM_FOV), or GTA's final rendered camera's while a script camera renders; 50 before a snapshot, under another camera and before the world is up. */
     getCamFov(): number;
-    /** The position of the camera on screen from the last snapshot (up to 20 a second) with measured true: the gameplay camera's, or GTA's final rendered camera's while a script camera renders (RENDER_SCRIPT_CAMS). Under another camera (cinematic, cutscene) and before the world is up it reads {0, 0, 0} with measured false. */
-    getCamPos(): { x: number; y: number; z: number; measured: boolean };
+    /** The position of the camera on screen from the last snapshot (up to 20 a second), as a Vector3, whose measured (not listed among its keys) is true: the gameplay camera's, or GTA's final rendered camera's while a script camera renders (RENDER_SCRIPT_CAMS). Under another camera (cinematic, cutscene) and before the world is up it reads {0, 0, 0} with measured false. */
+    getCamPos(): Vector3;
     /** The rotation in degrees (order 2) of the camera on screen from the last snapshot: the gameplay camera's, or GTA's final rendered camera's while a script camera renders; {0, 0, 0} under another camera and before the world is up. order is ignored. */
     getCamRot(order?: number): Vector3Like;
-    /** The value setConfigFlag gave the flag, once the client confirms it (until then the previous one). A flag never set, and every flag after the session ends, reads as GTA's own behaviour: true for DISABLE_SP_ENTER_VEHICLE_CLIPSET, false for the others. */
+    /** The value the flag was given last: what setConfigFlag set reads back at once, and the client confirms it. A flag never set, and every flag after the session ends, reads as GTA's own behaviour: true for DISABLE_SP_ENTER_VEHICLE_CLIPSET, false for the others. */
     getConfigFlag(flag: string): boolean;
     /** The connection's current step: idle, connecting, authenticated, resources, waiting, spawning, ready or error, as connection:state names them. */
     getConnectionPhase(): string;
-    /** The mouse cursor in the game window's client area: pixels, or 0..1 of its size with normalized true. Updated once a frame while in the game; {0, 0} before. */
-    getCursorPos(normalized?: boolean): Vector2Like;
+    /** The mouse cursor in the game window's client area as a Vector2: pixels, or 0..1 of its size with normalized true. Updated once a frame while in the game; {0, 0} before. */
+    getCursorPos(normalized?: boolean): Vector2;
     /** The entities this client knows in that dimension: the local player once it has an id, other players, old-path vehicles, peds and objects, virtual entities, and the native vehicles and NPCs when it is the local player's dimension. */
     getEntitiesInDimension(dimension: number): Array<Player | PlayerLocal | Vehicle | NativeVehicle | Ped | NativePed | Object | VirtualEntity>;
-    /** The same as getLocalEventListeners: the handlers on and once added for that event, every resource's; all of them when no name is given. */
-    getEventListeners(eventName?: string): Array<(...args: any[]) => void>;
+    /** The same as getLocalEventListeners: the handlers on and once added for that event, the calling resource's handlers (outside a resource's code, every resource's); null or no name: the generic handlers of on(handler). */
+    getEventListeners(eventName?: string | null): Array<(...args: any[]) => void>;
     /** GTA's frame rate as a whole number, counted over about a second (at most 1000); 60 before the first count. */
     getFps(): number;
     /** The XInput controllers connected now (up to four), each holding the state of the last snapshot; [] without any. */
     getGamepads(): Gamepad[];
-    /** The text GTA shows for a label, a varion.addGxtText one included; a label GTA does not have reads as "NULL", as GTA shows it. An empty label reads as the empty string. */
-    getGxtText(label: string): string;
+    /** The text GTA shows for a label, a varion.addGxtText one included; a label GTA does not have reads as "NULL", as GTA shows it. An empty label reads as the empty string. A hash (a number) reads the text varion.addGxtText set for it on this client, "NULL" for none: GTA reads its own labels by name only. */
+    getGxtText(label: string | number): string;
     /** The picture of a registered ped headshot (the id REGISTER_PEDHEADSHOT returns) as a base64 PNG; the headshotBase64 event fires with it too. Rejects with a TypeError for an id that is not a whole number of 0 or more, when the capture fails, after 10 s or when the resource stops. */
     getHeadshotBase64(headshotId: number): Promise<string>;
     /** SHA-256 (64 lowercase hex digits) of the Rockstar account GTA signed in with: the same on every server and in every session of the account. "" until GTA has signed in to Rockstar's services, some seconds after it starts. The client reports it; a server cannot check it. */
     getLicenseHash(): string;
     /** The store of this copy of GTA as a LicenseType: Steam, Epic or Xbox when GTA was started with that store's launch parameter (useSteam, useEpic, useXboxPc, read in GTA), Rockstar for the Rockstar Games Launcher's own copy (none of them), None when the client cannot read them. */
     getLicenseType(): number;
-    /** The language the launcher gave the client, else the one Windows shows its interface in ("ru-RU"), up to 16 characters; "en" when neither is known. locale:change fires when it changes. */
+    /** The language the launcher gave the client, else the one Windows shows its interface in, as a short code: the language alone ("ru" for ru-RU), with its own tag for some (cz, by, ua, rs, in_hd ...), and pt_br, nb_no, nn_no, zh_cn, zh_tw with their region; "en" when neither is known. locale:change fires when it changes. */
     getLocale(): string;
-    /** The handlers on and once added for that local event, every resource's; all of them when no name is given. */
-    getLocalEventListeners(eventName?: string): Array<(...args: any[]) => void>;
+    /** The handlers on and once added for that local event, the calling resource's handlers (outside a resource's code, every resource's); null or no name: the generic handlers of on(handler). */
+    getLocalEventListeners(eventName?: string | null): Array<(...args: any[]) => void>;
     /** This client's own metadata (setLocalMeta); undefined when the key is not set. */
-    getLocalMeta(key: string): any;
+    getLocalMeta<K extends string>(key: K): CustomMetaValue<ICustomPlayerLocalMeta, K, any>;
     /** The keys of this client's local metadata: those the server set for this player (setLocalMeta there) and those setLocalMeta set here. */
     getLocalMetaKeys(): string[];
-    /** A value of this client's own global metadata (setMeta) as it was set; undefined for none. Not synced, and emptied when the session ends. */
-    getMeta(key: string): any;
+    /** A value of this client's own global metadata (setMeta), a copy of what was set; undefined for none. Not synced, and emptied when the session ends. */
+    getMeta<K extends string>(key: K): CustomMetaValue<ICustomGlobalMeta, K, any>;
     /** The keys of this client's own global metadata (setMeta). */
     getMetaKeys(): string[];
     /** How many real milliseconds a game minute lasts in GTA now (GET_MILLISECONDS_PER_GAME_MINUTE); where the game does not answer, the value last given to setMsPerGameMinute, 2000 by default. */
@@ -7727,7 +8709,7 @@ declare const varion: {
     getNativePeds(): NativePed[];
     /** The native vehicles this client's GTA has now, its own and other clients', as the server reports them: Vehicle.all without the old path. */
     getNativeVehicles(): NativeVehicle[];
-    /** The server's network clock in milliseconds as this client estimates it, from the last snapshot; 0 without a connection. */
+    /** The server's network clock in milliseconds as this client estimates it, read at the call: the last snapshot's value (every 50 ms) counted on by the time since it came; 0 before the first snapshot and without a connection. */
     getNetTime(): number;
     /** Object.all: the server's objects this client knows, streamed in or not; LocalObjects are not included. */
     getObjects(): Object[];
@@ -7737,6 +8719,8 @@ declare const varion: {
     getPackedStat(index: number, characterSlot?: number): Promise<number | null>;
     /** A packed bool stat of the character slot (0 by default) through GET_PACKED_STAT_BOOL_CODE; null when the native call fails. */
     getPackedStatBool(index: number, characterSlot?: number): Promise<boolean | null>;
+    /** Where a bone of a ped is in the world: GET_PED_BONE_COORDS of the ped’s script id and a bone id (SKEL_*). Without a synchronous native (the browser runtime) it is (0, 0, 0). */
+    getPedBonePos(ped: number, boneId: number): Vector3;
     /** Ped.all: the old-path peds this client knows, then the native NPCs its GTA has now. */
     getPeds(): Array<Ped | NativePed>;
     /** The old-path peds this client knows in that dimension, plus the native NPCs when it is the local player's dimension (the server sends them for no other). */
@@ -7749,8 +8733,14 @@ declare const varion: {
     getPlayers(): Player[];
     /** The players this client knows in that dimension, the local player included once it is valid and there. */
     getPlayersInDimension(dimension: number): Player[];
-    /** The handlers onServer and onceServer added for that event, every resource's; all of them when no name is given. */
-    getRemoteEventListeners(eventName?: string): Array<(...args: any[]) => void>;
+    /** How many slots of GTA’s pool of that name are taken now; 0 as getPoolSize. */
+    getPoolCount(poolName: string): number;
+    /** The script ids of the entities in GTA’s pool of that name: "Object" and "Peds" (or "CObject", "CPed"); [] for any other pool, or without a synchronous native. A script id is made for each, as GTA makes one for a native. */
+    getPoolEntities(poolName: string): number[];
+    /** How many slots GTA’s pool of that name has, from the pools GTA asked the size of at start ("Peds", "Object" and the other names of gameconfig.xml); 0 for a name GTA did not ask about, or without a synchronous native (the browser runtime). */
+    getPoolSize(poolName: string): number;
+    /** The handlers onServer and onceServer added for that event, the calling resource's handlers (outside a resource's code, every resource's); null or no name: the generic handlers of onServer(handler). */
+    getRemoteEventListeners(eventName?: string | null): Array<(...args: any[]) => void>;
     /** The [config] table of a resource's resource.toml (this resource's by default) as a copy, nested tables included; {} for an unknown resource. */
     getResourceConfig(resourceName?: string): Record<string, any>;
     /** That resource's exports object, empty while it is stopped; undefined for a resource this client does not know. */
@@ -7759,8 +8749,8 @@ declare const varion: {
     getResourcePath(name: string, path?: string): string;
     /** Every client resource the server's manifest names, started or not; the same as getAllResources and Resource.all. */
     getResources(): Resource[];
-    /** The game's screen resolution in pixels (GET_ACTUAL_SCREEN_RESOLUTION) from the last snapshot. Until the client has read it: 1920 x 1080 with measured false, and the first such call warns once. */
-    getScreenResolution(): { x: number; y: number; measured: boolean };
+    /** The game's screen resolution in pixels (GET_ACTUAL_SCREEN_RESOLUTION) from the last snapshot, as a Vector2, with measured (not listed among its keys). Until the client has read it: 1920 x 1080 with measured false, and the first such call warns once. */
+    getScreenResolution(): Vector2;
     /** The server address this client connected to, as it was given (a host name or an IP); "" before the server accepted the login. */
     getServerHost(): string;
     /** The IPv4 or IPv6 address the client's connection resolved the server's host to; the host as given (getServerHost) until the connection has resolved one. */
@@ -7769,24 +8759,24 @@ declare const varion: {
     getServerName(): string;
     /** The server port this client connected to; 0 before the server accepted the login. */
     getServerPort(): number;
-    /** The server's Unix time in milliseconds: the value it sent at login, advanced by this client's clock, from the last snapshot; 0 before. */
+    /** The server's Unix time in milliseconds, read at the call: the value it sent at login advanced by this client's clock, from the last snapshot (every 50 ms) counted on by the time since it came; 0 before the first snapshot. */
     getServerTime(): number;
-    /** An integer stat by name (hashed as varion.hash) through STAT_GET_INT, character slot -1 by default. Resolves null, warning once for the stat, when the read fails or the game does not answer within 150 ms. */
+    /** An integer stat by name (hashed as varion.hash): the StatName values (stamina, strength, lung_capacity, wheelie_ability, flying_ability, shooting_ability, stealth_ability) name the freemode character's skill stats (MP0_STAMINA ...); any other name is a GTA stat name. It is read through STAT_GET_INT, character slot -1 by default. Resolves null, warning once for the stat, when the read fails or the game does not answer within 150 ms. */
     getStat(name: string, slot?: number): Promise<number | null>;
     /** A bool stat by name through STAT_GET_BOOL, character slot -1 by default; null, warning once, when the read fails or the game does not answer within 150 ms. */
     getStatBool(name: string, slot?: number): Promise<boolean | null>;
     /** A float stat by name through STAT_GET_FLOAT, character slot -1 by default; null, warning once, when the read fails or the game does not answer within 150 ms. */
     getStatFloat(name: string, slot?: number): Promise<number | null>;
     /** A value of the server's global synced metadata (setSyncedMeta there), server references turned into this client's objects; undefined for none. It follows the server's changes (globalSyncedMetaChange fires) and is emptied when the session ends. */
-    getSyncedMeta(key: string): any;
+    getSyncedMeta<K extends string>(key: K): CustomMetaValue<ICustomGlobalSyncedMeta, K, any>;
     /** The keys of the server's global synced metadata on this client. */
     getSyncedMetaKeys(): string[];
-    /** Packets to the server ENet judged lost since this runtime first saw the connection: ENet clears its counter every 10 s and the runtime adds up those windows, missing what was counted after the last snapshot before each clearing (under 50 ms). null while there is no connection; a new connection starts a new total. */
-    getTotalPacketsLost(): number | null;
-    /** Packets sent to the server since this runtime first saw the connection: ENet clears its counter every 10 s and the runtime adds up those windows, missing what was counted after the last snapshot before each clearing (under 50 ms). null while there is no connection; a new connection starts a new total. */
-    getTotalPacketsSent(): number | null;
-    /** The handlers onServerUnreliable and onceServerUnreliable added for that event, every resource's; all of them when no name is given. */
-    getUnreliableRemoteEventListeners(eventName?: string): Array<(...args: any[]) => void>;
+    /** Packets to the server ENet judged lost since this runtime first saw the connection, as a bigint: ENet clears its counter every 10 s and the runtime adds up those windows, missing what was counted after the last snapshot before each clearing (under 50 ms). 0n while there is no connection; a new connection starts a new total. */
+    getTotalPacketsLost(): bigint;
+    /** Packets sent to the server since this runtime first saw the connection, as a bigint: ENet clears its counter every 10 s and the runtime adds up those windows, missing what was counted after the last snapshot before each clearing (under 50 ms). 0n while there is no connection; a new connection starts a new total. */
+    getTotalPacketsSent(): bigint;
+    /** The handlers onServerUnreliable and onceServerUnreliable added for that event, the calling resource's handlers (outside a resource's code, every resource's); null or no name: none, as it takes no generic handler. */
+    getUnreliableRemoteEventListeners(eventName?: string | null): Array<(...args: any[]) => void>;
     /** A new HandlingData for the vehicle (an object, or its GTA handle, whose model is read with GET_ENTITY_MODEL): the handling fields read from GTA through that vehicle, maxBraking, maxTraction and maxPassengers from GET_VEHICLE_MAX_BRAKING, GET_VEHICLE_MAX_TRACTION and GET_VEHICLE_MAX_NUMBER_OF_PASSENGERS. A vehicle uses its model's handling, so assigning a field changes every vehicle of the model. */
     getVehicleHandling(vehicle: Vehicle | NativeVehicle | LocalVehicle | number): HandlingData;
     /** Vehicle.all: the old-path vehicles this client knows, then the native vehicles its GTA has now. */
@@ -7799,8 +8789,8 @@ declare const varion: {
     getVoiceFilter(player: Player | PlayerLocal | number): AudioFilter | null;
     /** The non-spatial voice volume setVoiceNonSpatialVolume last set for the player on this client in this session, 1 by default; the end of the session resets it, as it does on the client. */
     getVoiceNonSpatialVolume(player: Player | PlayerLocal | number): number;
-    /** The players in any voice channel this client knows, each once, from the last snapshot; members this client has no Player for are left out. */
-    getVoicePlayers(): Array<Player | PlayerLocal>;
+    /** The ids of the players in any voice channel this client knows, each once, from the last snapshot. */
+    getVoicePlayers(): number[];
     /** The spatial voice volume setVoiceSpatialVolume last set for the player on this client in this session, 1 by default; the end of the session resets it, as it does on the client. */
     getVoiceSpatialVolume(player: Player | PlayerLocal | number): number;
     /** The dimension every player sees, -2147483648. */
@@ -7822,6 +8812,9 @@ declare const varion: {
     HttpClient: typeof HttpClient;
     /** An http://, https:// or file:// URL as it is; anything else appended to the server's HTTP address, with a / added before it. Before the address is known the path comes back unchanged. */
     httpUrl(path: string): string;
+    Interior: typeof Interior;
+    InteriorPortal: typeof InteriorPortal;
+    InteriorRoom: typeof InteriorRoom;
     /** Whether setCamFrozen(true) is in force. */
     isCamFrozen(): boolean;
     /** Always true on the client. */
@@ -7830,33 +8823,40 @@ declare const varion: {
     isConnected(): boolean;
     /** Whether the F8 console is open, from the last snapshot. */
     isConsoleOpen(): boolean;
-    /** Whether the cursor the scripts asked for is on screen: a showCursor(true) request stands (false at start) and a WebView is visible, as the client draws that cursor only over its web views. The client's own menus and console are not counted. */
+    /** Whether the cursor the scripts asked for is on screen: some resource's showCursor count is above 0 (none at start) and a WebView is visible, as the client draws that cursor only over its web views. The client's own menus and console are not counted. */
     isCursorVisible(): boolean;
     /** Whether the game window covers its whole monitor without a window frame, from the last snapshot; false before one. */
     isFullScreen(): boolean;
     /** Whether a window of the game's process is in the foreground, from the last snapshot; true before one. */
     isGameFocused(): boolean;
+    /** Streamer mode: the Varion launcher has none, so always false. */
+    isInStreamerMode(): boolean;
     /** Whether a key is held now, by Windows virtual-key code or varion.KeyCode name ("F2", "Shift"); an unknown name reads false. Updated once a frame while in the game; mouse buttons count only while the game window is in front. */
     isKeyDown(key: number | string): boolean;
-    /** Whether Caps Lock, Num Lock or Scroll Lock is on, by Windows virtual-key code or varion.KeyCode name; any other key reads false. Updated once a frame while in the game. */
+    /** Windows' toggle bit of the key, by virtual-key code or varion.KeyCode name: on for the lock keys while they are on, and for any other key it flips with each press. Updated once a frame while in the game. */
     isKeyToggled(key: number | string): boolean;
-    /** The same function as isPaused: whether GTA's pause menu is open. */
+    /** Whether GTA's pause menu or the client's F8 console is open (isPaused or isConsoleOpen), from the last snapshot. */
     isMenuOpen(): boolean;
     /** Whether GTA has the model loaded (HAS_MODEL_LOADED), by name or hash; rejects when the native call fails. */
     isModelLoaded(model: number | string): Promise<boolean>;
     /** Whether GTA's pause menu is open (IS_PAUSE_MENU_ACTIVE), from the last snapshot. */
     isPaused(): boolean;
+    /** Whether the point is on the screen: in game GTA’s answer in this frame (GET_SCREEN_COORD_FROM_WORLD_COORD), false behind the camera and off the screen. Where natives cannot answer at once (the browser runtime) it is worldToScreen’s known, false while the snapshot has no camera and the game has not answered yet. */
+    isPointOnScreen(x: number, y: number, z: number): boolean;
+    isPointOnScreen(point: Vector3Like): boolean;
     /** Whether the radar is hidden (IS_RADAR_HIDDEN), from the last snapshot. */
     isRadarHidden(): boolean;
     /** Always false on the client. */
     isServer: false;
+    /** Whether the model’s drawable embeds a texture of that name (a model name is hashed). The model must be loaded; false otherwise, outside the game, and on a build where GTA’s archetype lookup is not found. A texture name that is not a string throws a TypeError. */
+    isTextureExistInArchetype(modelHash: number | string, targetTextureName: string): boolean;
     /** The same function as varion.hash: GTA's joaat hash of the text in lower case; a number comes back as its uint32. */
     joaat(value: string | number): number;
     Key: typeof Key;
     Keybind: typeof Keybind;
     KeyCode: typeof KeyCode;
     LicenseType: typeof LicenseType;
-    /** Asks GTA to load a model by name or hash (REQUEST_MODEL) and returns at once; waitForModel waits until it is loaded. In the game a refused native call throws. */
+    /** Loads a model by name or hash: in the game GTA requests it (REQUEST_MODEL) and, unless it is loaded already, streams in what is requested now (LOAD_ALL_OBJECTS_NOW, which holds the frame until it is done), so the model is in memory when the call returns; a model GTA does not know is only requested, and one still not loaded logs a warning. The browser runtime only requests it; waitForModel waits until it is loaded. In the game a refused native call throws. */
     loadModel(model: number | string): void;
     /** The same as waitForModel: requests the model and resolves to its hash once GTA has loaded it. Rejects after timeoutMs (default 10000, at least 500; code VARION_TIMEOUT), when a native call fails, or when the resource stops (VARION_RESOURCE_STOPPED). */
     loadModelAsync(model: number | string, timeoutMs?: number): Promise<number>;
@@ -7871,7 +8871,7 @@ declare const varion: {
     LocalVehicle: typeof LocalVehicle;
     /** Writes a line to the F8 console and the client's script log under the calling resource's name: strings as they are, other values as JSON (an Error with its stack, a bigint as 123n), joined by spaces. */
     log(...args: any[]): void;
-    /** Like log, at debug level. */
+    /** Like log, at debug level, and only while varion.debug is true (the client runs in debug mode). */
     logDebug(...args: any[]): void;
     /** Like log, at error level; the same function as varion.error. */
     logError(...args: any[]): void;
@@ -7889,33 +8889,39 @@ declare const varion: {
     /** Calls callback once, on the next frame; clearNextTick with the returned id cancels it. A callback that is not a function throws a TypeError. */
     nextTick(callback: () => void): number;
     Object: typeof Object;
-    /** Removes the handler from that local event: every registration of it this resource made with on or once. */
+    /** Removes the handler from that local event: every registration of it this resource made with on or once. off(handler) removes one added with on(handler). Without a handler nothing is removed. */
     off<E extends VarionEventName>(event: E, handler: VarionEventHandler<E>): void;
-    /** Removes that onRpc handler, every registration of it this resource made; with none left the server's calls fail with "unknown_rpc". */
-    offRpc(rpcName: string, handler: (...args: any[]) => any): void;
-    /** Removes the handler from that server event: every registration of it this resource made with onServer or onceServer. */
-    offServer(eventName: string, handler: (...args: any[]) => void): void;
+    off(handler: (eventName: string, ...args: any[]) => void): void;
+    /** Removes that onRpc handler, every registration of it this resource made; offRpc(rpcName) removes every handler of the name this resource made. With none left the server's calls fail with "unknown_rpc". */
+    offRpc<K extends string>(rpcName: K, handler?: (...args: CustomEventArgs<ICustomServerClientRpc, K>) => CustomRpcResult<ICustomServerClientRpc, K> | Promise<CustomRpcResult<ICustomServerClientRpc, K>>): void;
+    /** Removes the handler from that server event: every registration of it this resource made with onServer or onceServer. offServer(handler) removes one added with onServer(handler). Without a handler nothing is removed. */
+    offServer<K extends string>(eventName: K, handler: (...args: CustomEventArgs<ICustomServerClientEvent, K>) => void): void;
+    offServer(handler: (eventName: string, ...args: any[]) => void): void;
     /** Removes the handler from that unreliable server event: every registration of it this resource made with onServerUnreliable or onceServerUnreliable. */
-    offServerUnreliable(eventName: string, handler: (...args: any[]) => void): void;
+    offServerUnreliable<K extends string>(eventName: K, handler: (...args: CustomEventArgs<ICustomServerClientEvent, K>) => void): void;
     /** The same as varion.off: removes the handler from that local event. Events a page sends are handled with WebView#on and removed with WebView#off. */
     offWebView(eventName: string, handler: (...args: any[]) => void): void;
-    /** Adds a handler for a local event: one the runtime fires on this client (everyTick, keydown, playerSpawn and the rest) or one varion.emit sends. Returns a handle whose destroy() removes it; a handler that throws is logged and the others still run. */
+    /** Adds a handler for a local event: one the runtime fires on this client (everyTick, keydown, playerSpawn and the rest) or one varion.emit sends. on(handler) gets only the events a script emits (varion.emit), its name first, after the handlers of that name. A handler added while the event is being sent hears it from the next one. Returns a handle whose destroy() removes it; a handler that throws is logged and the others still run. */
     on<E extends VarionEventName>(event: E, handler: VarionEventHandler<E>): VarionEventHandle;
-    /** Like on, but the handler runs for the next such event only and is then removed. */
+    on(handler: (eventName: string, ...args: any[]) => void): VarionEventHandle;
+    /** Like on, but the handler runs for the next such event only and is then removed; once(handler) for the next event of any name. */
     once<E extends VarionEventName>(event: E, handler: VarionEventHandler<E>): VarionEventHandle;
-    /** Like onServer, for the next such event only. */
-    onceServer(eventName: string, handler: (...args: any[]) => void): VarionEventHandle;
+    once(handler: (eventName: string, ...args: any[]) => void): VarionEventHandle;
+    /** Like onServer, for the next such event only; onceServer(handler) for the next server event of any name. */
+    onceServer<K extends string>(eventName: K, handler: (...args: CustomEventArgs<ICustomServerClientEvent, K>) => void): VarionEventHandle;
+    onceServer(handler: (eventName: string, ...args: any[]) => void): VarionEventHandle;
     /** Like onServerUnreliable, for the next such event only. */
-    onceServerUnreliable(eventName: string, handler: (...args: any[]) => void): VarionEventHandle;
-    /** The same as varion.once: the handler runs for the next local event of that name. Events a page sends (window.varion.emit) do not reach it; they arrive through WebView#on and WebView#once. */
+    onceServerUnreliable<K extends string>(eventName: K, handler: (...args: CustomEventArgs<ICustomServerClientEvent, K>) => void): VarionEventHandle;
+    /** The same as varion.once: the handler runs for the next local event of that name. Events a page sends (alt.emit) do not reach it; they arrive through WebView#on and WebView#once. */
     onceWebView(eventName: string, handler: (...args: any[]) => void): VarionEventHandle;
-    /** Answers the server's player.emitRpc(rpcName, ...args) with what the handler returns, a Promise awaited; a throw, or a result that cannot be sent, rejects the server's call. With several handlers each runs in turn and the last result answers; with none the call fails with "unknown_rpc". */
-    onRpc(rpcName: string, handler: (...args: any[]) => any): VarionEventHandle;
-    /** Adds a handler for an event the server sends this client (player.emit, emitAllClients); a Player, Vehicle, Ped or Object among the arguments arrives as this client's object of that id, null where it has none. Returns a handle whose destroy() removes it. */
-    onServer(eventName: string, handler: (...args: any[]) => void): VarionEventHandle;
+    /** Answers the server's player.emitRpc(rpcName, ...args) with what the handler returns, a Promise awaited; a throw, or a result that cannot be sent, rejects the server's call, and so does a returned Error. One handler per name in a resource: a second throws. With none the call fails with "unknown_rpc". */
+    onRpc<K extends string>(rpcName: K, handler: (...args: CustomEventArgs<ICustomServerClientRpc, K>) => CustomRpcResult<ICustomServerClientRpc, K> | Promise<CustomRpcResult<ICustomServerClientRpc, K>>): VarionEventHandle;
+    /** Adds a handler for an event the server sends this client (player.emit, emitAllClients); a Player, Vehicle, Ped or Object among the arguments arrives as this client's object of that id, null where it has none. onServer(handler) gets every event a handler of its name would, with the same arguments, the name first. Returns a handle whose destroy() removes it. */
+    onServer<K extends string>(eventName: K, handler: (...args: CustomEventArgs<ICustomServerClientEvent, K>) => void): VarionEventHandle;
+    onServer(handler: (eventName: string, ...args: any[]) => void): VarionEventHandle;
     /** Adds a handler for an event the server sends unreliably (player.emitUnreliable, emitAllClientsUnreliable), which may never arrive; arguments arrive as with onServer. Returns a handle whose destroy() removes it. */
-    onServerUnreliable(eventName: string, handler: (...args: any[]) => void): VarionEventHandle;
-    /** The same as varion.on: a handler for local events of that name. Events a page sends (window.varion.emit) do not reach it; they arrive through WebView#on. */
+    onServerUnreliable<K extends string>(eventName: K, handler: (...args: CustomEventArgs<ICustomServerClientEvent, K>) => void): VarionEventHandle;
+    /** The same as varion.on: a handler for local events of that name. Events a page sends (alt.emit) do not reach it; they arrive through WebView#on. */
     onWebView(eventName: string, handler: (...args: any[]) => void): VarionEventHandle;
     Ped: typeof Ped;
     PedConfigFlag: typeof PedConfigFlag;
@@ -7928,14 +8934,15 @@ declare const varion: {
     RadiusBlip: typeof RadiusBlip;
     /** Reads a text file: "cache:<path>" or "<path>" in this server's script-files folder, "resource:<name>/<path>" in a loaded client resource. Rejects with the reason ("invalid_path", "unknown_resource" ...) or after 8 s; encoding is not used. */
     readFile(path: string, encoding?: string): Promise<string>;
-    /** Takes back a label varion.addGxtText set: GTA shows its own text again. An empty label throws. */
-    removeGxtText(label: string): void;
+    /** Takes back a label varion.addGxtText set, by name or hash: GTA shows its own text again. An empty label throws. */
+    removeGxtText(label: string | number): void;
     /** Unloads an IPL (REMOVE_IPL). In the game a refused native call throws. */
     removeIpl(ipl: string): void;
     /** Removes the voice filter addVoiceFilter set on the player; false for a player id outside 1..65534. */
     removeVoiceFilter(player: Player | PlayerLocal | number): boolean;
     /** Stops playing the player's voice on this client: mutes them here (clearLocallyMuted undoes it) and drops their playback, filter and talking state, so getVoiceFilter reads null for them; false for a player id outside 1..65534. */
     removeVoicePlayer(player: Player | PlayerLocal | number): boolean;
+    Rendering: typeof Rendering;
     /** Loads an IPL (REQUEST_IPL). In the game a refused native call throws. */
     requestIpl(ipl: string): void;
     /** Asks the player for a Permission in a Windows dialog naming the server and resolves the PermissionState; an answered permission resolves at once and a "no" stays. Microphone is the WebRTC permission (the client asks for microphone and camera together), and All asks for ScreenCapture, WebRTC and Clipboard. Rejects for an unknown permission or after 60 s. */
@@ -7948,7 +8955,7 @@ declare const varion: {
     resetAllStats(characterSlot?: number): boolean;
     /** Puts a minimap component ("minimap", "minimap_mask", "minimap_blur" ...) back where GTA had it. In the game an unknown component throws. */
     resetMinimapComponentPosition(name: string): void;
-    /** setStat(name, 0, true): writes 0 into the integer stat and saves it. */
+    /** setStat(name, 0, true): writes 0 into the integer stat and saves it; the name is read as setStat reads it. */
     resetStat(name: string): Promise<boolean>;
     Resource: typeof Resource;
     /** The name of the resource whose code is running. */
@@ -7956,10 +8963,12 @@ declare const varion: {
     RGBA: typeof RGBA;
     /** The flag toggleRmlControls set, false by default. */
     rmlControlsEnabled(): boolean;
-    /** A point depth metres (100 by default, at least 1) from the camera on screen along the ray through a screen point given as 0..1 of the screen, using the camera's field of view and the screen's aspect from the last snapshot; roll is not counted. A non-numeric coordinate counts as 0.5. Without a camera in the snapshot (getCamPos().measured false) the ray starts at (0, 0, 0). */
+    /** A point depth metres (100 by default, at least 1) from the camera on screen along the ray through a screen point given in pixels (getCursorPos() can be passed as it is), using the camera's field of view and the screen's aspect; roll is not counted. In game the camera is the one GTA renders in this frame (GET_FINAL_RENDERED_CAM_*); where natives cannot answer at once (the browser runtime) it is the last snapshot's, and without a camera there (getCamPos().measured false) the ray starts at (0, 0, 0). A non-numeric coordinate counts as the middle of the screen. The point may also be one object, { x, y }. screenToWorldAsync takes the point as 0..1 of the screen. */
     screenToWorld(screenX: number, screenY: number, depth?: number): Vector3Like;
-    /** Casts a ray from the camera on screen through the screen point (depth 500 by default), with the camera's field of view and the screen's aspect, through GTA's line-of-sight test, and resolves its first hit with hit true, else the ray's end with hit false; when the game does not answer within 120 ms it resolves screenToWorld's point with hit false. */
+    screenToWorld(point: { x: number; y: number }, depth?: number): Vector3Like;
+    /** Casts a ray from the camera on screen through the screen point given as 0..1 of the screen (depth 500 by default), with the camera's field of view and the screen's aspect, through GTA's line-of-sight test, and resolves its first hit with hit true, else the ray's end with hit false; when the game does not answer within 120 ms it resolves the same ray's point with hit false. The point may also be one object, { x, y }. */
     screenToWorldAsync(screenX: number, screenY: number, depth?: number): Promise<{ x: number; y: number; z: number; hit: boolean }>;
+    screenToWorldAsync(point: { x: number; y: number }, depth?: number): Promise<{ x: number; y: number; z: number; hit: boolean }>;
     /** The same as version: the version of this client, such as "1.0.83". */
     sdkVersion: string;
     /** true: the view stays where the camera on screen is (a script camera is put there) whatever the player does, and GTA's look controls are off; false: the camera that had the screen before (a script's own, or the gameplay camera) gets it back. The end of the session unfreezes it. */
@@ -7971,9 +8980,9 @@ declare const varion: {
     /** Calls callback every delayMs (default 0: every frame), checked once a frame, each run counted from the frame the last one ran. Returns an id for clearInterval or clearTimer; it ends when the resource stops, and a callback that is not a function throws a TypeError. */
     setInterval(callback: (...args: any[]) => void, delayMs?: number): number;
     /** Sets a key of this client's local metadata here only: getLocalMeta returns the value as given, and localMetaChange fires (key, value, old value). Nothing goes to the server, whose next change of the key replaces it. */
-    setLocalMeta(key: string, value: any): void;
-    /** Sets a key of this client's own global metadata, not synced: getMeta returns the value as given, and globalMetaChange fires (key, value, old value). Emptied when the session ends. */
-    setMeta(key: string, value: any): void;
+    setLocalMeta<K extends string>(key: K, value: CustomMetaValue<ICustomPlayerLocalMeta, K, any>): void;
+    /** Sets a key of this client's own global metadata, not synced: getMeta returns a copy of the value, and globalMetaChange fires (key, value, old value). Emptied when the session ends. A copy is stored and a copy read back: arrays and plain objects are copied, a Vector3 or RGBA made anew, an entity or function the same object. */
+    setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomGlobalMeta, K, any>): void;
     /** Moves and sizes a minimap component ("minimap", "minimap_mask", "minimap_blur" ...) in GTA's frontend layout; only the first letter of alignX and alignY is used and a negative size counts as 0. In the game an unknown component or an empty alignment throws. */
     setMinimapComponentPosition(name: string, alignX: string, alignY: string, posX: number, posY: number, sizeX: number, sizeY: number): void;
     setMinimapComponentPosition(name: string, alignX: string, alignY: string, pos: Vector2Like, size: Vector2Like): void;
@@ -7985,32 +8994,34 @@ declare const varion: {
     setPackedStat(index: number, value: number, characterSlot?: number): Promise<boolean>;
     /** Writes a packed bool stat of the character slot (0 by default) through SET_PACKED_STAT_BOOL_CODE; false when the native call fails. */
     setPackedStatBool(index: number, value: boolean, characterSlot?: number): Promise<boolean>;
-    /** Puts a clothing component of a DLC collection on a ped (SET_PED_COLLECTION_COMPONENT_VARIATION), the collection given by the hash of its name, palette 0 by default. It runs in the background: an unknown collection or a failed call is only logged. */
+    /** Puts a clothing component of a DLC collection on a ped (SET_PED_COLLECTION_COMPONENT_VARIATION), the collection given by the hash of its name (0 is the base game), palette 0 by default. It runs in the background: an unknown collection or a failed call is only logged. */
     setPedDlcClothes(ped: { scriptID: number } | number, dlc: number, component: number, drawable: number, texture: number, palette?: number): void;
-    /** Puts a prop of a DLC collection on a ped (SET_PED_COLLECTION_PROP_INDEX), the collection given by the hash of its name. It runs in the background: an unknown collection or a failed call is only logged. */
+    /** Puts a prop of a DLC collection on a ped (SET_PED_COLLECTION_PROP_INDEX), the collection given by the hash of its name (0 is the base game). It runs in the background: an unknown collection or a failed call is only logged. */
     setPedDlcProp(ped: { scriptID: number } | number, dlc: number, component: number, drawable: number, texture: number): void;
     /** Sets the angular velocity of an entity (SET_ENTITY_ANGULAR_VELOCITY), given as an object or its GTA handle; without a handle nothing happens. In the game a refused native call throws. */
     setRotationVelocity(entity: { scriptID: number } | number, x: number, y: number, z: number): void;
     setRotationVelocity(entity: { scriptID: number } | number, velocity: Vector3Like): void;
-    /** Writes an integer stat by name (hashed as varion.hash) through STAT_SET_INT, saved unless save is false. Resolves false when the write fails or the game does not answer within 150 ms. */
+    /** Writes an integer stat by name (hashed as varion.hash) through STAT_SET_INT: the StatName values (stamina, strength, lung_capacity, wheelie_ability, flying_ability, shooting_ability, stealth_ability) name the freemode character's skill stats (MP0_STAMINA ...); any other name is a GTA stat name. It is saved unless save is false. Resolves false when the write fails or the game does not answer within 150 ms. */
     setStat(name: string, value: number, save?: boolean): Promise<boolean>;
     /** Writes a bool stat by name through STAT_SET_BOOL, saved unless save is false; false when the write fails or the game does not answer within 150 ms. */
     setStatBool(name: string, value: boolean, save?: boolean): Promise<boolean>;
     /** Writes a float stat by name through STAT_SET_FLOAT, saved unless save is false; false when the write fails or the game does not answer within 150 ms. */
     setStatFloat(name: string, value: number, save?: boolean): Promise<boolean>;
     /** Asks the server to set the local player's stream-synced data under the key (prefixed client: when it lacks it) to the value, as the server's player.setStreamSyncedMeta would: this client and the clients that stream the player read it, and server scripts hear streamSyncedMetaChange. The server takes it only for this client's own player and only under client:, within the client event limits; server.toml clientStreamSyncedMeta = false refuses it. This client's copy changes when the server's change arrives. False before the local player has an id. */
-    setStreamSyncedMeta(key: string, value: any): boolean;
+    setStreamSyncedMeta<K extends string>(key: K, value: CustomMetaValue<ICustomPlayerStreamSyncedMeta, K, any>): boolean;
     /** Calls callback once after delayMs (default 0, negative counts as 0), checked once a frame, so never before the next frame. Returns an id for clearTimeout or clearTimer; it ends when the resource stops, and a callback that is not a function throws a TypeError. */
     setTimeout(callback: (...args: any[]) => void, delayMs?: number): number;
     /** Sets how loud this client plays the player in non-spatial voice channels, 0..2 (clamped; not a number counts as 1); false for a player id outside 1..65534. */
     setVoiceNonSpatialVolume(player: Player | PlayerLocal | number, volume: number): boolean;
     /** Sets how loud this client plays the player in spatial voice channels, 0..2 (clamped; not a number counts as 1); false for a player id outside 1..65534. */
     setVoiceSpatialVolume(player: Player | PlayerLocal | number, volume: number): boolean;
+    /** Varion draws no watermark, so it changes nothing. */
+    setWatermarkPosition(position: number): void;
     /** Sets the weather cycle this client shows while setWeatherSyncActive(true) is in force: weathers by id (0 EXTRASUNNY ... 14 HALLOWEEN, as varion.WeatherType) or name, paired with the multipliers in order, each shown for its multiplier times GTA's cycle unit (two minutes in GTA 3889, read from the game) and blending into the next, then from the start again. Up to the first 256 pairs; a pair with an unknown weather or a multiplier of 0 is left out. The cycle runs on the server's clock, so clients with the same cycle show the same weather. */
     setWeatherCycle(weathers: Array<string | number>, multipliers: number[]): void;
     /** true: GTA shows the cycle setWeatherCycle set instead of the server's weather; false (the default): the server's weather again. */
     setWeatherSyncActive(active: boolean): void;
-    /** Shows (true) or hides (false) the mouse cursor; while it shows, keyboard and mouse go to the WebViews instead of GTA. It needs a visible WebView to show, and it is one switch for every resource: the last call wins. */
+    /** Shows (true) or hides (false) the mouse cursor; while it shows, keyboard and mouse go to the WebViews instead of GTA. Each resource keeps its own count: true adds one, false takes one away, so a resource that showed the cursor twice hides it with two calls. The cursor shows while any resource's count is above 0, and a resource that stops takes its count away. false at 0 warns "Cursor state can't go < 0" and changes nothing. It needs a visible WebView to show. */
     showCursor(state: boolean): void;
     /** Ends the server's loading screen (resource.toml `loadscreen`). With `loadscreen-manual-shutdown = true` the page stays after the player is in the game until this is called, 60 s at most; without it the page goes on entry by itself. */
     shutdownLoadingScreen(): void;
@@ -8032,9 +9043,9 @@ declare const varion: {
     time(name?: string): void;
     /** Ends that timer, logs "<name>: <ms>ms" and returns the elapsed milliseconds; for a name that was not started it returns 0 and logs nothing. */
     timeEnd(name?: string): number;
-    /** false stops push-to-talk and gameControlsOnly Keybinds and, while a WebView is visible, takes keyboard and mouse from GTA; true gives them back. A visible WebView with focus also turns them off; one that shows, hides or loses focus does not undo a script's false. */
+    /** false stops push-to-talk and gameControlsOnly Keybinds and, while a WebView is visible, takes keyboard and mouse from GTA; true gives them back. The state is kept per resource: the controls are on only while no resource has turned them off, so one resource's true does not undo another's false, and a resource that stops gives back what it turned off. A visible WebView with focus also turns them off; one that shows, hides or loses focus does not undo a script's false. */
     toggleGameControls(state: boolean): void;
-    /** Sets the flag rmlControlsEnabled reads. true while an RmlDocument is shown also turns the game controls off (toggleGameControls(false)); false gives nothing back. */
+    /** Sets the flag rmlControlsEnabled reads. While it is true and an RmlDocument is shown, RmlUi gets the mouse (showCursor shows the pointer) and, while one of its elements has the focus and no WebView does, the keyboard. true also turns the game controls off (toggleGameControls(false)); false turns them back on if this turned them off, and leaves controls a script turned off itself. */
     toggleRmlControls(state: boolean): void;
     /** false stops the push-to-talk key and voice activation from sending the microphone (Voice.toggleInput(true) still sends); true restores them. */
     toggleVoiceControls(enabled: boolean): void;
@@ -8042,6 +9053,8 @@ declare const varion: {
     unloadModel(model: number | string): void;
     /** Withdraws the DLC_ITYP_REQUEST of a .ytyp that the server's stream files or a script made; path as in loadYtyp. True when GTA no longer holds the request: GTA removes the ytyp with its models at once, or keeps it while a map or an interior placed from it uses it. False while an object of one of its models stands in the game (GTA would free the model under it), for a ytyp neither of them requested (GTA's and its DLCs' own stay; a second call), a permanent #typ, a name GTA does not have or a path that names no .ytyp of a resource, while the session is not loaded or its stream files are being mounted or released, when GTA still holds the request after the call, and in the browser runtime or a Worker. */
     unloadYtyp(path: string): boolean;
+    /** Clip context: Varion records no clips, so it changes nothing; anything but an object throws a TypeError. */
+    updateClipContext(context: Record<string, string>): void;
     Utils: typeof Utils;
     Vector2: typeof Vector2;
     Vector3: typeof Vector3;
@@ -8060,16 +9073,19 @@ declare const varion: {
     /** The same function as logWarning: a line at warning level in the F8 console and the client's script log, under the calling resource's name. */
     warn(...args: any[]): void;
     WatermarkPosition: typeof WatermarkPosition;
+    WeaponData: typeof WeaponData;
     WeaponObject: typeof WeaponObject;
     WebSocketClient: typeof WebSocketClient;
     WebSocketReadyState: typeof WebSocketReadyState;
     WebView: typeof WebView;
     Worker: typeof Worker;
     WorldObject: typeof WorldObject;
-    /** Projects a world point through the camera on screen of the last snapshot (its field of view and the screen's aspect): x and y as 0..1 of the screen, z 1, known true. A point behind the camera or off the screen gives the centre {0.5, 0.5} with known false. Without a camera in the snapshot (getCamPos().measured false) it gives worldToScreenAsync's answer for the point (rounded to 0.01) while that is under 250 ms old and asks for the next; else the centre with known false. */
-    worldToScreen(x: number, y: number, z: number): { x: number; y: number; z: number; known: boolean };
-    /** Projects a world point onto the screen (GET_SCREEN_COORD_FROM_WORLD_COORD): x and y as 0..1 of the screen with known true. A point off screen, or no answer within 150 ms, gives the centre {0.5, 0.5} with known false. */
+    /** Projects a world point onto the screen and returns a Vector3: x and y in pixels of getScreenResolution(), z the depth in metres in front of the camera. In game it is GTA's own projection in this frame (GET_SCREEN_COORD_FROM_WORLD_COORD) and the depth is from the camera GTA renders now. A point behind the camera or off the screen gives x and y -1; known, a property that is not listed, says whether the point is on the screen. Where natives cannot answer at once (the browser runtime) it projects through the last snapshot's camera (its field of view and the screen's aspect), and without a camera there (getCamPos().measured false) it gives worldToScreenAsync's answer for the point (rounded to 0.01) while that is under 250 ms old and asks for the next, with z 0; else -1, -1. The point may also be one object, { x, y, z }. worldToScreenAsync answers in 0..1 of the screen. */
+    worldToScreen(x: number, y: number, z: number): Vector3 & { readonly known: boolean };
+    worldToScreen(point: Vector3Like): Vector3 & { readonly known: boolean };
+    /** Projects a world point onto the screen (GET_SCREEN_COORD_FROM_WORLD_COORD): x and y as 0..1 of the screen with known true. A point off screen, or no answer within 150 ms, gives the centre {0.5, 0.5} with known false. The point may also be one object, { x, y, z }. */
     worldToScreenAsync(x: number, y: number, z: number): Promise<{ x: number; y: number; z: number; known: boolean }>;
+    worldToScreenAsync(point: Vector3Like): Promise<{ x: number; y: number; z: number; known: boolean }>;
     /** Writes text (data through String()) to "cache:<path>" or "<path>" in this server's script-files folder and resolves true; "resource:" paths are read-only. Rejects with the reason or after 8 s; encoding is not used. */
     writeFile(path: string, data: string, encoding?: string): Promise<boolean>;
 };

@@ -17,12 +17,10 @@ function setCursor(on: boolean): void {
 }
 
 varion.on('resourceStart', () => {
-  // hidden until the welcome arrives
+  // covers the screen, hidden until the welcome arrives
   ui = page(
     varion.WebView.create({
       url: varion.assetUrl(RESOURCE, 'ui/index.html'),
-      pos: { x: 0, y: 0 },
-      size: { x: 1, y: 1 },
       visible: false,
     }),
   );

@@ -11,7 +11,7 @@ export function emitServer<K extends keyof ClientToServer>(
   name: K,
   ...args: ClientToServer[K]
 ): void {
-  varion.emitServer(name, ...args);
+  varion.emitServer(name as string, ...args);
 }
 
 export function onServer<K extends keyof ServerToClient>(

@@ -60,7 +60,9 @@ varion.on('resourceStart', () => {
 });
 
 varion.on('playerReady', (player) => {
-  player.spawn(spawnPoint, config.spawnHeading ?? 157, config.spawnModel ?? 'mp_m_freemode_01');
+  // rot is in radians, the spawn faces it
+  player.rot = { x: 0, y: 0, z: ((config.spawnHeading ?? 157) * Math.PI) / 180 };
+  player.spawn(config.spawnModel ?? 'mp_m_freemode_01', spawnPoint);
   void welcome(player);
   emitAllClients('__NAME__:online', varion.getPlayerCount());
 });
