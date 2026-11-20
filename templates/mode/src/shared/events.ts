@@ -1,35 +1,38 @@
 // Every event of the mode and its payload (sent as JSON). The net.ts helpers accept only these,
 // so a typo fails type checking on every side.
 
-export interface Welcome {
-  title: string;
-  greeting: string;
-  name: string;
-  online: number;
-  clicks: number;
+export const CHAT_MAX_LENGTH = 200;
+
+export interface ChatLine {
+  // when it was said, by the server's clock (Date.now())
+  at: number;
+  // who said it; empty when the server says it itself
+  from: string;
+  text: string;
 }
 
-export interface UiState extends Welcome {
-  cursor: boolean;
+export interface UiState {
+  // the last lines of the chat, oldest first
+  lines: ChatLine[];
+  // the line to type a message in is open
+  typing: boolean;
 }
 
 // server -> client
 export type ServerToClient = {
-  '__NAME__:welcome': [welcome: Welcome];
-  '__NAME__:online': [online: number];
-  '__NAME__:pong': [sentAt: number, serverTime: number];
+  '__NAME__:welcome': [];
+  '__NAME__:chat': [line: ChatLine];
 };
 
 // client -> server
 export type ClientToServer = {
   '__NAME__:hello': [];
-  '__NAME__:ping': [sentAt: number];
 };
 
 // client -> server, with an answer
 export type ServerRpc = {
-  '__NAME__:click': { args: []; result: { clicks: number } };
-  '__NAME__:status': { args: []; result: { playerId: number; online: number; uptimeSec: number } };
+  // sent: false when the server did not pass the message on (empty, or too many in a second)
+  '__NAME__:say': { args: [text: string]; result: { sent: boolean } };
 };
 
 // client script -> page
@@ -40,5 +43,6 @@ export type ClientToUi = {
 // page -> client script
 export type UiToClient = {
   'ui:ready': [];
-  'ui:click': [];
+  'ui:send': [text: string];
+  'ui:close': [];
 };

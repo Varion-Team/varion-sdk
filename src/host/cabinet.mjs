@@ -3,7 +3,7 @@ import { checkUrl, download, requestJson } from '../shared/http.mjs';
 import { HostError } from './errors.mjs';
 import { cabinetTrust } from './keys.mjs';
 
-export const HOST_VERSION = '1.0.4';
+export const HOST_VERSION = '1.0.5';
 export const HOST_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
 const MAX_ITEMS = 32;
 const POLL_WAIT_S = 25;

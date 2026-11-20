@@ -6,13 +6,27 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main id="panel" class="panel" hidden>
-      <h1 id="title"></h1>
-      <p id="greeting" class="greeting"></p>
-      <p class="stats">Online: <b id="online">0</b> · Clicks: <b id="clicks">0</b></p>
-      <button id="click" type="button">Click</button>
-      <p id="hint" class="hint">F2 shows the cursor</p>
-    </main>
+    <div id="hud" class="hud" hidden>
+      <section class="chat">
+        <ol id="lines" class="lines"></ol>
+        <form id="say" class="say">
+          <input id="message" type="text" autocomplete="off" spellcheck="false" tabindex="-1" />
+        </form>
+      </section>
+
+      <header class="brand">
+        <p class="title">Varion Mode</p>
+        <img class="sign" src="./assets/sign.svg" alt="Varion" />
+      </header>
+
+      <ul class="keys when-idle">
+        <li><kbd>T</kbd>Chat</li>
+      </ul>
+      <ul class="keys when-typing">
+        <li><kbd>Enter</kbd>Send</li>
+        <li><kbd>Esc</kbd>Close</li>
+      </ul>
+    </div>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

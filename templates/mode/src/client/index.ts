@@ -1,23 +1,48 @@
+import { hideHudComponentThisFrame, mpTextChatDisable } from '@varion/natives';
 import { callServer, emitServer, onServer, page, type Page } from './net';
-import type { UiState } from '../shared/events';
+import type { ChatLine, UiState } from '../shared/events';
 
 const RESOURCE: string = varion.resourceName;
-const F2 = 113;
+const T = 84;
+const LINES_KEPT = 30;
+// GTA's own pieces of the top right corner, where the mode's sign stands:
+// wanted stars, weapon icon, cash, multiplayer cash, cash change
+const GTA_HUD_HIDDEN = [1, 2, 3, 4, 13];
 
 let ui: Page | null = null;
-let state: UiState = { title: '', greeting: '', name: '', online: 0, clicks: 0, cursor: false };
+let state: UiState = { lines: [], typing: false };
 
 const render = () => ui?.emit('ui:state', state);
 
-function setCursor(on: boolean): void {
-  state = { ...state, cursor: on };
-  varion.showCursor(on);
-  varion.toggleGameControls(!on);
+// The page takes the keyboard while the line is open, and GTA's controls are off for that time.
+function setTyping(on: boolean): void {
+  if (!ui || state.typing === on) return;
+  state = { ...state, typing: on };
+  if (on) ui.view.focus();
+  else ui.view.unfocus();
   render();
 }
 
+function addLine(line: ChatLine): void {
+  state = { ...state, lines: [...state.lines, line].slice(-LINES_KEPT) };
+  render();
+}
+
+// The server answers whether the message went to the chat; it comes back with everyone's.
+async function say(text: string): Promise<void> {
+  try {
+    const { sent } = await callServer('__NAME__:say', text);
+    if (!sent)
+      addLine({ at: Date.now(), from: '', text: 'Not so fast: the message was not sent.' });
+  } catch (error) {
+    varion.logError(`[${RESOURCE}] the message was not sent: ${String(error)}`);
+  }
+}
+
 varion.on(varion.Event.resourceStart, () => {
-  // covers the screen, hidden until the welcome arrives
+  // GTA has a text chat of its own on the same key: the mode shows its own instead
+  mpTextChatDisable(true);
+  // covers the screen and draws at its edges; hidden until the welcome arrives
   ui = page(
     varion.WebView.create({
       url: varion.assetUrl(RESOURCE, 'ui/index.html'),
@@ -25,46 +50,33 @@ varion.on(varion.Event.resourceStart, () => {
     }),
   );
   ui.on('ui:ready', render);
-  ui.on('ui:click', async () => {
-    try {
-      const { clicks } = await callServer('__NAME__:click');
-      state = { ...state, clicks };
-      render();
-    } catch (error) {
-      varion.logError(`[${RESOURCE}] click failed: ${String(error)}`);
-    }
+  ui.on('ui:send', (text) => {
+    setTyping(false);
+    void say(text);
   });
+  ui.on('ui:close', () => setTyping(false));
   // after a restart on the fly the server sends the welcome again
   emitServer('__NAME__:hello');
-  emitServer('__NAME__:ping', Date.now());
 });
 
-onServer('__NAME__:welcome', (welcome) => {
-  state = { ...state, ...welcome };
+onServer('__NAME__:welcome', () => {
   if (ui) ui.view.visible = true;
   render();
 });
 
-onServer('__NAME__:online', (online) => {
-  state = { ...state, online };
-  render();
+onServer('__NAME__:chat', addLine);
+
+// GTA draws them again every frame, so they are hidden every frame
+varion.everyTick(() => {
+  for (const piece of GTA_HUD_HIDDEN) hideHudComponentThisFrame(piece);
 });
 
-onServer('__NAME__:pong', (sentAt, serverTime) => {
-  varion.log(
-    `[${RESOURCE}] round trip ${Date.now() - sentAt} ms (server time ${new Date(serverTime).toISOString()})`,
-  );
-});
-
-varion.on(varion.Event.keydown, (key) => {
-  if (key === F2) setCursor(!state.cursor);
+// on the key's release: the letter that opens the line is not typed into it
+varion.on(varion.Event.keyup, (key) => {
+  if (key === T) setTyping(true);
 });
 
 varion.on(varion.Event.resourceStop, () => {
-  if (state.cursor) {
-    varion.showCursor(false);
-    varion.toggleGameControls(true);
-  }
   ui?.view.destroy();
   ui = null;
 });

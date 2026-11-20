@@ -9,7 +9,7 @@ import { tomlString } from './toml.mjs';
 export const SDK_TYPE_FILES = ['varion-server.d.ts', 'varion-client.d.ts', 'varion-natives.d.ts'];
 
 // the engine a new project starts on
-export const DEFAULT_ENGINE = { version: '1.0.92', channel: 'rc' };
+export const DEFAULT_ENGINE = { version: '1.0.93', channel: 'rc' };
 
 // what the template is tested with
 export const TEMPLATE_VERSIONS = {
@@ -126,7 +126,7 @@ export function varionTomlText({ name, title, engine, port, db, dbPort }) {
     '',
     '[config]',
     comment(t('Read by the server with varion.getResourceConfig().')),
-    'clicksPerSecond = 5',
+    'messagesPerSecond = 3',
     'spawnX = 211.0',
     'spawnY = -816.3',
     'spawnZ = 30.7',
@@ -272,10 +272,10 @@ export function generateProject({
   fs.mkdirSync(dir, { recursive: true });
 
   const written = [];
-  const write = (relative, text) => {
+  const write = (relative, content) => {
     const target = path.join(dir, ...relative.split('/'));
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, text, 'utf8');
+    fs.writeFileSync(target, content);
     written.push(relative);
   };
 
@@ -290,7 +290,11 @@ export function generateProject({
       .split('/')
       .map((part) => RENAMES[part] || part)
       .join('/');
-    write(target, fillPlaceholders(fs.readFileSync(source, 'utf8'), { name, title, db }));
+    // A font or a picture is not text: it goes into the project byte for byte.
+    const bytes = fs.readFileSync(source);
+    const text = bytes.toString('utf8');
+    const isText = Buffer.from(text, 'utf8').equals(bytes);
+    write(target, isText ? fillPlaceholders(text, { name, title, db }) : bytes);
   }
   write('varion.toml', varionTomlText({ name, title, engine, port, db, dbPort }));
   write('package.json', packageJsonText({ name, spec: spec || sdkSpec(sdkDir), db }));

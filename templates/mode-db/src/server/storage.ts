@@ -20,20 +20,17 @@ export async function openStorage(): Promise<string> {
   return `MariaDB ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
 }
 
-export async function clicksOf(key: string): Promise<number> {
-  const [rows] = await db().query<mysql.RowDataPacket[]>(
-    'SELECT total FROM clicks WHERE player = ?',
-    [key],
-  );
-  return rows.length ? Number(rows[0].total) : 0;
-}
-
-export async function addClick(key: string): Promise<number> {
+// counts one more visit of the player and returns how many there are now
+export async function addVisit(key: string): Promise<number> {
   await db().execute(
-    'INSERT INTO clicks (player, total) VALUES (?, 1) ON DUPLICATE KEY UPDATE total = total + 1',
+    'INSERT INTO visits (player, total) VALUES (?, 1) ON DUPLICATE KEY UPDATE total = total + 1',
     [key],
   );
-  return clicksOf(key);
+  const [rows] = await db().query<mysql.RowDataPacket[]>(
+    'SELECT total FROM visits WHERE player = ?',
+    [key],
+  );
+  return rows.length ? Number(rows[0].total) : 1;
 }
 
 export async function closeStorage(): Promise<void> {

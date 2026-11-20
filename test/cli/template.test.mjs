@@ -67,7 +67,17 @@ test('a new project: every file, no placeholder left, a varion.toml the CLI acce
     assert.ok(!/__(NAME|TITLE)[A-Z_]*__/.test(text), `${relative}: placeholder left`);
     assert.ok(!/<!-- (if|end) db -->/.test(text), `${relative}: db marker left`);
   }
-  assert.match(read(dir, 'src/shared/events.ts'), /'my-mode:welcome': \[welcome: Welcome\]/);
+  assert.match(read(dir, 'src/shared/events.ts'), /'my-mode:welcome': \[\]/);
+  // a font is not text: the project gets the template's bytes
+  for (const font of ['onest-latin.woff2', 'onest-cyrillic.woff2']) {
+    const relative = `src/ui/assets/${font}`;
+    assert.ok(
+      fs
+        .readFileSync(path.join(dir, relative))
+        .equals(fs.readFileSync(path.join(CLI_DIR, 'templates', 'mode', relative))),
+      relative,
+    );
+  }
   assert.match(read(dir, 'src/ui/index.html'), /<title>My &quot;mode&quot; &lt;1&gt;<\/title>/);
   assert.match(read(dir, 'src/server/index.ts'), /const TITLE = 'My "mode" <1>';/);
   assert.match(read(dir, 'README.md'), /^# My "mode" <1>$/m);
