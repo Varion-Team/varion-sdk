@@ -3535,6 +3535,155 @@ export class Entity {
     visible: boolean;
 }
 
+export const Event: {
+    /** The name of the event anyResourceError. */
+    readonly anyResourceError: "anyResourceError";
+    /** The name of the event anyResourceStart. */
+    readonly anyResourceStart: "anyResourceStart";
+    /** The name of the event anyResourceStop. */
+    readonly anyResourceStop: "anyResourceStop";
+    /** The name of the event baseObjectCreate. */
+    readonly baseObjectCreate: "baseObjectCreate";
+    /** The name of the event baseObjectRemove. */
+    readonly baseObjectRemove: "baseObjectRemove";
+    /** The name of the event clientDeleteObject. */
+    readonly clientDeleteObject: "clientDeleteObject";
+    /** The name of the event clientRequestObject. */
+    readonly clientRequestObject: "clientRequestObject";
+    /** The name of the event connectionQueueAdd. */
+    readonly connectionQueueAdd: "connectionQueueAdd";
+    /** The name of the event connectionQueueRemove. */
+    readonly connectionQueueRemove: "connectionQueueRemove";
+    /** The name of the event consoleCommand. */
+    readonly consoleCommand: "consoleCommand";
+    /** The name of the event entityCreating. */
+    readonly entityCreating: "entityCreating";
+    /** The name of the event entityEnterColshape. */
+    readonly entityEnterColshape: "entityEnterColshape";
+    /** The name of the event entityLeaveColshape. */
+    readonly entityLeaveColshape: "entityLeaveColshape";
+    /** The name of the event entityModelMissing. */
+    readonly entityModelMissing: "entityModelMissing";
+    /** The name of the event entityStreamIn. */
+    readonly entityStreamIn: "entityStreamIn";
+    /** The name of the event entityStreamOut. */
+    readonly entityStreamOut: "entityStreamOut";
+    /** The name of the event explosion. */
+    readonly explosion: "explosion";
+    /** The name of the event givePedScriptedTask. */
+    readonly givePedScriptedTask: "givePedScriptedTask";
+    /** The name of the event globalMetaChange. */
+    readonly globalMetaChange: "globalMetaChange";
+    /** The name of the event globalSyncedMetaChange. */
+    readonly globalSyncedMetaChange: "globalSyncedMetaChange";
+    /** The name of the event localMetaChange. */
+    readonly localMetaChange: "localMetaChange";
+    /** The name of the event metaChange. */
+    readonly metaChange: "metaChange";
+    /** The name of the event nativeVehicleCreated. */
+    readonly nativeVehicleCreated: "nativeVehicleCreated";
+    /** The name of the event nativeVehicleOwnerChanged. */
+    readonly nativeVehicleOwnerChanged: "nativeVehicleOwnerChanged";
+    /** The name of the event nativeVehicleRemoved. */
+    readonly nativeVehicleRemoved: "nativeVehicleRemoved";
+    /** The name of the event netOwnerChange. */
+    readonly netOwnerChange: "netOwnerChange";
+    /** The name of the event pedDamage. */
+    readonly pedDamage: "pedDamage";
+    /** The name of the event pedDeath. */
+    readonly pedDeath: "pedDeath";
+    /** The name of the event pedHeal. */
+    readonly pedHeal: "pedHeal";
+    /** The name of the event playerAnimationChange. */
+    readonly playerAnimationChange: "playerAnimationChange";
+    /** The name of the event playerChangedNativeVehicleSeat. */
+    readonly playerChangedNativeVehicleSeat: "playerChangedNativeVehicleSeat";
+    /** The name of the event playerChangedVehicleSeat. */
+    readonly playerChangedVehicleSeat: "playerChangedVehicleSeat";
+    /** The name of the event playerChangeVehicleSeat. */
+    readonly playerChangeVehicleSeat: "playerChangeVehicleSeat";
+    /** The name of the event playerConnect. */
+    readonly playerConnect: "playerConnect";
+    /** The name of the event playerConnectDenied. */
+    readonly playerConnectDenied: "playerConnectDenied";
+    /** The name of the event playerDamage. */
+    readonly playerDamage: "playerDamage";
+    /** The name of the event playerDeath. */
+    readonly playerDeath: "playerDeath";
+    /** The name of the event playerDimensionChange. */
+    readonly playerDimensionChange: "playerDimensionChange";
+    /** The name of the event playerDisconnect. */
+    readonly playerDisconnect: "playerDisconnect";
+    /** The name of the event playerEnteredNativeVehicle. */
+    readonly playerEnteredNativeVehicle: "playerEnteredNativeVehicle";
+    /** The name of the event playerEnteredVehicle. */
+    readonly playerEnteredVehicle: "playerEnteredVehicle";
+    /** The name of the event playerEnteringVehicle. */
+    readonly playerEnteringVehicle: "playerEnteringVehicle";
+    /** The name of the event playerEnterVehicle. */
+    readonly playerEnterVehicle: "playerEnterVehicle";
+    /** The name of the event playerHeal. */
+    readonly playerHeal: "playerHeal";
+    /** The name of the event playerInteriorChange. */
+    readonly playerInteriorChange: "playerInteriorChange";
+    /** The name of the event playerLeaveVehicle. */
+    readonly playerLeaveVehicle: "playerLeaveVehicle";
+    /** The name of the event playerLeftNativeVehicle. */
+    readonly playerLeftNativeVehicle: "playerLeftNativeVehicle";
+    /** The name of the event playerLeftVehicle. */
+    readonly playerLeftVehicle: "playerLeftVehicle";
+    /** The name of the event playerReady. */
+    readonly playerReady: "playerReady";
+    /** The name of the event playerRequestControl. */
+    readonly playerRequestControl: "playerRequestControl";
+    /** The name of the event playerSpawn. */
+    readonly playerSpawn: "playerSpawn";
+    /** The name of the event playerWeaponChange. */
+    readonly playerWeaponChange: "playerWeaponChange";
+    /** The name of the event removeEntity. */
+    readonly removeEntity: "removeEntity";
+    /** The name of the event requestSyncedScene. */
+    readonly requestSyncedScene: "requestSyncedScene";
+    /** The name of the event resourceError. */
+    readonly resourceError: "resourceError";
+    /** The name of the event resourceStart. */
+    readonly resourceStart: "resourceStart";
+    /** The name of the event resourceStop. */
+    readonly resourceStop: "resourceStop";
+    /** The name of the event serverStarted. */
+    readonly serverStarted: "serverStarted";
+    /** The name of the event startFire. */
+    readonly startFire: "startFire";
+    /** The name of the event startProjectile. */
+    readonly startProjectile: "startProjectile";
+    /** The name of the event startSyncedScene. */
+    readonly startSyncedScene: "startSyncedScene";
+    /** The name of the event stopSyncedScene. */
+    readonly stopSyncedScene: "stopSyncedScene";
+    /** The name of the event streamSyncedMetaChange. */
+    readonly streamSyncedMetaChange: "streamSyncedMetaChange";
+    /** The name of the event syncedMetaChange. */
+    readonly syncedMetaChange: "syncedMetaChange";
+    /** The name of the event updateSyncedScene. */
+    readonly updateSyncedScene: "updateSyncedScene";
+    /** The name of the event vehicleAttach. */
+    readonly vehicleAttach: "vehicleAttach";
+    /** The name of the event vehicleDamage. */
+    readonly vehicleDamage: "vehicleDamage";
+    /** The name of the event vehicleDestroy. */
+    readonly vehicleDestroy: "vehicleDestroy";
+    /** The name of the event vehicleDetach. */
+    readonly vehicleDetach: "vehicleDetach";
+    /** The name of the event vehicleHorn. */
+    readonly vehicleHorn: "vehicleHorn";
+    /** The name of the event vehicleSiren. */
+    readonly vehicleSiren: "vehicleSiren";
+    /** The name of the event voiceConnection. */
+    readonly voiceConnection: "voiceConnection";
+    /** The name of the event weaponDamage. */
+    readonly weaponDamage: "weaponDamage";
+};
+
 export const ExplosionType: {
     readonly Barrel: any;
     readonly Bike: any;
@@ -4064,6 +4213,8 @@ export class NativePed {
     set pos(value: Vector3Like);
     /** The ordinary hand-overs again, or with disableMigration its current owner kept. */
     resetNetOwner(disableMigration?: boolean): Promise<NativeEntityControlOutcome>;
+    /** The size clients draw the NPC at: 1 is GTA's own, from 0.1 to 10. Assigning sends it to every client that has the NPC, and to the ones that get it later; a value out of the range throws a RangeError. Only the drawing changes: its collision body stays as at size 1, and its position reads the same. */
+    scale: number;
     /** Moves it to a dimension: the players that can see that dimension get it, the others lose it, and its owner hands it to one of them that holds it. One the server made whose owner cannot see that dimension starts over there at once: its owner lets it go and it waits there for an owner with its state (a new netId). A client's car stays with its owner until a player there holds it. */
     setDimension(dimension: number): Promise<NativeEntityControlOutcome>;
     /** SET_PED_INTO_VEHICLE on its owner, into a native vehicle (or the one of that network id); seat -1 is the driver's, -2 any free one. */
@@ -4615,6 +4766,8 @@ export class Object {
     /** The same as rot (radians): reading gives rot, assigning assigns it. */
     get rotation(): Vector3;
     set rotation(value: Vector3Like);
+    /** The size clients draw it at: 1 is GTA's own, 2 twice as large, from 0.1 to 10. Assigning sends it to every client that has the object, and to the ones that get it later; a value out of the range throws a RangeError. The object is sized around its origin, the zero point of its model. Only the drawing changes: its collision body stays as at size 1, and its position reads the same. */
+    scale: number;
     /** Stores a value under the key in this host's own metadata, which no client sees; an object alone sets each of its keys. metaChange fires unless the value is the same (Object.is); the key is turned into a string. */
     setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomEntityMeta, K, any>): void;
     setMeta(values: CustomMetaValues<ICustomEntityMeta, any>): void;
@@ -4750,6 +4903,8 @@ export class Ped {
     /** The same as rot (radians): reading gives rot, assigning assigns it. */
     get rotation(): Vector3;
     set rotation(value: Vector3Like);
+    /** The size clients draw it at: 1 is GTA's own, from 0.1 to 10. Assigning sends it to every client that has the ped, and to the ones that get it later; a value out of the range throws a RangeError. Only the drawing changes: its collision body stays as at size 1, and its position reads the same. */
+    scale: number;
     /** Stores a value under the key in this host's own metadata, which no client sees; an object alone sets each of its keys. metaChange fires unless the value is the same (Object.is); the key is turned into a string. */
     setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomEntityMeta, K, any>): void;
     setMeta(values: CustomMetaValues<ICustomEntityMeta, any>): void;
@@ -5688,6 +5843,8 @@ export class Player {
     /** Radians (heading gives z in degrees). Assigning turns a player on foot to z (x and y are not used) by the correction player.pos uses: the player's client puts the ped where the server last accepted it, facing z. A player in a vehicle is not turned (logged). The next spawn faces it, also when set before the spawn. */
     get rot(): Vector3;
     set rot(value: Vector3Like);
+    /** The size clients draw him at: 1 is GTA's own, 0.8 a fifth shorter, from 0.1 to 10. Assigning sends it to every client that has him, his own included, and to the ones that get him later; a value out of the range throws a RangeError. Only the drawing changes: his collision body stays as at size 1, and his position reads the same. */
+    scale: number;
     /** Seat in Player#vehicle: 1 = driver, 2 = front passenger, 3-4 = rear; 0 outside a vehicle. */
     readonly seat: number;
     /** Whether this player's client gets the other players' names (set by accept, true by default); assigning sends the change. Throws for a player who left; before playerReady it waits and is sent then, in call order. */
@@ -7922,6 +8079,7 @@ declare const varion: {
     /** As emit, a local event for this server's own handlers, but each value is a structured copy: Map, Set, Date and binary data are copied too and a value shared between arguments stays shared. Server objects (players, vehicles, ...) and class instances are handed on as they are. Nothing goes to clients. */
     emitRaw<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomEmitEvent, K>): void;
     Entity: typeof Entity;
+    Event: typeof Event;
     /** Runs the handler every 16 ms, in the calling resource's context (a throw is logged), unless a clear function or the resource's stop comes first. Returns its number, one sequence for every kind of timer. */
     everyTick(handler: () => void): number;
     ExplosionType: typeof ExplosionType;

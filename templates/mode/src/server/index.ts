@@ -47,7 +47,7 @@ function clickAllowed(key: string): boolean {
   return true;
 }
 
-varion.on('resourceStart', () => {
+varion.on(varion.Event.resourceStart, () => {
   void openStorage().then(
     (where) => varion.log(`[${RESOURCE}] storage: ${where}`),
     (error) => varion.logError(`[${RESOURCE}] storage is unavailable: ${error}`),
@@ -59,7 +59,7 @@ varion.on('resourceStart', () => {
   }
 });
 
-varion.on('playerReady', (player) => {
+varion.on(varion.Event.playerReady, (player) => {
   // rot is in radians, the spawn faces it
   player.rot = { x: 0, y: 0, z: ((config.spawnHeading ?? 157) * Math.PI) / 180 };
   player.spawn(config.spawnModel ?? 'mp_m_freemode_01', spawnPoint);
@@ -67,7 +67,7 @@ varion.on('playerReady', (player) => {
   emitAllClients('__NAME__:online', varion.getPlayerCount());
 });
 
-varion.on('playerDisconnect', (player, reason) => {
+varion.on(varion.Event.playerDisconnect, (player, reason) => {
   recentClicks.delete(keyOf(player));
   varion.log(`[${RESOURCE}] ${player.name} left: ${reason || 'connection closed'}`);
   emitAllClients('__NAME__:online', varion.getPlayers().filter((other) => other !== player).length);
@@ -95,6 +95,6 @@ onRpc('__NAME__:status', (player) => ({
   uptimeSec: Math.round((Date.now() - startedAt) / 1000),
 }));
 
-varion.on('resourceStop', () => {
+varion.on(varion.Event.resourceStop, () => {
   void closeStorage();
 });

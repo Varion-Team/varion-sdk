@@ -16,7 +16,7 @@ function setCursor(on: boolean): void {
   render();
 }
 
-varion.on('resourceStart', () => {
+varion.on(varion.Event.resourceStart, () => {
   // covers the screen, hidden until the welcome arrives
   ui = page(
     varion.WebView.create({
@@ -56,11 +56,11 @@ onServer('__NAME__:pong', (sentAt, serverTime) => {
   );
 });
 
-varion.on('keydown', (key) => {
+varion.on(varion.Event.keydown, (key) => {
   if (key === F2) setCursor(!state.cursor);
 });
 
-varion.on('resourceStop', () => {
+varion.on(varion.Event.resourceStop, () => {
   if (state.cursor) {
     varion.showCursor(false);
     varion.toggleGameControls(true);

@@ -26,7 +26,11 @@ export interface NativeEntity {
     hasSyncedMeta(key: string): boolean; hasStreamSyncedMeta(key: string): boolean;
     getSyncedMetaKeys(): string[]; getStreamSyncedMetaKeys(): string[];
 }
-export interface NativeVehicle extends NativeEntity { readonly type: 1; indicatorLights: number; }
+export interface NativeVehicle extends NativeEntity {
+    readonly type: 1; indicatorLights: number;
+    /** Burnout mode, as Vehicle#setBurnout: while it is on, accelerating spins the driven wheels and the vehicle stays where it is. */
+    setBurnout(toggle: boolean): void;
+}
 export interface NativePed extends NativeEntity { readonly type: 2; }
 /** What on/once/onServer and WebView#on/once return: destroy() removes the handler. */
 export interface VarionEventHandle { destroy(): void; }
@@ -3433,7 +3437,7 @@ export const CookieSameSite: {
 export const Discord: {
     /** The Discord user's avatar hash as Discord reports it, not a URL; empty while Discord is not connected. */
     readonly avatar: string;
-    /** Clears this player's Discord activity, in the Discord app too: getActivity() then reads null and discord:activityCleared fires. */
+    /** Clears this player's Discord activity, in the Discord app too: getActivity() then reads null and discordActivityCleared fires. */
     clearActivity(): void;
     /** A copy of the user of the Discord app on this PC, the id as a string; null while Discord is not connected. */
     readonly currentUser: DiscordUser | null;
@@ -3445,7 +3449,7 @@ export const Discord: {
     readonly isReady: boolean;
     /** True while the client is connected to the Discord app on this PC with a user (currentUser is set). The launcher does not pass the Discord application id, so on a player's PC it stays false. */
     readonly ready: boolean;
-    /** Sets this player's activity, sent to the Discord app when connected, and fires discord:activityUpdate with it; missing fields become empty or 0 and name stands in for details. Timestamps may be in seconds or milliseconds. */
+    /** Sets this player's activity, sent to the Discord app when connected, and fires discordActivityUpdate with it; missing fields become empty or 0 and name stands in for details. Timestamps may be in seconds or milliseconds. */
     updateActivity(options: DiscordActivityOptions): void;
     /** Discord snowflake as a string. Empty when disconnected; never convert it to a JavaScript number. */
     readonly userID: string;
@@ -3570,6 +3574,173 @@ export class Entity {
     /** Whether it is visible: a player's or server entity's IS_ENTITY_VISIBLE by the newest snapshot while it is streamed in, else the server's setting (true when none was sent); the local player's: GTA's IS_ENTITY_VISIBLE of its ped in the game, else the server's setting; a native vehicle or NPC always reads true; a local entity's own setting, which assigning applies in this client's GTA. */
     readonly visible: boolean;
 }
+
+export const Event: {
+    /** The name of the event anyResourceError. */
+    readonly anyResourceError: "anyResourceError";
+    /** The name of the event anyResourceStart. */
+    readonly anyResourceStart: "anyResourceStart";
+    /** The name of the event anyResourceStop. */
+    readonly anyResourceStop: "anyResourceStop";
+    /** The name of the event baseObjectCreate. */
+    readonly baseObjectCreate: "baseObjectCreate";
+    /** The name of the event baseObjectRemove. */
+    readonly baseObjectRemove: "baseObjectRemove";
+    /** The name of the event changedVehicleSeat. */
+    readonly changedVehicleSeat: "changedVehicleSeat";
+    /** The name of the event connectionComplete. */
+    readonly connectionComplete: "connectionComplete";
+    /** The name of the event connectionQueue. */
+    readonly connectionQueue: "connectionQueue";
+    /** The name of the event connectionState. */
+    readonly connectionState: "connectionState";
+    /** The name of the event consoleCommand. */
+    readonly consoleCommand: "consoleCommand";
+    /** The name of the event disconnect. */
+    readonly disconnect: "disconnect";
+    /** The name of the event discordActivityCleared. */
+    readonly discordActivityCleared: "discordActivityCleared";
+    /** The name of the event discordActivityUpdate. */
+    readonly discordActivityUpdate: "discordActivityUpdate";
+    /** The name of the event discordDisconnect. */
+    readonly discordDisconnect: "discordDisconnect";
+    /** The name of the event discordReady. */
+    readonly discordReady: "discordReady";
+    /** The name of the event discordUserChange. */
+    readonly discordUserChange: "discordUserChange";
+    /** The name of the event enteredVehicle. */
+    readonly enteredVehicle: "enteredVehicle";
+    /** The name of the event entityEnterColshape. */
+    readonly entityEnterColshape: "entityEnterColshape";
+    /** The name of the event entityHitEntity. */
+    readonly entityHitEntity: "entityHitEntity";
+    /** The name of the event entityLeaveColshape. */
+    readonly entityLeaveColshape: "entityLeaveColshape";
+    /** The name of the event entityStreamIn. */
+    readonly entityStreamIn: "entityStreamIn";
+    /** The name of the event entityStreamOut. */
+    readonly entityStreamOut: "entityStreamOut";
+    /** The name of the event everyTick. */
+    readonly everyTick: "everyTick";
+    /** The name of the event gameEntityCreate. */
+    readonly gameEntityCreate: "gameEntityCreate";
+    /** The name of the event gameEntityDestroy. */
+    readonly gameEntityDestroy: "gameEntityDestroy";
+    /** The name of the event gamepadButtonDown. */
+    readonly gamepadButtonDown: "gamepadButtonDown";
+    /** The name of the event gamepadButtonUp. */
+    readonly gamepadButtonUp: "gamepadButtonUp";
+    /** The name of the event gamepadConnected. */
+    readonly gamepadConnected: "gamepadConnected";
+    /** The name of the event gamepadDisconnected. */
+    readonly gamepadDisconnected: "gamepadDisconnected";
+    /** The name of the event globalMetaChange. */
+    readonly globalMetaChange: "globalMetaChange";
+    /** The name of the event globalSyncedMetaChange. */
+    readonly globalSyncedMetaChange: "globalSyncedMetaChange";
+    /** The name of the event headshotBase64. */
+    readonly headshotBase64: "headshotBase64";
+    /** The name of the event incomingDamage. */
+    readonly incomingDamage: "incomingDamage";
+    /** The name of the event keydown. */
+    readonly keydown: "keydown";
+    /** The name of the event keyup. */
+    readonly keyup: "keyup";
+    /** The name of the event leftVehicle. */
+    readonly leftVehicle: "leftVehicle";
+    /** The name of the event localeChange. */
+    readonly localeChange: "localeChange";
+    /** The name of the event localEntityFailed. */
+    readonly localEntityFailed: "localEntityFailed";
+    /** The name of the event localMetaChange. */
+    readonly localMetaChange: "localMetaChange";
+    /** The name of the event localStorageError. */
+    readonly localStorageError: "localStorageError";
+    /** The name of the event metaChange. */
+    readonly metaChange: "metaChange";
+    /** The name of the event netOwnerChange. */
+    readonly netOwnerChange: "netOwnerChange";
+    /** The name of the event playerAnimationChange. */
+    readonly playerAnimationChange: "playerAnimationChange";
+    /** The name of the event playerBulletHit. */
+    readonly playerBulletHit: "playerBulletHit";
+    /** The name of the event playerDeath. */
+    readonly playerDeath: "playerDeath";
+    /** The name of the event playerDimensionChange. */
+    readonly playerDimensionChange: "playerDimensionChange";
+    /** The name of the event playerEnterCheckpoint. */
+    readonly playerEnterCheckpoint: "playerEnterCheckpoint";
+    /** The name of the event playerEnterColShape. */
+    readonly playerEnterColShape: "playerEnterColShape";
+    /** The name of the event playerExitCheckpoint. */
+    readonly playerExitCheckpoint: "playerExitCheckpoint";
+    /** The name of the event playerExitColShape. */
+    readonly playerExitColShape: "playerExitColShape";
+    /** The name of the event playerInteriorChange. */
+    readonly playerInteriorChange: "playerInteriorChange";
+    /** The name of the event playerSpawn. */
+    readonly playerSpawn: "playerSpawn";
+    /** The name of the event playerStartTalking. */
+    readonly playerStartTalking: "playerStartTalking";
+    /** The name of the event playerStopTalking. */
+    readonly playerStopTalking: "playerStopTalking";
+    /** The name of the event playerWeaponChange. */
+    readonly playerWeaponChange: "playerWeaponChange";
+    /** The name of the event playerWeaponShoot. */
+    readonly playerWeaponShoot: "playerWeaponShoot";
+    /** The name of the event removeEntity. */
+    readonly removeEntity: "removeEntity";
+    /** The name of the event resourceError. */
+    readonly resourceError: "resourceError";
+    /** The name of the event resourceStart. */
+    readonly resourceStart: "resourceStart";
+    /** The name of the event resourceStop. */
+    readonly resourceStop: "resourceStop";
+    /** The name of the event spawned. */
+    readonly spawned: "spawned";
+    /** The name of the event startEnteringVehicle. */
+    readonly startEnteringVehicle: "startEnteringVehicle";
+    /** The name of the event startLeavingVehicle. */
+    readonly startLeavingVehicle: "startLeavingVehicle";
+    /** The name of the event streamMounted. */
+    readonly streamMounted: "streamMounted";
+    /** The name of the event streamSyncedMetaChange. */
+    readonly streamSyncedMetaChange: "streamSyncedMetaChange";
+    /** The name of the event syncedMetaChange. */
+    readonly syncedMetaChange: "syncedMetaChange";
+    /** The name of the event taskChange. */
+    readonly taskChange: "taskChange";
+    /** The name of the event virtualEntityPositionChange. */
+    readonly virtualEntityPositionChange: "virtualEntityPositionChange";
+    /** The name of the event virtualEntityStreamIn. */
+    readonly virtualEntityStreamIn: "virtualEntityStreamIn";
+    /** The name of the event virtualEntityStreamOut. */
+    readonly virtualEntityStreamOut: "virtualEntityStreamOut";
+    /** The name of the event voiceChannelChange. */
+    readonly voiceChannelChange: "voiceChannelChange";
+    /** The name of the event voiceChannelCreate. */
+    readonly voiceChannelCreate: "voiceChannelCreate";
+    /** The name of the event voiceChannelDestroy. */
+    readonly voiceChannelDestroy: "voiceChannelDestroy";
+    /** The name of the event voiceConnection. */
+    readonly voiceConnection: "voiceConnection";
+    /** The name of the event voicePushToTalk. */
+    readonly voicePushToTalk: "voicePushToTalk";
+    /** The name of the event weaponDamage. */
+    readonly weaponDamage: "weaponDamage";
+    /** The name of the event webViewDestroyed. */
+    readonly webViewDestroyed: "webViewDestroyed";
+    /** The name of the event windowFocusChange. */
+    readonly windowFocusChange: "windowFocusChange";
+    /** The name of the event windowResolutionChange. */
+    readonly windowResolutionChange: "windowResolutionChange";
+    /** The name of the event worldObjectPositionChange. */
+    readonly worldObjectPositionChange: "worldObjectPositionChange";
+    /** The name of the event worldObjectStreamIn. */
+    readonly worldObjectStreamIn: "worldObjectStreamIn";
+    /** The name of the event worldObjectStreamOut. */
+    readonly worldObjectStreamOut: "worldObjectStreamOut";
+};
 
 export const File: {
     /** Deletes a file of the scripts folder of this server and resolves true. Rejects with "not_found" when there was none, "read_only" for a resource: path, "invalid_path" or "empty_path" for a bad path, and "File I/O timeout" after 8 s. */
@@ -4330,6 +4501,8 @@ export class LocalObject {
     /** Its rotation in radians (z is the heading), a copy on each read: as its GTA entity is turned now (GET_ENTITY_ROTATION), the last known while it has none. Assigning sets the given components and turns its GTA entity on this client. */
     get rot(): Vector3Like;
     set rot(value: Partial<Vector3Like>);
+    /** The size this game draws it at, 1 for GTA's own. Assigning sizes its GTA object around its origin: 0.1 to 10, else a RangeError; while it has no GTA object nothing is sized and a warning is logged. Only the drawing changes: natives and scripts read its position and matrix as at size 1. */
+    scale: number;
     /** Its GTA handle on this client; 0 until it is created, while it is out of streaming range or in another dimension, and after destroy(). */
     readonly scriptID: number;
     /** Sets alpha (0–255, a whole number; the same as assigning it) and, when it has a GTA entity, applies it with SET_ENTITY_ALPHA (skin as given); resolves true once GTA ran it, false without a GTA entity yet (alpha applies at its creation) or when GTA refused. */
@@ -4477,6 +4650,8 @@ export class LocalPed {
     /** Its rotation in radians, a copy on each read: as its GTA entity is turned now (GET_ENTITY_ROTATION), the last known while it has none. Assigning sets the given components; its GTA ped takes only z, the heading. */
     get rot(): Vector3Like;
     set rot(value: Partial<Vector3Like>);
+    /** The size this game draws it at, 1 for GTA's own. Assigning sizes its GTA ped: 0.1 to 10, else a RangeError; while it has no GTA ped nothing is sized and a warning is logged. Only the drawing changes: natives and scripts read its position and matrix as at size 1. */
+    scale: number;
     /** Its GTA handle on this client; 0 until it is created, while it is out of streaming range or in another dimension, and after destroy(). */
     readonly scriptID: number;
     /** Keeps the alpha for the creation of its GTA entity and, when it has one, sets it on this client (SET_ENTITY_ALPHA): alpha is clamped to 0–255 and made whole (a non-number counts as 0) and skin is passed on as the native's skin flag. Resolves false without a GTA entity yet or when GTA refused. */
@@ -4696,6 +4871,8 @@ export class LocalVehicle {
     readonly seatCount: number;
     /** Keeps the alpha for the creation of its GTA entity and, when it has one, sets it on this client (SET_ENTITY_ALPHA): alpha is clamped to 0–255 and made whole (a non-number counts as 0) and skin is passed on as the native's skin flag. Resolves false without a GTA entity yet or when GTA refused. */
     setAlpha(alpha: number, skin?: boolean): Promise<boolean>;
+    /** Burnout mode: while it is on, accelerating spins the driven wheels with the others braked, and the vehicle stays where it is; false gives the wheels back. It takes effect in the game that simulates the vehicle, the driver's; nothing before it is spawned. Anything but true or false throws a TypeError. */
+    setBurnout(toggle: boolean): void;
     /** Sets collision (the same as assigning it) and, when it has a GTA entity, turns its collision on or off on this client with SET_ENTITY_COLLISION (keepPhysics true by default); resolves true once GTA ran it, false without a GTA entity yet (collision applies at its creation) or when GTA refused. */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
     /** Stores a copy of the value under the key on it and fires metaChange; an object given alone sets each of its entries. Its own data on this client, kept until destroy(). */
@@ -5130,6 +5307,8 @@ export class Object {
     resetAlpha(): Promise<boolean>;
     /** Its rotation in radians (z is the heading) by the newest snapshot: read from GTA while it is streamed in, else the last synced one. */
     readonly rot: Vector3;
+    /** The size this game draws it at, 1 for GTA's own. The server's scale sets it, and sets it again when its GTA object becomes another one. Assigning sizes it in this game only, until the server's next size or until it leaves this game: 0.1 to 10, else a RangeError; while it has no GTA object here nothing is sized and a warning is logged. It is sized around its origin, the zero point of its model. Only the drawing changes: natives and scripts read its position and matrix as at size 1. */
+    scale: number;
     /** Its GTA handle on this client by the newest snapshot; 0 while it has no GTA entity here and once the snapshots stop listing it. */
     readonly scriptID: number;
     /** Sets the alpha of its GTA entity on this client (SET_ENTITY_ALPHA): alpha is clamped to 0–255 and made whole (a non-number counts as 0) and skin is passed on as the native's skin flag. Resolves false when it has no GTA entity here or GTA refused. */
@@ -5288,6 +5467,8 @@ export class Ped {
     resetAlpha(): Promise<boolean>;
     /** Its rotation in radians (z is the heading) by the newest snapshot: read from GTA while it is streamed in, else the last synced one. */
     readonly rot: Vector3;
+    /** The size this game draws it at, 1 for GTA's own. The server's scale sets it, and sets it again when its ped in this game becomes another one. Assigning sizes it in this game only, until the server's next size or until it leaves this game: 0.1 to 10, else a RangeError; while it has no ped here nothing is sized and a warning is logged. Only the drawing changes: natives and scripts read its position and matrix as at size 1. */
+    scale: number;
     /** Its GTA handle on this client by the newest snapshot; 0 while it has no GTA entity here and once the snapshots stop listing it. */
     readonly scriptID: number;
     /** Sets the alpha of its GTA entity on this client (SET_ENTITY_ALPHA): alpha is clamped to 0–255 and made whole (a non-number counts as 0) and skin is passed on as the native's skin flag. Resolves false when it has no GTA entity here or GTA refused. */
@@ -6099,6 +6280,8 @@ export class Player {
     resetAlpha(): Promise<boolean>;
     /** The rotation in radians, by the newest snapshot; {0, 0, 0} without one. */
     readonly rot: Vector3;
+    /** The size this game draws him at, 1 for GTA's own. The server's scale sets it, and sets it again when his ped in this game becomes another one. Assigning sizes him in this game only, until the server's next size or until he leaves this game: 0.1 to 10, else a RangeError; while he has no ped here nothing is sized and a warning is logged. Only the drawing changes: natives and scripts read his position and matrix as at size 1. */
+    scale: number;
     /** The GTA handle of the player's ped by the newest snapshot; 0 when it is not in this client's GTA and once the snapshots stop listing the player. */
     readonly scriptID: number;
     /** The player's seat: 1 the driver's, 2 and up the passengers', 0 outside a vehicle. On the old path from the newest snapshot; on the native path the seat of GTA's copy of the ped in the vehicle it is in, read while in the game; for the local player in a LocalVehicle its seat there, read while in the game. */
@@ -6333,6 +6516,8 @@ export class PlayerLocal {
     /** Rotation in radians (GET_ENTITY_ROTATION gives degrees); {0, 0, 0} before the first snapshot, then updated every 50 ms while in the game. Assigning radians (finite x, y and z, else a TypeError) turns the local ped (SET_ENTITY_ROTATION in degrees, order 2), and the next read returns it. */
     get rot(): Vector3Like;
     set rot(value: Vector3Like);
+    /** The size this game draws the local player at, 1 for GTA's own. The server's scale sets it, and sets it again after a model change. Assigning sizes him in this game only, until the server's next size: 0.1 to 10, else a RangeError. Only the drawing changes: natives and scripts read his position and matrix as at size 1, and so does what this game sends to the server. */
+    scale: number;
     /** The GTA handle of the local ped; 0 before it is known. */
     readonly scriptID: number;
     /** The local player's seat: 1 the driver's, 2 and up the passengers', 0 outside a vehicle; updated every 50 ms while in the game. */
@@ -7455,6 +7640,8 @@ export class Vehicle {
     readonly seatCount: number;
     /** Sets the alpha of its GTA entity on this client (SET_ENTITY_ALPHA): alpha is clamped to 0–255 and made whole (a non-number counts as 0) and skin is passed on as the native's skin flag. Resolves false when it has no GTA entity here or GTA refused. */
     setAlpha(alpha: number, skin?: boolean): Promise<boolean>;
+    /** Burnout mode: while it is on, accelerating spins the driven wheels with the others braked, and the vehicle stays where it is; false gives the wheels back. It takes effect in the game that simulates the vehicle, the driver's; nothing while it has no GTA vehicle here. Anything but true or false throws a TypeError. */
+    setBurnout(toggle: boolean): void;
     /** Turns collision of its GTA entity on or off on this client (SET_ENTITY_COLLISION); keepPhysics defaults to true. Resolves false when it has no GTA entity here or GTA refused. The collision property does not change. */
     setCollision(enabled: boolean, keepPhysics?: boolean): Promise<boolean>;
     /** Stores the value under the key on this client and fires metaChange; an object given alone sets each of its entries. The data never leaves the client; an entity's is cleared when the server streams it out of this client and when the session ends. */
@@ -7977,6 +8164,8 @@ export class WeaponObject {
     /** Its rotation in radians (z is the heading), a copy on each read: as its GTA entity is turned now (GET_ENTITY_ROTATION), the last known while it has none. Assigning sets the given components and turns its GTA entity on this client. */
     get rot(): Vector3Like;
     set rot(value: Partial<Vector3Like>);
+    /** The size this game draws it at, 1 for GTA's own. Assigning sizes its GTA object around its origin: 0.1 to 10, else a RangeError; while it has no GTA object nothing is sized and a warning is logged. Only the drawing changes: natives and scripts read its position and matrix as at size 1. */
+    scale: number;
     /** Its GTA handle on this client; 0 until it is created, while it is out of streaming range or in another dimension, and after destroy(). */
     readonly scriptID: number;
     /** Sets alpha (0–255, a whole number; the same as assigning it) and, when it has a GTA entity, applies it with SET_ENTITY_ALPHA (skin as given); resolves true once GTA ran it, false without a GTA entity yet (alpha applies at its creation) or when GTA refused. */
@@ -8096,15 +8285,15 @@ export class WebView {
     static readonly isGpuAccelerationActive: boolean;
     /** Plays the page's sound through this AudioOutput; once it has had one, the page is heard only through its outputs. A destroyed view or output, or one already added, is ignored. */
     addOutput(output: AudioOutput): void;
-    /** Shows the view as a screen box centred on an entity (script handle or object with scriptID) plus offset in metres, following it while that point is on screen. The page is not drawn into the world; a target without a handle only logs a warning. */
-    attachTo(target: number | { scriptID: number }, offset?: Vector3Like): void;
+    /** Makes the view follow an entity (a script handle or an object with scriptID). offset is the entity's own, in metres: right, ahead and up of it, turning with it. A view on the screen keeps its size in pixels and is put over the game's picture for every frame by the camera that frame is drawn with, its middle on the point; while the point is behind the camera it is not drawn, partly past the edge of the screen it still is. A view made with WebView.create({ world }) is carried in the world itself: GTA draws it there, what stands in front hides it, and it is turned to the camera unless options.faceCamera is false. A view on a texture of a model throws; a target without a handle only logs a warning. */
+    attachTo(target: number | { scriptID: number }, offset?: Vector3Like, options?: { faceCamera?: boolean }): void;
     /** Removes the key from this view's own metadata (setMeta). */
     deleteMeta(key: string): void;
     /** Closes the page and removes the view: its handlers and outputs go and webViewDestroyed fires with its id. The game controls follow: off while another visible view has focus or a script turned them off. */
     destroy(): void;
-    /** Undoes attachTo: the view goes back on the screen at its pos and size. */
+    /** Undoes attachTo: a view on the screen goes back to its pos and size, a view in the world stays where it is. */
     detach(): void;
-    /** Sends an event to the page, where alt.on(name, handler) and alt.once handlers get it; a page that set window.varion.trigger itself gets it there too. The event does not come back to this WebView. */
+    /** Sends an event to the page, where alt.on(name, handler) and alt.once handlers get it; a page that set window.varion.trigger itself gets it there too. The event does not come back to this WebView. A message of up to 4 MB arrives whole; a larger one throws. */
     emit(eventName: string, ...args: any[]): void;
     /** The same as emit; there is no separate raw encoding. */
     emitRaw(eventName: string, ...args: any[]): void;
@@ -8145,7 +8334,7 @@ export class WebView {
     on(eventName: string, handler: (...args: any[]) => void): VarionEventHandle;
     /** Like on, for the next event of that name the page sends with alt.emit (or window.varion.emit); then the handler is removed. */
     once(eventName: string, handler: (...args: any[]) => void): VarionEventHandle;
-    /** 0..1, 1 by default; an assigned value is clamped, a non-number gives 1. */
+    /** How solid the view is drawn over the game, 0..1, 1 by default; an assigned value is clamped, a non-number gives 1. */
     opacity: number;
     /** Opens the page's developer tools in a separate window. */
     openDevTools(): void;
@@ -8183,7 +8372,7 @@ export class WebView {
     /** Where a view made with WebView.create({ world }) is in the world; null for any other view. Reading gives a copy. Assigning an object changes what it names and leaves the rest: view.world = { rot } turns the page where it stands. Assigning to a view that is not in the world throws. */
     get world(): WebViewWorld | null;
     set world(value: Partial<WebViewWorld>);
-    /** Whether the view is on screen: for an attached view, whether its entity's point is on screen by the client's last snapshot (false until the snapshot says so); for any other view, visible. */
+    /** Whether the view is on screen: for a view attached to an entity, whether any part of it is, by the client's last snapshot (false while the entity's point is behind the camera, and until the snapshot says so); for any other view, visible. */
     readonly worldOnScreen: boolean;
     /** Drawing order among visible views, higher on top, as a whole number; 0 (the default) leaves the order to the client. */
     z: number;
@@ -8309,17 +8498,16 @@ export type VarionEventName =
     | "baseObjectCreate"
     | "baseObjectRemove"
     | "changedVehicleSeat"
-    | "connection:complete"
-    | "connection:queue"
-    | "connection:state"
     | "connectionComplete"
+    | "connectionQueue"
+    | "connectionState"
     | "consoleCommand"
     | "disconnect"
-    | "discord:activityCleared"
-    | "discord:activityUpdate"
-    | "discord:disconnect"
-    | "discord:ready"
-    | "discord:userChange"
+    | "discordActivityCleared"
+    | "discordActivityUpdate"
+    | "discordDisconnect"
+    | "discordReady"
+    | "discordUserChange"
     | "enteredVehicle"
     | "entityEnterColshape"
     | "entityHitEntity"
@@ -8343,7 +8531,7 @@ export type VarionEventName =
     | "localEntityFailed"
     | "localMetaChange"
     | "localStorageError"
-    | "locale:change"
+    | "localeChange"
     | "metaChange"
     | "netOwnerChange"
     | "playerAnimationChange"
@@ -8364,26 +8552,21 @@ export type VarionEventName =
     | "resourceError"
     | "resourceStart"
     | "resourceStop"
-    | "spawn:success"
     | "spawned"
     | "startEnteringVehicle"
     | "startLeavingVehicle"
-    | "stream:mounted"
+    | "streamMounted"
     | "streamSyncedMetaChange"
     | "syncedMetaChange"
     | "taskChange"
-    | "varion:console:access"
-    | "varion:console:measure"
     | "virtualEntityPositionChange"
     | "virtualEntityStreamIn"
     | "virtualEntityStreamOut"
-    | "voice:channelChange"
-    | "voice:channelCreate"
-    | "voice:channelDestroy"
-    | "voice:playerStartTalking"
-    | "voice:playerStopTalking"
-    | "voice:pushToTalk"
+    | "voiceChannelChange"
+    | "voiceChannelCreate"
+    | "voiceChannelDestroy"
     | "voiceConnection"
+    | "voicePushToTalk"
     | "weaponDamage"
     | "webViewDestroyed"
     | "windowFocusChange"
@@ -8407,28 +8590,26 @@ export interface VarionEvents {
     baseObjectRemove(baseObject: BaseObject): void;
     /** The local player moved to another seat. Seats: 1 = driver, 2 = front passenger, 3-4 = rear. */
     changedVehicleSeat(vehicle: Vehicle, oldSeat: number, newSeat: number): void;
-    /** The client is in the game: connected, loaded and spawned. connectionComplete comes right after. */
-    "connection:complete"(): void;
-    /** The server holds the client in its connection queue. */
-    "connection:queue"(position: number, total: number): void;
-    /** The connection moved to another step; `message` comes with some steps, an error's text among them. */
-    "connection:state"(phase: "idle" | "connecting" | "authenticated" | "resources" | "waiting" | "spawning" | "ready" | "error", message?: string): void;
-    /** The twin of connection:complete; `hasMapChanged` is always false. */
+    /** The client is in the game: connected, loaded and spawned. `hasMapChanged` is always false. */
     connectionComplete(hasMapChanged: boolean): void;
+    /** The server holds the client in its connection queue. */
+    connectionQueue(position: number, total: number): void;
+    /** The connection moved to another step; `message` comes with some steps, an error's text among them. */
+    connectionState(phase: "idle" | "connecting" | "authenticated" | "resources" | "waiting" | "spawning" | "ready" | "error", message?: string): void;
     /** A line typed in the F8 console: the command as typed and the words after it. Built-in commands (matched in any case) come here too. */
     consoleCommand(name: string, ...args: string[]): void;
     /** The connection to the server ended. The resources keep running. */
     disconnect(): void;
     /** A script cleared the Discord status (Discord.clearActivity). */
-    "discord:activityCleared"(): void;
+    discordActivityCleared(): void;
     /** A script set the Discord status (Discord.updateActivity). */
-    "discord:activityUpdate"(activity: DiscordActivityOptions): void;
+    discordActivityUpdate(activity: DiscordActivityOptions): void;
     /** The Discord account is no longer known: Discord was closed or logged out. */
-    "discord:disconnect"(): void;
+    discordDisconnect(): void;
     /** The Discord account of the player is known: the one the Discord app on this computer runs. */
-    "discord:ready"(user: DiscordUser): void;
+    discordReady(user: DiscordUser): void;
     /** The Discord account changed; the new user and the previous one. */
-    "discord:userChange"(user: DiscordUser, previous: DiscordUser): void;
+    discordUserChange(user: DiscordUser, previous: DiscordUser): void;
     /** The local player got into a vehicle. Seats: 1 = driver, 2 = front passenger, 3-4 = rear. */
     enteredVehicle(vehicle: Vehicle, seat: number): void;
     /** An entity entered a colshape or checkpoint. A colshape of this client's scripts is tested with each local player snapshot against the local player, the players streamed in and, unless playersOnly, the streamed vehicles, peds and objects and the scripts' own entities; its checkpoints against players. A server colshape or checkpoint reports the local player. */
@@ -8470,7 +8651,7 @@ export interface VarionEvents {
     /** The local player got out of a vehicle. Seats: 1 = driver, 2 = front passenger, 3-4 = rear. */
     leftVehicle(vehicle: Vehicle, seat: number): void;
     /** The player's language changed. */
-    "locale:change"(locale: string): void;
+    localeChange(locale: string): void;
     /** GTA could not create a local entity; the client stopped trying. */
     localEntityFailed(entity: Entity, reason: string): void;
     /** The server changed data only this player gets (`player.setLocalMeta`). `value` is undefined after a delete. */
@@ -8517,8 +8698,6 @@ export interface VarionEvents {
     resourceStart(errored: boolean): void;
     /** Delivered to the resource being stopped, with its name. */
     resourceStop(resourceName: string): void;
-    /** The twin of playerSpawn. */
-    "spawn:success"(player: Player): void;
     /** The local player spawned; right after its playerSpawn. */
     spawned(): void;
     /** The local player started getting into a vehicle; the seat it heads for (0 if GTA does not say). Return false (synchronously) to stop the entry: GTA’s task has begun by then, and CLEAR_PED_TASKS on the local ped stops it. */
@@ -8526,7 +8705,7 @@ export interface VarionEvents {
     /** The local player started getting out of a vehicle. Return false (synchronously) to keep it in: CLEAR_PED_TASKS stops GTA's exit task and SET_PED_INTO_VEHICLE puts the ped back in its seat. */
     startLeavingVehicle(vehicle: Vehicle, seat: number, player: Player): boolean | void;
     /** The client mounted the server's packs (clothes, maps): counts of what loaded and failed, `mountFailed` among them. */
-    "stream:mounted"(report: Record<string, number | boolean | string>): void;
+    streamMounted(report: Record<string, number | boolean | string>): void;
     /** The server changed stream-synced data of an object this client has. `value` is undefined after a delete. */
     streamSyncedMetaChange(entity: BaseObject, key: string, value: any, oldValue: any): void;
     /** The server changed synced data of an object this client has. `value` is undefined after a delete. */
@@ -8540,19 +8719,15 @@ export interface VarionEvents {
     /** A virtual entity streamed out. */
     virtualEntityStreamOut(entity: VirtualEntity): void;
     /** The local player's voice channel changed: the old and new channel ids. */
-    "voice:channelChange"(oldChannel: number, newChannel: number): void;
+    voiceChannelChange(oldChannel: number, newChannel: number): void;
     /** A voice channel appeared. */
-    "voice:channelCreate"(channel: VoiceChannel): void;
+    voiceChannelCreate(channel: VoiceChannel): void;
     /** A voice channel went; its id. */
-    "voice:channelDestroy"(channelId: number): void;
-    /** The twin of playerStartTalking. */
-    "voice:playerStartTalking"(player: Player): void;
-    /** The twin of playerStopTalking. */
-    "voice:playerStopTalking"(player: Player): void;
-    /** The push-to-talk key went down or up. */
-    "voice:pushToTalk"(pressed: boolean): void;
+    voiceChannelDestroy(channelId: number): void;
     /** The voice connection changed state: a VoiceConnectionState. */
     voiceConnection(state: number): void;
+    /** The push-to-talk key went down or up. */
+    voicePushToTalk(pressed: boolean): void;
     /** A hit the local player took (`target` is the local player) or made (`sourceEntity` is). For a hit the local player made, the claim waits for the handlers (at most 300 ms) before it goes to the server: false cancels it, a number is sent as the damage instead; the server still decides with its own weaponDamage. A hit taken is told only. */
     weaponDamage(target: Entity, weaponHash: number, damage: number, offset: Vector3, bodyPart: number, sourceEntity: Player | null): number | boolean | void;
     /** A WebView was destroyed; its id. */
@@ -8579,7 +8754,7 @@ declare const varion: {
     /** Takes the given fields of each named level (ZOOM_LEVEL_0 ... ZOOM_LEVEL_GALLERY_MAXIMIZE, as MapZoomData.get names them) as if a script had assigned them: written into GTA's zoom data and saved for this server. A name GTA does not have is left out; an argument that is not an object is ignored. */
     applyMapZoomOverrides(overrides: Record<string, { fZoomScale?: number; fZoomSpeed?: number; fScrollSpeed?: number; vTilesX?: number; vTilesY?: number }>): void;
     AreaBlip: typeof AreaBlip;
-    /** URL of a file of a resource's client files, for WebView pages. */
+    /** URL of a file of a resource's client files, for WebView pages. `path` is a path inside the resource; given an address (https://...) it throws. */
     assetUrl(resourceName: string, path: string): string;
     Audio: typeof Audio;
     AudioCategories: typeof AudioCategories;
@@ -8646,7 +8821,7 @@ declare const varion: {
     Discord: typeof Discord;
     /** Whether the name is one of the values of varion.ConfigFlag ("DISABLE_IDLE_CAMERA" ...). */
     doesConfigFlagExist(flag: string): boolean;
-    /** A local event for this client's own handlers, which get copies (arrays and plain objects copied, a Vector3 or RGBA made anew, an entity or function the same object). Names of the runtime's own events (keydown, resourceStart, playerDeath, connection:* and others) and names starting with varion: are refused with a warning. */
+    /** A local event for this client's own handlers, which get copies (arrays and plain objects copied, a Vector3 or RGBA made anew, an entity or function the same object). Names of the runtime's own events (keydown, resourceStart, playerDeath, connectionState and others) and names starting with varion: are refused with a warning. */
     emit<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomEmitEvent, K>): void;
     /** Fires a local event for every resource's handlers, as varion.emit does but without refusing the runtime's own event names, so it can fake keydown or playerSpawn; a handler that throws is logged. */
     emitRaw<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomEmitEvent, K>): void;
@@ -8661,6 +8836,7 @@ declare const varion: {
     Entity: typeof Entity;
     /** The same function as logError: a line at error level in the F8 console and the client's script log, under the calling resource's name. */
     error(...args: any[]): void;
+    Event: typeof Event;
     /** Calls callback every frame until clearEveryTick or clearTimer gets the returned id, or the resource stops. A callback that is not a function throws a TypeError. */
     everyTick(callback: () => void): number;
     /** The calling resource's exports, which other resources get through varion.require(name) or Resource.getByName(name).exports; {} outside a resource's code. Assigning an object copies its properties in; the exports are emptied when the resource stops. */
@@ -8689,7 +8865,7 @@ declare const varion: {
     getCamRot(order?: number): Vector3Like;
     /** The value the flag was given last: what setConfigFlag set reads back at once, and the client confirms it. A flag never set, and every flag after the session ends, reads as GTA's own behaviour: true for DISABLE_SP_ENTER_VEHICLE_CLIPSET, false for the others. */
     getConfigFlag(flag: string): boolean;
-    /** The connection's current step: idle, connecting, authenticated, resources, waiting, spawning, ready or error, as connection:state names them. */
+    /** The connection's current step: idle, connecting, authenticated, resources, waiting, spawning, ready or error, as connectionState names them. */
     getConnectionPhase(): string;
     /** The mouse cursor in the game window's client area as a Vector2: pixels, or 0..1 of its size with normalized true. Updated once a frame while in the game; {0, 0} before. */
     getCursorPos(normalized?: boolean): Vector2;
@@ -8709,7 +8885,7 @@ declare const varion: {
     getLicenseHash(): string;
     /** The store of this copy of GTA as a LicenseType: Steam, Epic or Xbox when GTA was started with that store's launch parameter (useSteam, useEpic, useXboxPc, read in GTA), Rockstar for the Rockstar Games Launcher's own copy (none of them), None when the client cannot read them. */
     getLicenseType(): number;
-    /** The language the launcher gave the client, else the one Windows shows its interface in, as a short code: the language alone ("ru" for ru-RU), with its own tag for some (cz, by, ua, rs, in_hd ...), and pt_br, nb_no, nn_no, zh_cn, zh_tw with their region; "en" when neither is known. locale:change fires when it changes. */
+    /** The language the launcher gave the client, else the one Windows shows its interface in, as a short code: the language alone ("ru" for ru-RU), with its own tag for some (cz, by, ua, rs, in_hd ...), and pt_br, nb_no, nn_no, zh_cn, zh_tw with their region; "en" when neither is known. localeChange fires when it changes. */
     getLocale(): string;
     /** The handlers on and once added for that local event, the calling resource's handlers (outside a resource's code, every resource's); null or no name: the generic handlers of on(handler). */
     getLocalEventListeners(eventName?: string | null): Array<(...args: any[]) => void>;
@@ -8880,7 +9056,7 @@ declare const varion: {
     loadModelAsync(model: number | string, timeoutMs?: number): Promise<number>;
     /** Loads a .ytyp now: GTA's DLC_ITYP_REQUEST for it, then the load, so the models it defines are in GTA when the call returns. path is "@resource/stream/x.ytyp", "/stream/x.ytyp" (from the calling resource's root), "stream/x.ytyp" (from the folder of its client-main) or a name, "x" or "x.ytyp"; GTA knows a ytyp by its file name alone, without case, so the server's stream file of that name is loaded, else GTA's own, and a path must name one of that resource's stream files. True when GTA holds the request afterwards or held it already (every stream .ytyp is requested at the start of the session; GTA's and its DLCs' own; a permanent #typ), so a second call is true. False when GTA has no ytyp of that name, the path names no .ytyp of a resource, the session is not loaded or its stream files are being mounted or released, the ytyp is not loaded and its slot still holds archetypes while the stale archetype guard is off, GTA did not take the request, and in the browser runtime or a Worker. What a script loads stays until unloadYtyp or the end of the session. */
     loadYtyp(path: string): boolean;
-    /** The language the launcher gave the client, else the one Windows shows its interface in ("ru-RU"), up to 16 characters; "en" until the configuration arrives. locale:change fires when it changes; assigning only changes what getLocale returns until the next configuration. */
+    /** The language the launcher gave the client, else the one Windows shows its interface in ("ru-RU"), up to 16 characters; "en" until the configuration arrives. localeChange fires when it changes; assigning only changes what getLocale returns until the next configuration. */
     locale: string;
     Locale: typeof Locale;
     LocalObject: typeof LocalObject;
