@@ -253,6 +253,45 @@ export interface ConsoleCommandOptions {
     /** "everyone" (the default), or "developer": only for a player who has the developer's console. */
     access?: "everyone" | "developer";
 }
+/**
+ * The terms a sold resource runs under: what its buyer has from the platform. The server renews them every
+ * ten minutes; when the right ends the resource is stopped, and started again when the right is back.
+ */
+export interface ResourceLicense {
+    /** The resource's name on the platform. */
+    readonly resource: string;
+    /** The version that runs. */
+    readonly version: string;
+    /** The newest version this right reaches; it loads when the server starts next. */
+    readonly latest: string;
+    /** The plan's id as the author named it; "free" for a free resource. */
+    readonly plan: string;
+    /** True for a trial. */
+    readonly trial: boolean;
+    /** True when the buyer is let into beta versions. */
+    readonly beta: boolean;
+    /** How many servers the right covers. */
+    readonly servers: number;
+    /** When the right ends; null for one without an end. */
+    readonly until: Date | null;
+    /** Until when new versions reach this right; null for always. */
+    readonly updatesUntil: Date | null;
+    /** Whole days left, rounded up; null for a right without an end. */
+    readonly daysLeft: number | null;
+    /** The fields the author set for the plan and for this buyer, as a copy. */
+    readonly fields: Record<string, string | number | boolean>;
+    /** A field's value, or the fallback when the terms do not have it. */
+    get<T extends string | number | boolean>(key: string, fallback?: T): string | number | boolean | T | undefined;
+    /** True when the field is exactly true: a feature the plan turns on. */
+    has(key: string): boolean;
+    /** A numeric field, or the fallback (Infinity unless given) when it is not a number: a limit of the plan. */
+    limit(key: string, fallback?: number): number;
+    /** A copy of a data file of the package by its path in it (a Node Buffer); null when the package has no such file. */
+    file(path: string): Uint8Array | null;
+    /** Calls the handler when the platform changes the terms (another plan, a new term, a new version out). */
+    on(event: "change", handler: (license: ResourceLicense) => void): this;
+    off(event: "change", handler: (license: ResourceLicense) => void): this;
+}
 
 export const AmmoSpecialType: {
     readonly "0": any;
@@ -8200,6 +8239,8 @@ declare const varion: {
     /** Always true on the server. */
     readonly isServer: boolean;
     KeyCode: typeof KeyCode;
+    /** In a resource bought on the platform: the terms it runs under. null in every other resource. */
+    license: ResourceLicense | null;
     /** Writes one line to the server console at info level: a string as it is, anything else as util.inspect shows it ({ a: 1 }), joined by spaces; a line over 8192 bytes is cut. */
     log(...args: any[]): void;
     /** Writes a debug line, a string as it is and anything else as util.inspect shows it, only while debug is true: server.toml's debug, or this resource's [config] debug = true. */

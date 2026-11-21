@@ -6,6 +6,7 @@ import deploy from './ru/deploy.mjs';
 import devUi from './ru/dev-ui.mjs';
 import hostRuntime from './ru/host-runtime.mjs';
 import host from './ru/host.mjs';
+import market from './ru/market.mjs';
 import shared from './ru/shared.mjs';
 
 export default {
@@ -18,4 +19,5 @@ export default {
   ...devUi,
   ...host,
   ...hostRuntime,
+  ...market,
 };

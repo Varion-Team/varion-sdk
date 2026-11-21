@@ -1,6 +1,6 @@
 {
   "name": "@varion/sdk",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Tools for building game modes on Varion: the varion command line, varion host, live UI and runtime declarations.",
   "private": true,
   "license": "UNLICENSED",

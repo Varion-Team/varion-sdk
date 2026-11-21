@@ -26,6 +26,9 @@ const COMMANDS = {
   whoami: () => import('./commands/whoami.mjs'),
   types: () => import('./commands/types.mjs'),
   host: () => import('./commands/host.mjs'),
+  pack: () => import('./commands/pack.mjs'),
+  publish: () => import('./commands/publish.mjs'),
+  install: () => import('./commands/install.mjs'),
 };
 
 export function helpText() {
@@ -56,6 +59,14 @@ export function helpText() {
   varion assets status|fetch|lock
                           ${t('check, fetch and lock the big files of the project (DLC packs)')}
   varion types            ${t('refresh types/ with the SDK typings of this varion')}
+
+${t('resources for sale')}:
+  varion pack [<dir>] [--out <file>] [--version <x.y.z>]
+                          ${t('pack a resource for sale: the code sealed, the config left open')}
+  varion publish [<dir>] [--version <x.y.z>] [--beta] [--notes "<text>"] [--file <package>]
+                          ${t('pack a resource and publish it as a new version')}
+  varion install <name> [--dir <dir>] [--version <x.y.z>] [--force]
+                          ${t('put a bought resource into the resources folder of a server')}
 
 ${t('common options')}:
   --json                  ${t('events as JSON lines, for tools and CI')}
