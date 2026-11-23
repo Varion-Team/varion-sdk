@@ -1,5 +1,4 @@
 export default {
-  'the cabinet returned invalid release metadata': 'кабинет вернул некорректные данные выпуска',
   'the cabinet returned invalid deploy metadata': 'кабинет вернул некорректные данные выкладки',
   // developer key
   '{source} is not a PEM private key': '{source} — не закрытый ключ PEM',
@@ -52,11 +51,6 @@ export default {
   'cannot list the releases': 'список выпусков не получен',
   'no release bundle at {file}': 'нет архива выпуска {file}',
   '{file} is not a release bundle': '{file} — не архив выпуска',
-  'the release is {size}, over the cabinet limit of {limit}: put big packs in assets, the host downloads them by hash':
-    'выпуск весит {size}, больше лимита кабинета {limit}: большие паки клади в assets, хост скачивает их по хешу',
-  'the release was not uploaded': 'выпуск не загружен',
-  'the cabinet confirmed SHA-256 {confirmed}, but the bundle has {sha256}':
-    'кабинет подтвердил SHA-256 {confirmed}, а у архива {sha256}',
   'the deploy request was refused': 'запрос выкладки не принят',
   'the cabinet accepted the request but named no deployId':
     'кабинет принял запрос, но не назвал deployId',

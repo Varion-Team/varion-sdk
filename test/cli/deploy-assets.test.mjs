@@ -325,14 +325,54 @@ test('assets: an author locks the files of the source folder and uses them direc
       false,
       "the author's own files are not copied into the cache",
     );
-    // an edited pack is still used, with a warning
+    // an edited pack is recorded again by itself, with no word to say about it
     fs.writeFileSync(path.join(root, 'packs', 'rp_maps.rpf'), 'MAPS v2');
     await ensureAssets(project, output, { serverDir });
-    assert.ok(
-      output.events().some((event) => event.type === 'warn' && /does not match/.test(event.text)),
+    const again = readAssetsLock(project.config.assets.lock).assets.find(
+      (asset) => asset.name === 'rp_maps',
+    );
+    assert.equal(again.sha256, sha256(Buffer.from('MAPS v2')));
+    assert.equal(again.url, `https://cdn.example/demo/${again.sha256}`);
+    assert.ok(!output.events().some((event) => event.type === 'warn'));
+    assert.equal(
+      fs.readFileSync(path.join(serverDir, 'resources', 'rp_maps', 'dlc.rpf'), 'utf8'),
+      'MAPS v2',
     );
   } finally {
     if (previousHome === undefined) delete process.env.VARION_HOME;
     else process.env.VARION_HOME = previousHome;
   }
+});
+
+test('assets: a pack dropped into assets-source needs no line in varion.toml and no command', async () => {
+  const root = tempDir();
+  writeFiles(root, { 'varion.toml': TOML, 'assets-source/urus.rpf': 'URUS' });
+  const project = loadProject(root);
+  const output = createMemoryOutput();
+  const serverDir = path.join(root, '.varion', 'server');
+  assert.deepEqual(await ensureAssets(project, output, { serverDir }), ['urus']);
+  assert.equal(
+    fs.readFileSync(path.join(serverDir, 'resources', 'urus', 'dlc.rpf'), 'utf8'),
+    'URUS',
+  );
+  assert.deepEqual(
+    readAssetsLock(path.join(root, 'assets.lock.json')).assets.map((asset) => asset.name),
+    ['urus'],
+  );
+  // an address added to varion.toml later reaches the pack that is already recorded
+  writeFiles(root, {
+    'varion.toml': `${TOML}[assets]
+url = "https://cdn.example/{file}"
+`,
+  });
+  await ensureAssets(loadProject(root), output, { serverDir });
+  assert.equal(
+    readAssetsLock(path.join(root, 'assets.lock.json')).assets[0].url,
+    'https://cdn.example/urus.rpf',
+  );
+  // a project without the folder has no assets at all
+  const bare = tempDir();
+  writeFiles(bare, { 'varion.toml': TOML });
+  assert.deepEqual(await ensureAssets(loadProject(bare), output, { serverDir }), []);
+  assert.equal(fs.existsSync(path.join(bare, 'assets.lock.json')), false);
 });

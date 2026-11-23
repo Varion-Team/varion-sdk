@@ -42,8 +42,6 @@ export default {
     'сервер не принял ресурсы выпуска (--pack-resources, код {code})',
   'the server itself checked the release resources (--pack-resources)':
     'ресурсы выпуска проверены самим сервером (--pack-resources)',
-  '{name}: no url in {lock}, so the server cannot download it (upload the pack, then run varion assets lock with [assets] url)':
-    '{name}: в {lock} нет url, и сервер не сможет его скачать (залей пак и выполни varion assets lock с [assets] url)',
   'release {releaseId} ({env}): {files} files, {size}, in {zip}; packs by hash: {assets}':
     'выпуск {releaseId} ({env}): файлов {files}, {size}, в {zip}; паков по хешу: {assets}',
   'release {releaseId} ({env}): {files} files, {size}, in {zip}':
@@ -66,9 +64,37 @@ export default {
     'откатываю {releaseId} — действующий выпуск {env} на сервере {serverId}',
   '{releaseId} is rolled back on {serverId}: the release before it runs again':
     '{releaseId} откачен на {serverId}: снова работает выпуск, что был до него',
-  'uploading {releaseId} to {cabinet} (server {serverId})':
-    'загружаю {releaseId} в {cabinet} (сервер {serverId})',
-  'uploaded {releaseId}': 'загружен {releaseId}',
+  'the server {serverId} is not on the line: varion host is not running on its machine, or is not connected':
+    'сервер {serverId} не на связи: varion host на его компьютере не запущен или не подключён',
+  'varion host on the machine of server {serverId} is outdated: update the SDK there and start the host again':
+    'varion host на компьютере сервера {serverId} устарел: обнови там SDK и запусти хост снова',
+  'the release is sealed for the machine of the server, key {fingerprint} (varion host status shows the same)':
+    'выпуск запечатан для компьютера сервера, ключ {fingerprint} (тот же показывает varion host status)',
+  'the machine of server {serverId} has another key now: {now}, was {was}. If its host was connected again, check the key with varion host status there and deploy with --trust-host':
+    'у компьютера сервера {serverId} теперь другой ключ: {now}, был {was}. Если хост подключали заново, сверь ключ командой varion host status на нём и выложи с --trust-host',
+  'the new key of the server machine is trusted: {fingerprint}':
+    'новый ключ компьютера сервера принят: {fingerprint}',
+  'sending {releaseId} to server {serverId}': 'отправляю {releaseId} на сервер {serverId}',
+  '{releaseId} reached the server': '{releaseId} дошёл до сервера',
+  'sending the pack {name} ({size}) to the server': 'отправляю пак {name} ({size}) на сервер',
+  'the pack {name} reached the server': 'пак {name} дошёл до сервера',
+  'the pack {name} was not sent: {reason}': 'пак {name} не отправлен: {reason}',
+  'the pack did not reach the server': 'пак не дошёл до сервера',
+  'the server asks for the pack {name}, and it is not on this computer: put it into the packs folder of the project, or onto the server by hand':
+    'сервер просит пак {name}, а на этом компьютере его нет: положи его в папку паков проекта или на сервер руками',
+  'the cabinet did not say which packs to send': 'кабинет не сказал, какие паки отправить',
+  'the cabinet {host} does not carry releases to the host: it is older than this SDK':
+    'кабинет {host} не передаёт выпуски хосту: он старше этого SDK',
+  'cannot ask where the deploy goes': 'не удалось узнать, куда идёт выкладка',
+  'no release id for the bundle': 'у архива нет номера выпуска',
+  'no key of the server machine to seal the release with':
+    'нет ключа компьютера сервера, которым запечатывается выпуск',
+  'the release did not reach the server': 'выпуск не дошёл до сервера',
+  'the host of server {serverId} is not on the line': 'хост сервера {serverId} не на связи',
+  'the host of server {serverId} runs an older SDK: update it':
+    'хост сервера {serverId} работает на старом SDK: обнови его',
+  'the machine of server {serverId} has another key now ({now}, was {was})':
+    'у компьютера сервера {serverId} теперь другой ключ ({now}, был {was})',
   'deploy request signed and sent ({deployId})':
     'запрос выкладки подписан и отправлен ({deployId})',
   '{releaseId} is running on {serverId}: {link}': '{releaseId} работает на {serverId}: {link}',
@@ -96,6 +122,23 @@ export default {
   'this computer forgot the sign-in to {cabinet}; to revoke the token itself, remove this device in the cabinet':
     'этот компьютер забыл вход в {cabinet}; чтобы отозвать сам токен, удали это устройство в кабинете',
   'this computer is not signed in to {cabinet}': 'с этого компьютера не выполнен вход в {cabinet}',
+  'your account may not deploy {env} to any of its servers: ask the owner for the right in the cabinet':
+    'у твоей учётной записи нет права выкладывать {env} ни на один её сервер: попроси владельца дать его в кабинете',
+  'your account has no server yet: run varion host on the machine the server will run on and open the link it shows':
+    'у твоей учётной записи ещё нет сервера: запусти varion host на компьютере, где будет работать сервер, и открой ссылку, которую он покажет',
+  '[deploy.{env}] server is missing, and the account has several servers; put the id of one into varion.toml:':
+    'в varion.toml нет [deploy.{env}] server, а серверов у учётной записи несколько; впиши номер одного из них:',
+  'which server does {env} go to?': 'на какой сервер выкладывать {env}?',
+  number: 'номер',
+  'no server was chosen': 'сервер не выбран',
+  '{env} goes to the server {name}: written into varion.toml as [deploy.{env}] server':
+    '{env} выкладывается на сервер {name}: записано в varion.toml как [deploy.{env}] server',
+  'no server.toml in {dir}: run varion link in the folder of the server':
+    'в {dir} нет server.toml: запусти varion link в папке сервера',
+  'this server is {name} in the cabinet now: start it, and it is in the list once the review is passed':
+    'этот сервер теперь {name} в кабинете: запусти его, и после проверки он появится в списке',
+  'this computer is not signed in to {cabinet} yet: signing in':
+    'с этого компьютера ещё не входили в {cabinet}: выполняю вход',
   'this computer is not signed in to {cabinet}: {command}':
     'с этого компьютера не выполнен вход в {cabinet}: {command}',
   'the cabinet no longer accepts the sign-in of this computer: {command}':

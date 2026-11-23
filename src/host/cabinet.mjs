@@ -42,7 +42,7 @@ export function normalizePollItems(data) {
 }
 
 export class Cabinet {
-  constructor({ url, token, hostId }) {
+  constructor({ url, token, hostId, boxKey = '' }) {
     this.base = checkUrl(url, '--cabinet');
     if (!token || /\s/.test(token)) {
       throw new HostError(
@@ -58,6 +58,8 @@ export class Cabinet {
     }
     this.token = token;
     this.hostId = hostId;
+    // the public half of this machine's key: releases are sealed with it
+    this.boxKey = boxKey;
   }
 
   endpoint(pathname) {
@@ -78,7 +80,12 @@ export class Cabinet {
     const answer = await requestJson(this.endpoint('/api/servers/agent/deploy/poll'), {
       method: 'POST',
       headers: this.headers(),
-      json: { hostId: this.hostId, instances, wait },
+      json: {
+        hostId: this.hostId,
+        instances,
+        wait,
+        ...(this.boxKey ? { boxKey: this.boxKey } : {}),
+      },
       timeoutMs,
       what: t('cabinet poll'),
     });
@@ -100,6 +107,22 @@ export class Cabinet {
         maxBytes,
         expectedSize,
         what: t('release {releaseId}', { releaseId }),
+        stallMs: 120_000,
+      },
+    );
+  }
+
+  // a pack of a release that has no address: sealed, sent by the developer who is deploying
+  async downloadAsset(releaseId, sha256, file, { maxBytes } = {}) {
+    return download(
+      this.endpoint(
+        `/api/servers/agent/releases/${encodeURIComponent(releaseId)}/assets/${sha256}`,
+      ),
+      file,
+      {
+        headers: this.headers(),
+        maxBytes,
+        what: t('asset {name}', { name: sha256.slice(0, 12) }),
         stallMs: 120_000,
       },
     );

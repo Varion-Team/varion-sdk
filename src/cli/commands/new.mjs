@@ -57,6 +57,8 @@ export async function run(argv, { output: root, cliDir }) {
       'no-install': 'boolean',
       'no-git': 'boolean',
       sdk: 'string',
+      start: 'boolean',
+      play: 'boolean',
       json: 'boolean',
       cwd: 'string',
     },
@@ -119,6 +121,12 @@ export async function run(argv, { output: root, cliDir }) {
     ? { initialized: false, committed: false }
     : initRepository(dir, output);
   output.event('git', repository);
+
+  // --start (or --play, which also opens the game) goes straight on to the running server
+  if ((options.start || options.play) && !options.noInstall) {
+    const dev = await import('./dev.mjs');
+    return dev.run(['--cwd', dir, ...(options.play ? ['--play'] : [])], { output: root, cliDir });
+  }
 
   const relative = path.relative(process.cwd(), dir) || '.';
   const runScript = pm === 'npm' ? 'npm run' : pm;

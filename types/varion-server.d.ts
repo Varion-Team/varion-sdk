@@ -2644,7 +2644,7 @@ export class Checkpoint {
     deleteStreamSyncedMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the checkpoint on the server and every client: no more enter or leave events, and players inside get no leave. valid turns false and baseObjectRemove fires. After it every member but valid throws "Invalid base object" (destroy again too); a resource's checkpoints go when it stops. */
+    /** Removes the checkpoint on the server and every client: players inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires. After it every member but valid throws "Invalid base object" (destroy again too); a resource's checkpoints go when it stops. */
     destroy(): void;
     /** Players in this dimension enter it and see it, 0 by default (one in a negative dimension also enters a checkpoint in dimension 0); -2147483648 works in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -2820,7 +2820,7 @@ export class Colshape {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires. After it every member but valid throws "Invalid base object" (destroy again too); a resource's colshapes go when it stops. */
+    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires. After it every member but valid throws "Invalid base object" (destroy again too); a resource's colshapes go when it stops. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -2894,7 +2894,7 @@ export class ColshapeBox {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -2968,7 +2968,7 @@ export class ColshapeCircle {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -3042,7 +3042,7 @@ export class ColshapeCuboid {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -3116,7 +3116,7 @@ export class ColshapeCylinder {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -3191,7 +3191,7 @@ export class ColshapePolygon {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -3265,7 +3265,7 @@ export class ColshapeRectangle {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -3339,7 +3339,7 @@ export class ColshapeSphere {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: no more enter or leave events, and entities inside get no leave. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -5656,7 +5656,7 @@ export class Player {
     readonly discordID: string;
     /** Sends an event to this player's client (onServer there), reliably; a Player, Vehicle, Ped or Object among the arguments arrives as the client's own object of that id (null where it has none). A value that cannot be sent throws, as does a player who left; an event over server.toml maxServerScriptEventSize is dropped with a warning. */
     emit<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomServerClientEvent, K>): void;
-    /** The same path as emit (JSON with entity references); there is no separate raw codec, so a Map or Set, binary data or a BigInt beyond 2^53 throws here instead of arriving changed. */
+    /** As emit, but a Map, Set, Date, BigInt, undefined, NaN and the infinities arrive as they left; a cycle or nesting past 32 levels throws here. */
     emitRaw<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomServerClientEvent, K>): void;
     /** Calls an RPC his client registered and resolves to its answer. Rejects with the text of the client's error (a string); with an Error after 10 s, when he leaves, or for arguments that cannot be sent. Throws at once for a player who left. */
     emitRpc<K extends string>(rpcName: K, ...args: CustomEventArgs<ICustomServerClientRpc, K>): Promise<CustomRpcResult<ICustomServerClientRpc, K>>;
@@ -8069,8 +8069,8 @@ declare const varion: {
     createNativePed(model: number | string, pos: Vector3Like, heading?: number, dimension?: number): Promise<NativePed | null>;
     /** A train on the native path (a client makes it, CREATE_MISSION_TRAIN): the nearest player in range of pos, in that dimension, that can own native vehicles makes the engine and every carriage of GTA's train config `variation` (trains.xml: 0..28 in the base game; 0 a freight engine with two cars, 28 the metro) on the nearest train track node, and owns it; the train changes owner as one. Resolves to the engine's NativeVehicle (its carriages: engine.train.carriages); null when no such player is in range now, or its GTA could not make the train. Destroyed when the resource stops. */
     createNativeTrain(variation: number, pos: Vector3Like, direction?: boolean, dimension?: number): Promise<NativeVehicle | null>;
-    /** A car on the native path: the nearest player in range that can own it creates it as its own; until then it waits without an owner. When its last owner leaves with nobody in range, it waits where it was left and the next player near gets it as that owner left it: engine, locks, colours, plate, mods, damage and health (a new netId: a new lifetime of the same vehicle). Resolves to its NativeVehicle, which also reads as its id number; null when refused. Destroyed when the resource stops. */
-    createNativeVehicle(model: number | string, pos: Vector3Like, heading?: number, dimension?: number): Promise<NativeVehicle | null>;
+    /** A car on the native path: the nearest player in range that can own it creates it as its own; until then it waits without an owner. When its last owner leaves with nobody in range, it waits where it was left and the next player near gets it as that owner left it: engine, locks, colours, plate, mods, damage and health (a new netId: a new lifetime of the same vehicle). Resolves to its NativeVehicle, which also reads as its id number; null when refused. Destroyed when the resource stops. A trailer of the game is told by its model; for a trailer model of your own (an add-on) pass "trailer" as kind. */
+    createNativeVehicle(model: number | string, pos: Vector3Like, heading?: number, dimension?: number, kind?: 'trailer'): Promise<NativeVehicle | null>;
     /** An object of the old path, created without an owner in dimension 0; rot in radians, a non-finite coordinate counts as 0. A bad model throws at once; when the server creates none (its entity pool is full) the promise rejects with Error. It is removed when the resource stops. */
     createObject(model: number | string, pos: Vector3Like, rot?: Vector3Like): Promise<Object>;
     /** An NPC of the old path, created without an owner in dimension 0; rot in radians, a non-finite coordinate counts as 0. A bad model throws at once; when the server creates none (its entity pool is full) the promise rejects with Error. createNativePed makes an NPC GTA syncs. */
@@ -8105,13 +8105,13 @@ declare const varion: {
     emit<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomEmitEvent, K>): void;
     /** A Player, Vehicle, Ped or Object among the arguments (or inside them) reaches each client as its own object of that id, null where it has none; a value that cannot be sent (a cycle, a BigInt beyond 2^53, binary data, a Map or Set, nesting past 32 levels) throws here. */
     emitAllClients<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomServerClientEvent, K>): void;
-    /** The same path as emitAllClients (JSON with entity references); there is no separate raw codec, so a Map or Set, binary data or a BigInt beyond 2^53 throws here instead of arriving changed. */
+    /** As emitAllClients, but a Map, Set, Date, BigInt, undefined, NaN and the infinities arrive as they left; a cycle or nesting past 32 levels throws here. */
     emitAllClientsRaw<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomServerClientEvent, K>): void;
     /** As emitAllClients, but over the unreliable channel: an event may be lost or arrive out of order. One larger than server.toml maxServerScriptEventSize is not sent (logged). */
     emitAllClientsUnreliable<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomServerClientEvent, K>): void;
     /** Sends an event to one player or to each player of a list. A Player that is no longer valid throws 'Invalid base object' alone and is skipped in a list, so the event never reaches whoever took its number. To reach every player use emitAllClients: a null target sends to nobody. */
     emitClient<K extends string>(target: Player | Player[], eventName: K, ...args: CustomEventArgs<ICustomServerClientEvent, K>): void;
-    /** The same path as emitClient (JSON with entity references); there is no separate raw codec, so a Map or Set, binary data or a BigInt beyond 2^53 throws here instead of arriving changed. */
+    /** As emitClient, but a Map, Set, Date, BigInt, undefined, NaN and the infinities arrive as they left; a cycle or nesting past 32 levels throws here. */
     emitClientRaw<K extends string>(target: Player | Player[], eventName: K, ...args: CustomEventArgs<ICustomServerClientEvent, K>): void;
     /** As emitClient, but over the unreliable channel: the event may be lost or arrive out of order. A Player no longer valid throws alone and is skipped in a list; duplicates and ids outside 1..65534 are skipped; arguments that cannot be sent throw. */
     emitClientUnreliable<K extends string>(target: Player | Player[], eventName: K, ...args: CustomEventArgs<ICustomServerClientEvent, K>): void;

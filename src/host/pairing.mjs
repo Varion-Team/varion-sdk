@@ -190,7 +190,7 @@ export async function pairHost({ cabinetUrl, hostId, hostname, log, signal, poll
     const url = pair.url || `${base.origin}/cabinet`;
     log.info(
       t(
-        'to connect this machine, enter the code {code} in the cabinet on the page of your server: {url} (the code is valid for {minutes} min)',
+        'to connect this machine, open {url} and check that the page shows the code {code} (valid for {minutes} min)',
         { code: pair.code, url, minutes: Math.max(1, Math.round(pair.expiresIn / 60)) },
       ),
       { code: pair.code, url, expiresIn: pair.expiresIn },

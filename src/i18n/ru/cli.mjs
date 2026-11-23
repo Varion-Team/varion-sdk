@@ -21,6 +21,8 @@ export default {
     'учётная запись, под которой выполнен вход, и её серверы',
   'create or show the developer key that signs deploy requests':
     'создать или показать ключ разработчика для подписи запросов выкладки',
+  'on a server started by hand: connect it to the cabinet so that it joins the list':
+    'на сервере, который запускают вручную: связать его с кабинетом, чтобы он попал в список',
   'on a server: apply deploys from the cabinet (see varion host --help)':
     'на сервере: принимать выкладки из кабинета (подробно — varion host --help)',
   'download and check the engine of varion.toml': 'скачать и проверить движок из varion.toml',
@@ -30,6 +32,21 @@ export default {
     'проверить, скачать и записать в замок большие файлы проекта (паки DLC)',
   'refresh types/ with the SDK typings of this varion':
     'обновить types/ типами SDK из этой версии varion',
+  'move the project to the newest SDK and engine, and show what no longer fits':
+    'перевести проект на новый SDK и движок и показать, что в коде перестало сходиться',
+  'updating the SDK of the project': 'обновляю SDK проекта',
+  'npm could not update the SDK: {reason}': 'npm не смог обновить SDK: {reason}',
+  'the engine is your own build ([engine] path): its version is left alone':
+    'движок — твоя сборка ([engine] path): её версию не трогаю',
+  'varion.toml has no version in [engine] to change':
+    'в varion.toml нет версии в [engine], которую можно сменить',
+  'engine {from} -> {to} in varion.toml': 'движок {from} -> {to} в varion.toml',
+  'engine {version}: already the newest this SDK knows':
+    'движок {version}: новее этот SDK не знает',
+  'typings refreshed ({count} files)': 'типы обновлены (файлов: {count})',
+  'done: the mode fits the new version': 'готово: режим сходится с новой версией',
+  'the lines above no longer fit the new version: fix them and run varion check':
+    'строки выше перестали сходиться с новой версией: поправь их и запусти varion check',
   'common options': 'общие ключи',
   'events as JSON lines, for tools and CI': 'события строками JSON — для инструментов и CI',
   'the project folder': 'папка проекта',

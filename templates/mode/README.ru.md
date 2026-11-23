@@ -21,12 +21,21 @@ npm run dev
 
 ## Выкладка
 
-Один раз войди: `npx varion login`, затем `npx varion deploy test` (или `prod`);
-`npx varion deploy test --rollback` возвращает предыдущий выпуск. Push на GitHub выкладывает сам:
-`main` — на test, теги `v*` — на prod, остальные ветки — на сервер превью. Сценарию нужны секреты:
+Войди командой `npx varion login`, затем выполни `npx varion deploy test` (или `prod`).
+`npx varion deploy test --rollback` возвращает предыдущий выпуск.
 
-- `VARION_DEPLOY_TOKEN` – токен разработчика из кабинета
-- `VARION_DEPLOY_KEY` – закрытый ключ для подписи выкладки
+Сценарий GitHub выкладывает `main` на тест, теги `v*` на основной сервер, остальные
+ветки на предпросмотр тестового сервера. Создай в GitHub окружения `test` и `prod`,
+в каждое положи свои секреты:
 
-Для CI заведи отдельный ключ: `VARION_KEYS_DIR=ci-key npx varion keys init`, закрытый ключ
-положи в секрет, открытый добавь на сервере: `varion host trust <ключ> --name ci`.
+- `VARION_DEPLOY_TOKEN` — токен, выданный для соответствующего ID сервера в `varion.toml`;
+- `VARION_DEPLOY_KEY` — закрытый ключ для подписи выкладки.
+
+Предпросмотр использует секреты тестового окружения. Если в проекте задан свой ID
+для ветки, он должен совпадать с сервером токена `test`.
+
+Создай отдельную пару ключей для каждого окружения. Пример для Linux:
+`VARION_KEYS_DIR="$HOME/.config/varion/ci-test" npx varion keys init`.
+В секрет сохрани содержимое `deploy-ed25519.pem`, а открытый ключ добавь на хосте
+командой `varion host trust <ключ> --name ci-test`. Как подобрать версии SDK и хоста,
+смотри в [руководстве по выкладке](https://varionmp.net/docs/deploy).

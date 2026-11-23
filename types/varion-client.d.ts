@@ -66,14 +66,23 @@ export interface WebViewOptions {
     headers?: { [name: string]: string };
     /** The page is a rectangle in the world, not on the screen; what is left out is 1.6 by 0.9 metres at the origin. */
     world?: Partial<WebViewWorld>;
+    /** Experimental world-only paint rate (integer 1–59) after 250 ms out of range, fully behind the camera, or while an attached entity is unavailable. The view resumes 60 FPS when it can be seen again. Omit to keep the regular cadence. */
+    worldIdleFrameRate?: number;
     /** With targetTexture: the page is shown on that texture of the model (its name or hash), on every object of the model. */
     drawable?: number | string;
     targetTexture?: string;
+    /** true: the page is only a texture, on no screen and in no place; the script draws it with the natives that take a texture (textureDict, textureName). */
+    headless?: boolean;
+    /** With targetTexture: the page is shown on that texture of a texture dictionary of the game (its name), wherever the game draws the texture. */
+    textureDict?: string;
+    /** With world: the page takes the mouse. The cursor, or the middle of the screen while no cursor is shown, moves its pointer, and the left button clicks. */
+    interactive?: boolean;
     [option: string]: any;
 }
 /** Handler of event E: typed for the documented events and the keys of ICustomEmitEvent, any arguments for the rest. */
 export type VarionEventHandler<E extends string> =
     E extends keyof VarionEvents ? VarionEvents[E] :
+    E extends "stream:changed" ? VarionEvents["streamChanged"] :
     E extends keyof ICustomEmitEvent ? ICustomEmitEvent[E] : (...args: any[]) => void;
 export interface DiscordUser { id: string; name: string; discriminator: string; avatar: string; }
 export interface DiscordActivityOptions {
@@ -3702,6 +3711,8 @@ export const Event: {
     readonly startEnteringVehicle: "startEnteringVehicle";
     /** The name of the event startLeavingVehicle. */
     readonly startLeavingVehicle: "startLeavingVehicle";
+    /** The name of the event streamChanged. */
+    readonly streamChanged: "streamChanged";
     /** The name of the event streamMounted. */
     readonly streamMounted: "streamMounted";
     /** The name of the event streamSyncedMetaChange. */
@@ -3780,8 +3791,10 @@ export const FocusData: {
 
 export class Font {
     constructor(...args: any[]);
-    static getByID(...args: any[]): any;
-    static getByRemoteID(...args: any[]): any;
+    /** BaseObject.getByID as it is: the object of that BaseObjectType with that id, not a Font by its id; null for none. */
+    static getByID(type: number, id: number): PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | VirtualEntity | LocalVehicle | LocalPed | LocalObject | Blip | Checkpoint | ColShape | Marker | TextLabel | null;
+    /** BaseObject.getByRemoteID as it is: the server's object of that BaseObjectType with that id, not a Font; null for none. */
+    static getByRemoteID(type: number, remoteId: number): PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | VirtualEntity | Blip | Checkpoint | ColShape | Marker | TextLabel | null;
     /** Adds a Scaleform font library (.gfx) to GTA’s text and returns its Font, the same object for the same font. The path is "@resource/file.gfx", "/file.gfx" from the resource’s root, "dir/file.gfx" from client-main’s folder, or the bare name GTA’s streaming knows the .gfx by; it must be one of the server’s stream files (stream.toml). The library’s first font is used, by its export name or else its own. GTA’s text cannot draw a TrueType font, so a .ttf or .otf throws, as does a file that is no font library, a build where GTA’s font lookup is not found, and a call outside the game. The font streams in over the next frames; until then its id draws GTA’s default font. */
     static register(path: string): Font;
     /** GTA’s font id, 13 and up: what SET_TEXT_FONT, drawText2d/drawText3d and a TextLabel take. */
@@ -3827,6 +3840,10 @@ export class Gamepad {
     readonly axisRightY: number;
     /** True for every object Gamepad.get returns: controllers that are not connected are not listed. */
     readonly connected: boolean;
+    /** The XInput slot as a string (0 to 3). It stays the same while this controller occupies the slot, even when its position in the connected list changes. A later connection can reuse the slot. */
+    readonly id: string;
+    /** Position in the compact list of connected controllers at the time of the snapshot. It can change when another controller connects or disconnects. */
+    readonly index: number;
     /** The same as isButtonPressed: whether the button was held at the snapshot, not the moment it went down. */
     isButtonDown(button: number): boolean;
     /** Whether the button (GamepadButton: A 0 ... DPadRight 15) was held at the snapshot; LT and RT count once the trigger passes XInput's threshold. */
@@ -4441,7 +4458,8 @@ export class LocalObject {
     getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomEntitySyncedMeta, K, any>;
     /** An empty array: the server syncs no data to an entity this client made. */
     getSyncedMetaKeys(): string[];
-    getSyncInfo(...args: any[]): any;
+    /** What the clone sync knows of this entity’s network object, in the sync’s own timestamps (ms). A copy of another client’s entity: receivedTick (its last record) and fullyReceivedTick (its last full state). One this client owns: sendTick, ackedSendTick (the last one the server acknowledged) and, per node of its sync tree, when that node last changed: each node is a component of one property. active is false and every number 0 where the game has no network object for it, or outside the game’s engine. */
+    getSyncInfo(): { active: boolean; receivedTick: number; fullyReceivedTick: number; sendTick: number; ackedSendTick: number; propertyCount: number; componentCount: number; propertyUpdateTicks: number[][] };
     /** Always undefined: a local entity is this client's own and has no synced data. */
     getVariable(key: string): undefined;
     /** Whether gravity acts on it, true by default; assigning applies it in this client's GTA (SET_ENTITY_HAS_GRAVITY), at once or when it is created. */
@@ -4600,7 +4618,8 @@ export class LocalPed {
     getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPedSyncedMeta, K, any>;
     /** An empty array: the server syncs no data to an entity this client made. */
     getSyncedMetaKeys(): string[];
-    getSyncInfo(...args: any[]): any;
+    /** What the clone sync knows of this entity’s network object, in the sync’s own timestamps (ms). A copy of another client’s entity: receivedTick (its last record) and fullyReceivedTick (its last full state). One this client owns: sendTick, ackedSendTick (the last one the server acknowledged) and, per node of its sync tree, when that node last changed: each node is a component of one property. active is false and every number 0 where the game has no network object for it, or outside the game’s engine. */
+    getSyncInfo(): { active: boolean; receivedTick: number; fullyReceivedTick: number; sendTick: number; ackedSendTick: number; propertyCount: number; componentCount: number; propertyUpdateTicks: number[][] };
     /** Always undefined: a local entity is this client's own and has no synced data. */
     getVariable(key: string): undefined;
     /** Whether its own data (setMeta) holds the key. */
@@ -4782,7 +4801,8 @@ export class LocalVehicle {
     getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomVehicleSyncedMeta, K, any>;
     /** An empty array: the server syncs no data to an entity this client made. */
     getSyncedMetaKeys(): string[];
-    getSyncInfo(...args: any[]): any;
+    /** What the clone sync knows of this entity’s network object, in the sync’s own timestamps (ms). A copy of another client’s entity: receivedTick (its last record) and fullyReceivedTick (its last full state). One this client owns: sendTick, ackedSendTick (the last one the server acknowledged) and, per node of its sync tree, when that node last changed: each node is a component of one property. active is false and every number 0 where the game has no network object for it, or outside the game’s engine. */
+    getSyncInfo(): { active: boolean; receivedTick: number; fullyReceivedTick: number; sendTick: number; ackedSendTick: number; propertyCount: number; componentCount: number; propertyUpdateTicks: number[][] };
     /** Always undefined: a local entity is this client's own and has no synced data. */
     getVariable(key: string): undefined;
     /** The camber of wheel 0–7, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 for a wheel it does not have and before the first report. */
@@ -4803,7 +4823,8 @@ export class LocalVehicle {
     getWheelTyreRadius(wheel: number): number;
     /** The tyre width of wheel 0–7, read from its GTA vehicle's memory and reported about every 100 ms when it changes; 0 for a wheel it does not have and before the first report. */
     getWheelTyreWidth(wheel: number): number;
-    readonly handling: any;
+    /** As Vehicle.handling: a new HandlingData on each read, and the first write through it gives this vehicle a handling of its own. */
+    readonly handling: HandlingData;
     /** Whether its own data (setMeta) holds the key. */
     hasMeta(key: string): boolean;
     /** false: the server syncs no data to an entity this client made. */
@@ -5258,7 +5279,8 @@ export class Object {
     getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomEntitySyncedMeta, K, any>;
     /** The keys of the synced data (setSyncedMeta on the server) this client has for it. */
     getSyncedMetaKeys(): string[];
-    getSyncInfo(...args: any[]): any;
+    /** What the clone sync knows of this entity’s network object, in the sync’s own timestamps (ms). A copy of another client’s entity: receivedTick (its last record) and fullyReceivedTick (its last full state). One this client owns: sendTick, ackedSendTick (the last one the server acknowledged) and, per node of its sync tree, when that node last changed: each node is a component of one property. active is false and every number 0 where the game has no network object for it, or outside the game’s engine. */
+    getSyncInfo(): { active: boolean; receivedTick: number; fullyReceivedTick: number; sendTick: number; ackedSendTick: number; propertyCount: number; componentCount: number; propertyUpdateTicks: number[][] };
     /** The same as getSyncedMeta: the server's synced value under the key, decoded; undefined for none. */
     getVariable(key: string): any;
     /** Whether this client's own data on it (setMeta) holds the key. */
@@ -5414,7 +5436,8 @@ export class Ped {
     getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPedSyncedMeta, K, any>;
     /** The keys of the synced data (setSyncedMeta on the server) this client has for it. */
     getSyncedMetaKeys(): string[];
-    getSyncInfo(...args: any[]): any;
+    /** What the clone sync knows of this entity’s network object, in the sync’s own timestamps (ms). A copy of another client’s entity: receivedTick (its last record) and fullyReceivedTick (its last full state). One this client owns: sendTick, ackedSendTick (the last one the server acknowledged) and, per node of its sync tree, when that node last changed: each node is a component of one property. active is false and every number 0 where the game has no network object for it, or outside the game’s engine. */
+    getSyncInfo(): { active: boolean; receivedTick: number; fullyReceivedTick: number; sendTick: number; ackedSendTick: number; propertyCount: number; componentCount: number; propertyUpdateTicks: number[][] };
     /** The same as getSyncedMeta: the server's synced value under the key, decoded; undefined for none. */
     getVariable(key: string): any;
     /** Whether this client's own data on it (setMeta) holds the key. */
@@ -6183,7 +6206,8 @@ export class Player {
     getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPlayerSyncedMeta, K, any>;
     /** The keys of the player's synced metadata on this client. */
     getSyncedMetaKeys(): string[];
-    getSyncInfo(...args: any[]): any;
+    /** What the clone sync knows of this entity’s network object, in the sync’s own timestamps (ms). A copy of another client’s entity: receivedTick (its last record) and fullyReceivedTick (its last full state). One this client owns: sendTick, ackedSendTick (the last one the server acknowledged) and, per node of its sync tree, when that node last changed: each node is a component of one property. active is false and every number 0 where the game has no network object for it, or outside the game’s engine. */
+    getSyncInfo(): { active: boolean; receivedTick: number; fullyReceivedTick: number; sendTick: number; ackedSendTick: number; propertyCount: number; componentCount: number; propertyUpdateTicks: number[][] };
     /** The same as getSyncedMeta. */
     getVariable(key: string): any;
     /** currentWeaponTintIndex when the weapon (a hash or name) is the one in hand, else 0. */
@@ -6405,7 +6429,8 @@ export class PlayerLocal {
     getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomPlayerSyncedMeta, K, any>;
     /** The keys of the local player's synced metadata on this client. */
     getSyncedMetaKeys(): string[];
-    getSyncInfo(...args: any[]): any;
+    /** What the clone sync knows of this entity’s network object, in the sync’s own timestamps (ms). A copy of another client’s entity: receivedTick (its last record) and fullyReceivedTick (its last full state). One this client owns: sendTick, ackedSendTick (the last one the server acknowledged) and, per node of its sync tree, when that node last changed: each node is a component of one property. active is false and every number 0 where the game has no network object for it, or outside the game’s engine. */
+    getSyncInfo(): { active: boolean; receivedTick: number; fullyReceivedTick: number; sendTick: number; ackedSendTick: number; propertyCount: number; componentCount: number; propertyUpdateTicks: number[][] };
     /** The same as getSyncedMeta. */
     getVariable(key: string): any;
     /** Ammo of a weapon the server gave the player (a hash or name) as the client tracks it, the grant minus what GTA spent; 0 for infinite ammo or a weapon not given. */
@@ -6962,9 +6987,10 @@ export class RadiusBlip {
 }
 
 export const Rendering: {
-    /** Draws a sphere of the centre, radius and colour (alpha 255 by default) for this frame only: GTA's DRAW_MARKER_SPHERE. segments is accepted and ignored (GTA draws its own mesh), and depth testing is not switchable (Varion has no setDepthtesting). A centre that is not an object throws a TypeError. Call it every frame, e.g. from everyTick. */
+    /** Draws a sphere of the centre, radius and colour (alpha 255 by default) for this frame only: GTA's DRAW_MARKER_SPHERE, hidden behind walls, segments ignored. After Rendering.setDepthtesting(false) it is a wireframe of segments rings (3 to 64, 16 by default) drawn over everything. A centre that is not an object throws a TypeError. Call it every frame, e.g. from everyTick. */
     drawSphere(center: Vector3Like, radius: number, color?: { r: number; g: number; b: number; a?: number }, segments?: number): void;
-    setDepthtesting(...args: any[]): any;
+    /** Whether drawSphere is hidden behind walls (true, the default) or drawn over everything as a wireframe (false). */
+    setDepthtesting(enabled: boolean): void;
 };
 
 export class Resource {
@@ -7004,6 +7030,219 @@ export class Resource {
     readonly type: string;
     /** True while the server's manifest names the resource; false once a configuration from the server leaves it out (true again if the resource comes back). A stopped resource stays valid. */
     readonly valid: boolean;
+}
+
+export class RmlDocument {
+    /** Opens an RML file of the calling resource and shows it over the game, under the WebViews: "/ui/index.rml" from the resource's root, "ui/index.rml" from client-main's folder. Works in the game only. Closed when the resource stops. */
+    constructor(url: string);
+    static readonly all: RmlDocument[];
+    static getByID(id: number): RmlDocument | null;
+    /** Always null: a document is this client's own and has no id on the server. */
+    static getByRemoteID(id: number): null;
+    readonly absoluteLeft: number;
+    readonly absoluteOffset: Vector2;
+    readonly absoluteTop: number;
+    addClass(name: string): boolean;
+    addPseudoClass(name: string): boolean;
+    appendChild(child: RmlElement): void;
+    readonly attributes: Record<string, string>;
+    readonly baseline: number;
+    blur(): void;
+    /** The document itself: in RmlUi a document is its body element. */
+    readonly body: RmlDocument;
+    readonly childCount: number;
+    readonly childNodes: readonly RmlElement[];
+    readonly classList: readonly string[];
+    click(): void;
+    readonly clientHeight: number;
+    readonly clientLeft: number;
+    readonly clientTop: number;
+    readonly clientWidth: number;
+    closest(selectors: string): RmlElement | null;
+    readonly containingBlock: Vector2;
+    createElement(tag: string): RmlElement;
+    createTextNode(text: string): RmlElement;
+    /** Removes the element from its document. For a document: closes it. */
+    destroy(): void;
+    readonly firstChild: RmlElement | null;
+    focus(): boolean;
+    readonly focusedElement: RmlElement | null;
+    getAttribute(name: string): string;
+    getAttributes(): Record<string, string>;
+    getClassList(): readonly string[];
+    getElementById(id: string): RmlElement | null;
+    getElementByID(id: string): RmlElement | null;
+    getElementsByClassName(name: string): readonly RmlElement[];
+    getElementsByTagName(tag: string): readonly RmlElement[];
+    getEventListeners(...args: any[]): any;
+    getLocalProperty(name: string): string;
+    getProperty(name: string): string;
+    getPropertyAbsoluteValue(name: string): number;
+    getPseudoClassList(): readonly string[];
+    hasAttribute(name: string): boolean;
+    readonly hasChildren: boolean;
+    hasClass(name: string): boolean;
+    hasLocalProperty(name: string): boolean;
+    hasProperty(name: string): boolean;
+    hasPseudoClass(name: string): boolean;
+    hide(): void;
+    /** Its number among the elements of this client. */
+    readonly id: number;
+    /** The RML inside the element; assigning replaces its content. */
+    innerRML: string;
+    insertBefore(child: RmlElement, adjacent: RmlElement): void;
+    readonly isModal: boolean;
+    readonly isOwned: boolean;
+    isPointWithinElement(point: Vector2Like): boolean;
+    readonly isVisible: boolean;
+    readonly lastChild: RmlElement | null;
+    readonly nextSibling: RmlElement | null;
+    off(eventName: string, handler: (element: RmlElement, args: Record<string, any>) => void): void;
+    readonly offsetHeight: number;
+    readonly offsetLeft: number;
+    readonly offsetTop: number;
+    readonly offsetWidth: number;
+    /** Calls the handler on an RmlUi event of this element (click, mouseover, keydown, change, ...) with the element and the event's parameters (mouse_x, button, key_identifier, ...). */
+    on(eventName: string, handler: (element: RmlElement, args: Record<string, any>) => void): VarionEventHandle;
+    once(eventName: string, handler: (element: RmlElement, args: Record<string, any>) => void): VarionEventHandle;
+    readonly ownerDocument: RmlDocument | null;
+    /** The element it is in; null for a document. */
+    readonly parent: RmlElement | null;
+    readonly previousSibling: RmlElement | null;
+    readonly pseudoClassList: readonly string[];
+    querySelector(selector: string): RmlElement | null;
+    querySelectorAll(selector: string): readonly RmlElement[];
+    readonly relativeOffset: Vector2;
+    removeAttribute(name: string): boolean;
+    removeChild(child: RmlElement): void;
+    removeClass(name: string): boolean;
+    removeProperty(name: string): boolean;
+    removePseudoClass(name: string): boolean;
+    replaceChild(newElement: RmlElement, oldElement: RmlElement): void;
+    /** The id attribute; assigning changes it. */
+    rmlId: string;
+    readonly scrollHeight: number;
+    scrollIntoView(alignToTop?: boolean): void;
+    scrollLeft: number;
+    scrollTop: number;
+    readonly scrollWidth: number;
+    setAttribute(name: string, value: string): void;
+    setOffset(element: RmlElement, offset: Vector2Like, fixed?: boolean): void;
+    setProperty(name: string, value: string): boolean;
+    /** Shows the document. A modal one keeps the mouse and keyboard from the other documents; focused false leaves the focus where it was. */
+    show(isModal?: boolean, focused?: boolean): void;
+    readonly sourceUrl: string;
+    /** RmlUi properties of the element: style.color = "red", style["font-size"], delete style.color. Assigning an object sets each of its properties. */
+    style: Record<string, string>;
+    readonly tagName: string;
+    /** The document's <title>; assigning changes it. */
+    title: string;
+    readonly type: any;
+    /** Lays the document out now, so that sizes read right after a change are current. */
+    update(): void;
+    /** False after destroy(), after its document was destroyed and once RmlUi removed the element. */
+    readonly valid: boolean;
+    readonly zIndex: number;
+}
+
+export class RmlElement {
+    /** Elements come from a document: createElement, getElementByID, querySelector. */
+    private constructor();
+    /** BaseObject.getByID as it is: the object of that BaseObjectType with that id, not a RmlElement by its id; null for none. */
+    static getByID(type: number, id: number): PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | VirtualEntity | LocalVehicle | LocalPed | LocalObject | Blip | Checkpoint | ColShape | Marker | TextLabel | null;
+    /** BaseObject.getByRemoteID as it is: the server's object of that BaseObjectType with that id, not a RmlElement; null for none. */
+    static getByRemoteID(type: number, remoteId: number): PlayerLocal | Player | Vehicle | NativeVehicle | Ped | NativePed | Object | VirtualEntity | Blip | Checkpoint | ColShape | Marker | TextLabel | null;
+    readonly absoluteLeft: number;
+    readonly absoluteOffset: Vector2;
+    readonly absoluteTop: number;
+    addClass(name: string): boolean;
+    addPseudoClass(name: string): boolean;
+    appendChild(child: RmlElement): void;
+    readonly attributes: Record<string, string>;
+    readonly baseline: number;
+    blur(): void;
+    readonly childCount: number;
+    readonly childNodes: readonly RmlElement[];
+    readonly classList: readonly string[];
+    click(): void;
+    readonly clientHeight: number;
+    readonly clientLeft: number;
+    readonly clientTop: number;
+    readonly clientWidth: number;
+    closest(selectors: string): RmlElement | null;
+    readonly containingBlock: Vector2;
+    /** Removes the element from its document. For a document: closes it. */
+    destroy(): void;
+    readonly firstChild: RmlElement | null;
+    focus(): boolean;
+    readonly focusedElement: RmlElement | null;
+    getAttribute(name: string): string;
+    getAttributes(): Record<string, string>;
+    getClassList(): readonly string[];
+    getElementById(id: string): RmlElement | null;
+    getElementByID(id: string): RmlElement | null;
+    getElementsByClassName(name: string): readonly RmlElement[];
+    getElementsByTagName(tag: string): readonly RmlElement[];
+    getEventListeners(...args: any[]): any;
+    getLocalProperty(name: string): string;
+    getProperty(name: string): string;
+    getPropertyAbsoluteValue(name: string): number;
+    getPseudoClassList(): readonly string[];
+    hasAttribute(name: string): boolean;
+    readonly hasChildren: boolean;
+    hasClass(name: string): boolean;
+    hasLocalProperty(name: string): boolean;
+    hasProperty(name: string): boolean;
+    hasPseudoClass(name: string): boolean;
+    /** Its number among the elements of this client. */
+    readonly id: number;
+    /** The RML inside the element; assigning replaces its content. */
+    innerRML: string;
+    insertBefore(child: RmlElement, adjacent: RmlElement): void;
+    readonly isOwned: boolean;
+    isPointWithinElement(point: Vector2Like): boolean;
+    readonly isVisible: boolean;
+    readonly lastChild: RmlElement | null;
+    readonly nextSibling: RmlElement | null;
+    off(eventName: string, handler: (element: RmlElement, args: Record<string, any>) => void): void;
+    readonly offsetHeight: number;
+    readonly offsetLeft: number;
+    readonly offsetTop: number;
+    readonly offsetWidth: number;
+    /** Calls the handler on an RmlUi event of this element (click, mouseover, keydown, change, ...) with the element and the event's parameters (mouse_x, button, key_identifier, ...). */
+    on(eventName: string, handler: (element: RmlElement, args: Record<string, any>) => void): VarionEventHandle;
+    once(eventName: string, handler: (element: RmlElement, args: Record<string, any>) => void): VarionEventHandle;
+    readonly ownerDocument: RmlDocument | null;
+    /** The element it is in; null for a document. */
+    readonly parent: RmlElement | null;
+    readonly previousSibling: RmlElement | null;
+    readonly pseudoClassList: readonly string[];
+    querySelector(selector: string): RmlElement | null;
+    querySelectorAll(selector: string): readonly RmlElement[];
+    readonly relativeOffset: Vector2;
+    removeAttribute(name: string): boolean;
+    removeChild(child: RmlElement): void;
+    removeClass(name: string): boolean;
+    removeProperty(name: string): boolean;
+    removePseudoClass(name: string): boolean;
+    replaceChild(newElement: RmlElement, oldElement: RmlElement): void;
+    /** The id attribute; assigning changes it. */
+    rmlId: string;
+    readonly scrollHeight: number;
+    scrollIntoView(alignToTop?: boolean): void;
+    scrollLeft: number;
+    scrollTop: number;
+    readonly scrollWidth: number;
+    setAttribute(name: string, value: string): void;
+    setOffset(element: RmlElement, offset: Vector2Like, fixed?: boolean): void;
+    setProperty(name: string, value: string): boolean;
+    /** RmlUi properties of the element: style.color = "red", style["font-size"], delete style.color. Assigning an object sets each of its properties. */
+    style: Record<string, string>;
+    readonly tagName: string;
+    readonly type: any;
+    /** False after destroy(), after its document was destroyed and once RmlUi removed the element. */
+    readonly valid: boolean;
+    readonly zIndex: number;
 }
 
 export const StatName: {
@@ -7544,7 +7783,8 @@ export class Vehicle {
     getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomVehicleSyncedMeta, K, any>;
     /** The keys of the synced data (setSyncedMeta on the server) this client has for it. */
     getSyncedMetaKeys(): string[];
-    getSyncInfo(...args: any[]): any;
+    /** What the clone sync knows of this entity’s network object, in the sync’s own timestamps (ms). A copy of another client’s entity: receivedTick (its last record) and fullyReceivedTick (its last full state). One this client owns: sendTick, ackedSendTick (the last one the server acknowledged) and, per node of its sync tree, when that node last changed: each node is a component of one property. active is false and every number 0 where the game has no network object for it, or outside the game’s engine. */
+    getSyncInfo(): { active: boolean; receivedTick: number; fullyReceivedTick: number; sendTick: number; ackedSendTick: number; propertyCount: number; componentCount: number; propertyUpdateTicks: number[][] };
     /** The same as getSyncedMeta: the server's synced value under the key, decoded; undefined for none. */
     getVariable(key: string): any;
     /** The camber of wheel 0–7 as this client's GTA copy has it (else the server's synced value); 0 for a wheel it does not have or does not know. */
@@ -7778,7 +8018,8 @@ export class VirtualEntity {
     getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomBaseObjectSyncedMeta, K, unknown>;
     /** The keys of the synced metadata the server set. */
     getSyncedMetaKeys(): string[];
-    getSyncInfo(...args: any[]): any;
+    /** What the clone sync knows of this entity’s network object, in the sync’s own timestamps (ms). A copy of another client’s entity: receivedTick (its last record) and fullyReceivedTick (its last full state). One this client owns: sendTick, ackedSendTick (the last one the server acknowledged) and, per node of its sync tree, when that node last changed: each node is a component of one property. active is false and every number 0 where the game has no network object for it, or outside the game’s engine. */
+    getSyncInfo(): { active: boolean; receivedTick: number; fullyReceivedTick: number; sendTick: number; ackedSendTick: number; propertyCount: number; componentCount: number; propertyUpdateTicks: number[][] };
     /** The same as getSyncedMeta: the synced value of the key, undefined for none. */
     getVariable(key: string): unknown;
     /** Its group; null when this client does not know it. */
@@ -8102,7 +8343,8 @@ export class WeaponObject {
     getSyncedMetaData<K extends string>(key: K): CustomMetaValue<ICustomEntitySyncedMeta, K, any>;
     /** An empty array: the server syncs no data to an entity this client made. */
     getSyncedMetaKeys(): string[];
-    getSyncInfo(...args: any[]): any;
+    /** What the clone sync knows of this entity’s network object, in the sync’s own timestamps (ms). A copy of another client’s entity: receivedTick (its last record) and fullyReceivedTick (its last full state). One this client owns: sendTick, ackedSendTick (the last one the server acknowledged) and, per node of its sync tree, when that node last changed: each node is a component of one property. active is false and every number 0 where the game has no network object for it, or outside the game’s engine. */
+    getSyncInfo(): { active: boolean; receivedTick: number; fullyReceivedTick: number; sendTick: number; ackedSendTick: number; propertyCount: number; componentCount: number; propertyUpdateTicks: number[][] };
     /** Always undefined: a local entity is this client's own and has no synced data. */
     getVariable(key: string): undefined;
     /** Puts a component (hash or name) on the weapon (GIVE_WEAPON_COMPONENT_TO_WEAPON_OBJECT), at once or when the object is made. */
@@ -8275,7 +8517,7 @@ export class WebView {
     static readonly all: WebView[];
     /** The number of WebView.all. */
     static readonly count: number;
-    /** Makes a WebView from options, like new WebView(url, overlay, pos, size), with headers sent along with its requests; it is shown unless visible is false, without taking focus. With world the page is a rectangle in the world instead (pos, rot, width and height in metres): GTA draws it there, what stands in front hides it, and its back is not drawn; no more than 16 at once. With drawable and targetTexture the page is on that texture of the model, on every object of it (a TV's screen); the model has to be loaded and to embed the texture (isTextureExistInArchetype). Such a view is never on the screen and takes no input; size is its page in pixels (1280 by 720 unless given; in the world as high as the rectangle's shape asks). Throws for options that are not an object, a url that is not an absolute http(s) URL on the server's HTTP or asset host, a drawable without targetTexture, or a seventeenth view in the world. */
+    /** Makes a WebView from options, like new WebView(url, overlay, pos, size), with headers sent along with its requests; it is shown unless visible is false, without taking focus. With world the page is a rectangle in the world instead (pos, rot, width and height in metres): GTA draws it there, what stands in front hides it, and its back is not drawn; no more than 16 at once. With drawable and targetTexture the page is on that texture of the model, on every object of it (a TV's screen); the model has to be loaded and to embed the texture (isTextureExistInArchetype). With textureDict and targetTexture the page is on that texture of a texture dictionary of the game, wherever the game draws it, while the game has the dictionary loaded. With world and interactive: true the page takes the mouse: the cursor, or the middle of the screen while no cursor is shown, is its pointer within 10 metres of its front, and the left button clicks. With headless: true the page is only a texture: nothing draws it until the script does, with any native that takes a texture by dictionary and name (view.textureDict, view.textureName), on the screen or in the world, wherever it likes; it shares the 16 with the views in the world. Such a view is never on the screen and takes no input; size is its page in pixels (1280 by 720 unless given; in the world as high as the rectangle's shape asks). Throws for options that are not an object, a url that is not an absolute http(s) URL on the server's HTTP or asset host, a drawable without targetTexture, or a seventeenth view in the world. */
     static create(options: WebViewOptions): WebView;
     /** The view with this id; null when there is none or it was destroyed. */
     static getByID(id: number): WebView | null;
@@ -8338,6 +8580,8 @@ export class WebView {
     opacity: number;
     /** Opens the page's developer tools in a separate window. */
     openDevTools(): void;
+    /** Where the pointer is on a view made with WebView.create({ world, interactive: true }), in the pixels of its page; null while the pointer is off the page, further than 10 metres or behind it, and for any other view. */
+    readonly pointer: { x: number; y: number } | null;
     /** The top-left corner in screen pixels: (0, 0) by default, whole numbers (a fraction is cut, a non-number is 0). Reading gives a new Vector2; assigning moves the view. An attached view is placed by its entity instead. */
     pos: Vector2;
     /** Loads the page again, bypassing the cache when ignoreCache is true; isLoaded and isReady are false until it loads. */
@@ -8357,6 +8601,10 @@ export class WebView {
     setZoomLevel(level: number): void;
     /** Width and height in screen pixels: the whole screen by default. Reading gives a new Vector2 (a component left at the whole screen reads as the screen's size now, and follows it); assigning takes whole pixels, and a component that is not above 0 is the whole screen. A view keeps its pixels when the screen changes size. */
     size: Vector2;
+    /** The texture dictionary of a headless view or a view in the world, for the natives that draw a texture (DRAW_SPRITE, DRAW_TEXTURED_POLY), or the dictionary a view was put on with textureDict; null for a view on the screen or on a texture of a model. */
+    readonly textureDict: string | null;
+    /** The name of the texture of the view in textureDict; null where textureDict is null. */
+    readonly textureName: string | null;
     /** Always 5, BaseObjectType.WebView. */
     readonly type: number;
     /** Takes keyboard focus from this view (focused becomes false); when unfocusedUrl is set and differs from url, the page loads it. */
@@ -8555,6 +8803,7 @@ export type VarionEventName =
     | "spawned"
     | "startEnteringVehicle"
     | "startLeavingVehicle"
+    | "streamChanged"
     | "streamMounted"
     | "streamSyncedMetaChange"
     | "syncedMetaChange"
@@ -8628,13 +8877,13 @@ export interface VarionEvents {
     gameEntityCreate(entity: Entity): void;
     /** GTA removed the entity on this client. */
     gameEntityDestroy(entity: Entity): void;
-    /** A gamepad button went down. */
+    /** A gamepad button went down. The index is its current position in the connected list. */
     gamepadButtonDown(index: number, button: number): void;
-    /** A gamepad button went up. */
+    /** A gamepad button went up. The index is its current position in the connected list. */
     gamepadButtonUp(index: number, button: number): void;
-    /** A gamepad was connected; its index and state. */
+    /** A gamepad appeared in the connected list. The index is its current position, and gamepad.id is its XInput slot number. */
     gamepadConnected(index: number, gamepad: { connected: boolean; [key: string]: any }): void;
-    /** A gamepad was disconnected; its index and state. */
+    /** A gamepad left the connected list. The index is its previous position; the last state is sent with connected false. Clear input held for this slot on disconnect: it does not send button releases. */
     gamepadDisconnected(index: number, gamepad: { connected: boolean; [key: string]: any }): void;
     /** `varion.setMeta` data of this client changed; it never reaches the server. `value` is undefined after a delete. */
     globalMetaChange(key: string, value: any, oldValue: any): void;
@@ -8704,6 +8953,8 @@ export interface VarionEvents {
     startEnteringVehicle(vehicle: Vehicle, seat: number, player: Player): boolean | void;
     /** The local player started getting out of a vehicle. Return false (synchronously) to keep it in: CLEAR_PED_TASKS stops GTA's exit task and SET_PED_INTO_VEHICLE puts the ped back in its seat. */
     startLeavingVehicle(vehicle: Vehicle, seat: number, player: Player): boolean | void;
+    /** The client finished updating streamed file registrations in the running session. Resident assets can still be waiting for GTA to reload them. Also available as `stream:changed`. */
+    streamChanged(report: { added: number; overridden: number; replaced: number; unchanged: number; removed: number; failed: number }): void;
     /** The client mounted the server's packs (clothes, maps): counts of what loaded and failed, `mountFailed` among them. */
     streamMounted(report: Record<string, number | boolean | string>): void;
     /** The server changed stream-synced data of an object this client has. `value` is undefined after a delete. */
@@ -8829,7 +9080,7 @@ declare const varion: {
     emitRpc<K extends string>(rpcName: K, ...args: CustomEventArgs<ICustomClientServerRpc, K>): Promise<CustomRpcResult<ICustomClientServerRpc, K>>;
     /** A server object among the arguments goes as a reference; a value that cannot be sent (a cycle, a BigInt, a Map or Set, binary data) throws here. */
     emitServer<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomClientServerEvent, K>): void;
-    /** The same path as emitServer (JSON with entity references); there is no separate raw codec, so a Map or Set, binary data or a BigInt beyond 2^53 throws here instead of arriving changed. */
+    /** As emitServer, but a Map, Set, Date, BigInt, undefined, NaN and the infinities arrive as they left; a cycle or nesting past 32 levels throws here. */
     emitServerRaw<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomClientServerEvent, K>): void;
     /** Like emitServer, but sent unreliably: it may never arrive. A server object among the arguments goes as a reference; a value that cannot be sent throws a TypeError here. */
     emitServerUnreliable<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomClientServerEvent, K>): void;
@@ -9054,6 +9305,8 @@ declare const varion: {
     loadModel(model: number | string): void;
     /** The same as waitForModel: requests the model and resolves to its hash once GTA has loaded it. Rejects after timeoutMs (default 10000, at least 500; code VARION_TIMEOUT), when a native call fails, or when the resource stops (VARION_RESOURCE_STOPPED). */
     loadModelAsync(model: number | string, timeoutMs?: number): Promise<number>;
+    /** Loads a font file of the calling resource (.ttf, .otf) for every RML document, under the family name given; the path is read as RmlDocument's. RmlUi has no font of its own: without one no text is drawn. */
+    loadRmlFont(path: string, name: string, italic?: boolean, bold?: boolean): void;
     /** Loads a .ytyp now: GTA's DLC_ITYP_REQUEST for it, then the load, so the models it defines are in GTA when the call returns. path is "@resource/stream/x.ytyp", "/stream/x.ytyp" (from the calling resource's root), "stream/x.ytyp" (from the folder of its client-main) or a name, "x" or "x.ytyp"; GTA knows a ytyp by its file name alone, without case, so the server's stream file of that name is loaded, else GTA's own, and a path must name one of that resource's stream files. True when GTA holds the request afterwards or held it already (every stream .ytyp is requested at the start of the session; GTA's and its DLCs' own; a permanent #typ), so a second call is true. False when GTA has no ytyp of that name, the path names no .ytyp of a resource, the session is not loaded or its stream files are being mounted or released, the ytyp is not loaded and its slot still holds archetypes while the stale archetype guard is off, GTA did not take the request, and in the browser runtime or a Worker. What a script loads stays until unloadYtyp or the end of the session. */
     loadYtyp(path: string): boolean;
     /** The language the launcher gave the client, else the one Windows shows its interface in ("ru-RU"), up to 16 characters; "en" until the configuration arrives. localeChange fires when it changes; assigning only changes what getLocale returns until the next configuration. */
@@ -9157,6 +9410,8 @@ declare const varion: {
     RGBA: typeof RGBA;
     /** The flag toggleRmlControls set, false by default. */
     rmlControlsEnabled(): boolean;
+    RmlDocument: typeof RmlDocument;
+    RmlElement: typeof RmlElement;
     /** A point depth metres (100 by default, at least 1) from the camera on screen along the ray through a screen point given in pixels (getCursorPos() can be passed as it is), using the camera's field of view and the screen's aspect; roll is not counted. In game the camera is the one GTA renders in this frame (GET_FINAL_RENDERED_CAM_*); where natives cannot answer at once (the browser runtime) it is the last snapshot's, and without a camera there (getCamPos().measured false) the ray starts at (0, 0, 0). A non-numeric coordinate counts as the middle of the screen. The point may also be one object, { x, y }. screenToWorldAsync takes the point as 0..1 of the screen. */
     screenToWorld(screenX: number, screenY: number, depth?: number): Vector3Like;
     screenToWorld(point: { x: number; y: number }, depth?: number): Vector3Like;

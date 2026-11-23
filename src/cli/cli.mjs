@@ -22,9 +22,11 @@ const COMMANDS = {
   assets: () => import('./commands/assets.mjs'),
   keys: () => import('./commands/keys.mjs'),
   login: () => import('./commands/login.mjs'),
+  link: () => import('./commands/link.mjs'),
   logout: () => import('./commands/logout.mjs'),
   whoami: () => import('./commands/whoami.mjs'),
   types: () => import('./commands/types.mjs'),
+  upgrade: () => import('./commands/upgrade.mjs'),
   host: () => import('./commands/host.mjs'),
   pack: () => import('./commands/pack.mjs'),
   publish: () => import('./commands/publish.mjs'),
@@ -34,7 +36,7 @@ const COMMANDS = {
 export function helpText() {
   return `varion: ${t('game modes on Varion: one folder, one varion.toml, one command')}
 
-  varion new <name> [--db] [--dir <dir>] [--title "<title>"] [--no-install]
+  varion new <name> [--db] [--dir <dir>] [--title "<title>"] [--start] [--play] [--no-install]
                           ${t('create a project from the template: TypeScript server, client and page')}
   varion dev [--env <name>] [--no-build] [--no-watch] [--play] [--dotenv <file>]
                           ${t('run engine, database and server; rebuild and restart on every edit')}
@@ -52,6 +54,7 @@ export function helpText() {
   varion keys init|show   ${t('create or show the developer key that signs deploy requests')}
   varion host [run|pair|install|uninstall|trust|status|stop]
                           ${t('on a server: apply deploys from the cabinet (see varion host --help)')}
+  varion link             ${t('on a server started by hand: connect it to the cabinet so that it joins the list')}
   varion engine [--verify]
                           ${t('download and check the engine of varion.toml')}
   varion db status|start|stop|shell
@@ -59,6 +62,8 @@ export function helpText() {
   varion assets status|fetch|lock
                           ${t('check, fetch and lock the big files of the project (DLC packs)')}
   varion types            ${t('refresh types/ with the SDK typings of this varion')}
+  varion upgrade [--no-check]
+                          ${t('move the project to the newest SDK and engine, and show what no longer fits')}
 
 ${t('resources for sale')}:
   varion pack [<dir>] [--out <file>] [--version <x.y.z>]

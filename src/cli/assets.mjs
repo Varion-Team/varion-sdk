@@ -22,7 +22,8 @@ const KINDS = ['dlc', 'resource'];
 const PLACED = '.varion-asset.json';
 
 export function assetsActive(project) {
-  return project.config.assets.declared || fs.existsSync(project.config.assets.lock);
+  const { declared, lock, source } = project.config.assets;
+  return declared || fs.existsSync(lock) || Boolean(source && fs.existsSync(source));
 }
 
 export function readAssetsLock(file) {
@@ -220,6 +221,9 @@ export async function ensureAssets(
   { serverDir, env = process.env, offline = false } = {},
 ) {
   if (!assetsActive(project)) return [];
+  // a pack put into the source folder, or replaced there, is recorded by itself
+  const { source } = project.config.assets;
+  if (source && fs.existsSync(source)) await lockAssets(project, output, { quiet: true });
   const lock = readAssetsLock(project.config.assets.lock);
   const names = [];
   for (const asset of lock.assets) {
@@ -239,7 +243,7 @@ export async function ensureAssets(
   return names;
 }
 
-export async function lockAssets(project, output) {
+export async function lockAssets(project, output, { quiet = false } = {}) {
   const { source, url, lock: lockFile } = project.config.assets;
   if (!source) {
     throw new CliError(
@@ -264,14 +268,19 @@ export async function lockAssets(project, output) {
   for (const item of found) {
     const name = item.name.toLowerCase().replace(/[^a-z0-9_.-]/g, '_');
     const asset = known.get(name) || { name, kind: item.kind };
-    const { sha256, size } = await sha256File(path.join(source, item.file));
-    if (asset.sha256 === sha256 && asset.size === size) continue;
+    const file = path.join(source, item.file);
+    const sha256 = await hashCached(project, file);
+    const { size } = fs.statSync(file);
+    // an address set in varion.toml after the pack was recorded reaches the lock too
+    const address = url
+      ? url
+          .replace(/\{sha256\}/g, sha256)
+          .replace(/\{name\}/g, name)
+          .replace(/\{file\}/g, path.basename(item.file))
+      : asset.url;
+    if (asset.sha256 === sha256 && asset.size === size && asset.url === address) continue;
     Object.assign(asset, { sha256, size, source: item.file });
-    if (url)
-      asset.url = url
-        .replace(/\{sha256\}/g, sha256)
-        .replace(/\{name\}/g, name)
-        .replace(/\{file\}/g, path.basename(item.file));
+    if (address) asset.url = address;
     if (!known.has(name)) {
       known.set(name, asset);
       lock.assets.push(asset);
@@ -282,6 +291,10 @@ export async function lockAssets(project, output) {
       { name, sha256, size, locked: true },
       `[${output.prefix}] ${name}: ${sha256.slice(0, 12)}…, ${formatBytes(size)}`,
     );
+  }
+  if (quiet) {
+    if (changed) writeAssetsLock(lockFile, lock);
+    return lock;
   }
   writeAssetsLock(lockFile, lock);
   output.success(

@@ -134,16 +134,36 @@ export class Instance {
     return tryReadJson(path.join(this.releaseDir(releaseId), RELEASE_MARKER), null);
   }
 
+  // The prod server is the one players come to. It tells the platform it runs under the token
+  // the host was given when its owner connected it, so nothing about the list is written into
+  // varion.toml by hand; whether players see it there is the cabinet's switch and the review.
+  listing() {
+    if (this.meta.preview || this.meta.env !== 'prod') return null;
+    const cabinet = this.host.cabinet;
+    if (!cabinet?.token || typeof cabinet.endpoint !== 'function') return null;
+    return { url: String(cabinet.endpoint('/api')).replace(/\/+$/, ''), token: cabinet.token };
+  }
+
   overrides() {
     const keys = [['resourcesDir', 'resources']];
-    if (this.meta.preview && this.meta.ports) {
-      keys.push(
-        ['port', this.meta.ports.port],
-        ['httpPort', this.meta.ports.httpPort],
-        ['announce', false],
-      );
+    // ports the host gave this instance: a preview always has them, a test server once its own
+    // would have run into another instance of this host
+    if (this.meta.ports) {
+      keys.push(['port', this.meta.ports.port], ['httpPort', this.meta.ports.httpPort]);
     }
+    if (this.meta.preview) keys.push(['announce', false]);
+    const listing = this.listing();
+    if (listing) keys.push(['announce', true], ['masterListUrl', listing.url]);
     return keys;
+  }
+
+  // the server reads its token from this file; it never goes into server.toml or a log
+  writeListingToken() {
+    const listing = this.listing();
+    if (!listing) return;
+    writeFileAtomic(path.join(this.paths.dir, 'data', 'masterlist-token.txt'), listing.token, {
+      mode: 0o600,
+    });
   }
 
   effectiveToml(releaseId) {
@@ -241,6 +261,7 @@ export class Instance {
   // ---- the process ----
 
   async startServer(engine, reason) {
+    this.writeListingToken();
     ensureDir(this.paths.logs);
     rotateServerLogs(this.paths.logs, SERVER_LOGS_KEPT);
     const logFile = path.join(this.paths.logs, `server-${utcStamp()}-${randomTag()}.log`);
@@ -498,6 +519,7 @@ export class Instance {
         previous = null;
       }
     }
+    await this.host.settlePorts(this, readServerSettings(this.effectiveToml(targetId)));
     const nextToml = this.effectiveToml(targetId);
     this.host.checkPortConflicts(this, readServerSettings(nextToml));
     const previousToml = fs.existsSync(this.paths.serverToml)

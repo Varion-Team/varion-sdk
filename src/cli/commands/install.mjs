@@ -6,7 +6,7 @@ import { MARKET_NAME, MARKET_VERSION } from '../../market/pack.mjs';
 import { isInside, writeFileAtomic } from '../../shared/fs.mjs';
 import { parseArgs } from '../args.mjs';
 import { CliError } from '../output.mjs';
-import { cabinetOption } from './login.mjs';
+import { cabinetOption, ensureSignedIn } from './login.mjs';
 import { signedIn, signedOut } from './publish.mjs';
 
 // installs the open part; the code comes to the server from the platform
@@ -38,6 +38,7 @@ export async function run(argv, { output: root }) {
     );
   }
   const cabinet = cabinetOption(options);
+  await ensureSignedIn(cabinet, root);
   const login = signedIn(cabinet);
   const base = path.resolve(options.cwd || process.cwd());
   const dir = path.resolve(base, options.dir || path.join('resources', name));

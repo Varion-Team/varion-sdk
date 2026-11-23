@@ -68,18 +68,29 @@ export interface DeployStatus {
   phase: string;
   [key: string]: unknown;
 }
+/** The bundle that reached the host: its size, and its size as it was sent, sealed. */
 export interface UploadResult {
   releaseId: string;
-  sha256: string;
   size: number;
-  project: string;
-  env: DeployEnvironment;
-  existing: boolean;
+  sealedSize: number;
 }
 export interface UploadOptions extends TargetOptions {
   bundlePath: string;
-  retries?: number;
+  releaseId: string;
+  /** The key of the server's machine (deployTarget): only that machine opens the bundle. */
+  boxKey: string;
   onProgress?: (progress: { sent: number; total: number }) => void;
+}
+/** Where a deploy to a server goes: its host, and the key a bundle is sealed with. */
+export interface DeployTarget {
+  online: boolean;
+  hostId: string;
+  boxKey: string;
+}
+export interface KnownHost {
+  boxKey: string;
+  hostId?: string;
+  since?: string;
 }
 export interface RequestDeployOptions extends TargetOptions, SigningOptions {
   action?: DeployAction;
@@ -87,6 +98,8 @@ export interface RequestDeployOptions extends TargetOptions, SigningOptions {
   project: string;
   releaseId: string;
   sha256: string;
+  /** The size of the sealed bundle that follows this request. */
+  relaySize?: number;
 }
 export interface RequestedDeploy {
   deployId: string;
@@ -102,9 +115,12 @@ export interface WaitDeployOptions extends TargetOptions {
   /** Status notification; its return value is ignored. */
   onStatus?: (status: DeployStatus) => void;
 }
-export interface DeployReleaseOptions extends Omit<UploadOptions, 'retries'>, SigningOptions {
-  action?: DeployAction;
+export interface DeployReleaseOptions extends Omit<UploadOptions, 'boxKey'>, SigningOptions {
+  env: string;
+  project: string;
   wait?: boolean;
+  /** Accept a key of the server's machine other than the one remembered. */
+  trustNewHost?: boolean;
   timeoutMs?: number;
   intervalMs?: number;
   onStatus?: (status: DeployStatus) => void;
@@ -164,7 +180,39 @@ export function previewEnv(branch: string): DeployEnvironment;
 export function listReleases(
   options: TargetOptions & { retries?: number },
 ): Promise<Record<string, unknown>>;
+export function deployTarget(options: TargetOptions): Promise<DeployTarget>;
+export function knownHostsFile(env?: Environment): string;
+export function knownHost(
+  cabinetUrl: string,
+  serverId: string,
+  options?: { env?: Environment },
+): KnownHost | null;
+export function rememberHost(
+  cabinetUrl: string,
+  serverId: string,
+  host: { boxKey: string; hostId?: string },
+  options?: { env?: Environment; now?: Date },
+): void;
+/** Sends the sealed bundle to the host; the deploy request naming it goes first. */
 export function uploadRelease(options: UploadOptions): Promise<UploadResult>;
+export function assetWants(options: {
+  cabinetUrl: string;
+  serverId: string;
+  token: string;
+  releaseId: string;
+  allowInsecureHttp?: boolean;
+}): Promise<string[]>;
+export function uploadAsset(options: {
+  cabinetUrl: string;
+  serverId: string;
+  token: string;
+  releaseId: string;
+  sha256: string;
+  file: string;
+  boxKey: string;
+  onProgress?: (progress: { sent: number; total: number }) => void;
+  allowInsecureHttp?: boolean;
+}): Promise<{ sha256: string; size: number }>;
 export function requestDeploy(options: RequestDeployOptions): Promise<RequestedDeploy>;
 export function getDeploy(options: TargetOptions & { deployId: string }): Promise<DeployStatus>;
 export function waitDeploy(options: WaitDeployOptions): Promise<DeployStatus>;

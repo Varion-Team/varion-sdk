@@ -24,7 +24,9 @@ const samePlugin: Plugin = uiApi.varionDevUi();
 const markup: string = uiApi.withDevUiTable('', { url: 'http://localhost:5173', root: 'ui' });
 const proxy = await uiApi.startDevUiProxy({ upstream: 'http://localhost:5173', port: 0 });
 await proxy.close();
-const result = await deployApi.deployRelease({ ...target, bundlePath: 'bundle.zip' });
+const release = { releaseId: '20261029-120000-0123abcd', env: 'test', project: 'demo' };
+const result = await deployApi.deployRelease({ ...target, ...release, bundlePath: 'bundle.zip' });
+const machine: string = (await deployApi.deployTarget(target)).boxKey;
 const phase: string | undefined = result.final?.phase;
 const size: number = result.upload.size;
 const account = await deployApi.getAccount(target);
@@ -32,7 +34,7 @@ const allowed: boolean = account.servers[0].deployProd;
 // @ts-expect-error unsupported deployment action
 deployApi.buildDeployRequest({ ...request, action: 'remove' });
 // @ts-expect-error invalid bundle path
-deployApi.deployRelease({ ...target, bundlePath: 123 });
+deployApi.deployRelease({ ...target, ...release, bundlePath: 123 });
 // @ts-expect-error server ID must be a string
 deployApi.listReleases({ ...target, serverId: 123 });
 // @ts-expect-error deploy IDs must be strings

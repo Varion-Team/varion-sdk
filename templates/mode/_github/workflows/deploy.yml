@@ -1,5 +1,5 @@
 # main -> test, tags v* -> prod, any other branch -> its own preview server.
-# Secrets: VARION_DEPLOY_TOKEN, VARION_DEPLOY_KEY (see README.md).
+# Configure VARION_DEPLOY_TOKEN and VARION_DEPLOY_KEY in each GitHub environment.
 name: Deploy
 
 on:
@@ -22,7 +22,42 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  target:
+    runs-on: ubuntu-latest
+    outputs:
+      varion: ${{ steps.route.outputs.varion }}
+      github_environment: ${{ steps.route.outputs.github_environment }}
+    steps:
+      - name: Pick the environment
+        id: route
+        shell: pwsh
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT: ${{ inputs.environment }}
+          REF: ${{ github.ref }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          if ($env:EVENT -eq 'workflow_dispatch') {
+            if ($env:INPUT -cnotin @('test', 'prod')) { throw 'Choose test or prod.' }
+            $target = $env:INPUT
+          } elseif ($env:REF -clike 'refs/tags/v*') {
+            $target = 'prod'
+          } elseif ($env:REF -ceq 'refs/heads/main') {
+            $target = 'test'
+          } else {
+            $slug = $env:REF_NAME.ToLowerInvariant() -creplace '[^a-z0-9._-]+', '-' -creplace '^[^a-z0-9]+', ''
+            $slug = $slug.Substring(0, [Math]::Min(63, $slug.Length)).TrimEnd('.', '_', '-')
+            if (-not $slug) { throw 'The branch name does not give a valid preview name.' }
+            $target = "preview-$slug"
+          }
+
+          $githubEnvironment = if ($target -eq 'prod') { 'prod' } else { 'test' }
+          "varion=$target", "github_environment=$githubEnvironment" |
+            Add-Content -LiteralPath $env:GITHUB_OUTPUT -Encoding utf8
+
   deploy:
+    needs: target
+    environment: ${{ needs.target.outputs.github_environment }}
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
@@ -40,28 +75,14 @@ jobs:
           path: .varion/engine
           key: varion-engine-${{ hashFiles('varion.toml') }}
 
-      - name: Pick the environment
-        id: target
-        shell: bash
+      - name: Deploy the release
+        shell: pwsh
         env:
-          EVENT: ${{ github.event_name }}
-          INPUT: ${{ inputs.environment }}
-          REF: ${{ github.ref }}
-          REF_NAME: ${{ github.ref_name }}
-        run: |
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            env="$INPUT"
-          elif [[ "$REF" == refs/tags/v* ]]; then
-            env=prod
-          elif [ "$REF_NAME" = "main" ]; then
-            env=test
-          else
-            slug=$(printf '%s' "$REF_NAME" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._-]+/-/g; s/^[^a-z0-9]+//' | cut -c1-63 | sed -E 's/[._-]+$//')
-            env="preview-$slug"
-          fi
-          echo "env=$env" >> "$GITHUB_OUTPUT"
-
-      - run: npx varion deploy ${{ steps.target.outputs.env }}
-        env:
+          VARION_TARGET: ${{ needs.target.outputs.varion }}
           VARION_DEPLOY_TOKEN: ${{ secrets.VARION_DEPLOY_TOKEN }}
           VARION_DEPLOY_KEY: ${{ secrets.VARION_DEPLOY_KEY }}
+        run: |
+          if (-not $env:VARION_DEPLOY_TOKEN -or -not $env:VARION_DEPLOY_KEY) {
+            throw 'Set VARION_DEPLOY_TOKEN and VARION_DEPLOY_KEY in this GitHub environment.'
+          }
+          npx varion deploy $env:VARION_TARGET

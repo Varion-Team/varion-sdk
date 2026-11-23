@@ -4,6 +4,14 @@ import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { t } from '../i18n/index.mjs';
+import {
+  boxFingerprint,
+  isBoxPublicKey,
+  isSealed,
+  newBoxKeys,
+  openFile,
+  sealedSize,
+} from '../shared/box.mjs';
 import { EngineStore } from '../shared/engine.mjs';
 import { errorMessage } from '../shared/errors.mjs';
 import { formatBytes } from '../shared/format.mjs';
@@ -13,6 +21,7 @@ import {
   readJson,
   renameWithRetry,
   sleep,
+  tryReadJson,
   tryRemoveTree,
   writeJsonAtomic,
 } from '../shared/fs.mjs';
@@ -57,6 +66,17 @@ export function readHostJson(layout) {
     writeJsonAtomic(layout.hostJson, hostJson);
   }
   return hostJson;
+}
+
+// The key releases are sealed with for this machine. It is made once and stays here: the
+// public half goes to the cabinet with every poll, the private half never leaves this file.
+export function readBoxKeys(layout) {
+  const saved = tryReadJson(layout.boxFile, null);
+  if (saved && isBoxPublicKey(saved.publicKey) && typeof saved.privateKey === 'string')
+    return saved;
+  const keys = { format: 1, ...newBoxKeys() };
+  writeJsonAtomic(layout.boxFile, keys, { mode: 0o600 });
+  return keys;
 }
 
 export function parsePortRange(text) {
@@ -168,13 +188,20 @@ export class Host {
       releaseKey: this.options.releaseKey,
       log: this.log,
     });
-    this.assets = new AssetCache({ dir: layout.assetsDir, log: this.log });
+    this.assets = new AssetCache({
+      dir: layout.assetsDir,
+      dropDir: layout.packsDir,
+      log: this.log,
+      relay: (asset, file, { releaseId }) => this.takeAsset(asset, file, releaseId),
+    });
+    this.box = readBoxKeys(layout);
     this.cabinet =
       this.options.cabinet ||
       new Cabinet({
         url: this.options.cabinetUrl,
         token: this.options.token || paired?.token,
         hostId: this.hostId,
+        boxKey: this.box.publicKey,
       });
     for (const name of fs.readdirSync(layout.downloads))
       tryRemoveTree(path.join(layout.downloads, name));
@@ -942,9 +969,17 @@ export class Host {
     const zipFile = path.join(this.layout.downloads, `${releaseId}-${randomTag()}.zip`);
     const staging = path.join(instance.paths.releases, `.staging-${releaseId}-${randomTag()}`);
     try {
-      const downloaded = await this.cabinet.downloadRelease(releaseId, zipFile, {
-        maxBytes: LIMITS.bundleBytes,
+      // the bundle comes sealed for this machine; an older cabinet still hands out a plain zip
+      const taken = `${zipFile}.sealed`;
+      let downloaded = await this.cabinet.downloadRelease(releaseId, taken, {
+        maxBytes: LIMITS.sealedBundleBytes,
       });
+      try {
+        if (isSealed(taken)) downloaded = await openFile(taken, zipFile, this.box.privateKey);
+        else fs.renameSync(taken, zipFile);
+      } finally {
+        fs.rmSync(taken, { force: true });
+      }
       if (downloaded.sha256 !== sha256) {
         throw new HostError(
           t('the bundle SHA-256 ({found}...) does not match the signed one ({expected}...)', {
@@ -960,7 +995,7 @@ export class Host {
         env: instance.meta.env,
         releaseId,
       });
-      const placed = await this.assets.place(staging, release);
+      const placed = await this.assets.place(staging, release, { releaseId });
       writeJsonAtomic(path.join(staging, RELEASE_MARKER), {
         zipSha256: sha256,
         size: downloaded.size,
@@ -1016,6 +1051,39 @@ export class Host {
       if ((await udpFree(port)) && (await tcpFree(port + 1))) return { port, httpPort: port + 1 };
     }
     throw new HostError(t('no free preview ports in {from}-{to}', { from, to }), 'no-ports');
+  }
+
+  // A test server and the main one usually come from the same varion.toml, ports and all. On one
+  // host the test server then gets the next free pair by itself, and keeps it; the main server
+  // never moves: players and firewalls know its ports.
+  async settlePorts(instance, settings) {
+    if (instance.meta.preview || instance.meta.env === 'prod') return;
+    const taken = new Set();
+    for (const other of this.instances.values()) {
+      const ports = other === instance ? null : other.ports();
+      if (ports && other.currentId) taken.add(ports.port).add(ports.httpPort);
+    }
+    if (!taken.has(settings.port) && !taken.has(settings.httpPort)) return;
+    for (let port = settings.port + 2; port + 1 <= 65535 && port < settings.port + 200; port += 2) {
+      if (taken.has(port) || taken.has(port + 1)) continue;
+      if (!(await udpFree(port)) || !(await tcpFree(port + 1))) continue;
+      instance.meta.ports = { port, httpPort: port + 1 };
+      instance.saveMeta();
+      this.log.info(
+        t(
+          '{instance}: ports {wanted} are taken by another server of this host, so it runs on {port}/{httpPort}',
+          {
+            instance: instance.name,
+            wanted: `${settings.port}/${settings.httpPort}`,
+            port,
+            httpPort: port + 1,
+          },
+        ),
+        { instance: instance.name, ports: instance.meta.ports },
+        'ports-moved',
+      );
+      return;
+    }
   }
 
   checkPortConflicts(instance, settings) {
@@ -1086,6 +1154,30 @@ export class Host {
     const ids = Object.keys(deploys);
     if (ids.length > 500) for (const id of ids.slice(0, ids.length - 500)) delete deploys[id];
     writeJsonAtomic(this.layout.deploys, this.deploys);
+  }
+
+  // A pack with no address of its own: the developer who is deploying sends it sealed for this
+  // machine, the cabinet hands it on. Resolves the SHA-256 and the size of the pack itself.
+  async takeAsset(asset, file, releaseId) {
+    const taken = `${file}.sealed`;
+    try {
+      try {
+        await this.cabinet.downloadAsset(releaseId, asset.sha256, taken, {
+          maxBytes: sealedSize(asset.size),
+        });
+      } catch (error) {
+        throw new HostError(
+          t(
+            'asset {name}: nobody sent it ({error}). It has to be on the computer that deploys, or put the file into {dir} on this machine and deploy again',
+            { name: asset.name, error: errorMessage(error), dir: this.layout.packsDir },
+          ),
+          'asset-not-sent',
+        );
+      }
+      return await openFile(taken, file, this.box.privateKey);
+    } finally {
+      fs.rmSync(taken, { force: true });
+    }
   }
 
   async progress(deployId, phase, instance) {
@@ -1172,6 +1264,8 @@ export class Host {
         format: 1,
         pid: process.pid,
         hostId: this.hostId,
+        // what a developer compares with the key their deploy names
+        boxKey: this.box ? boxFingerprint(this.box.publicKey) : null,
         root: this.root,
         startedAt: this.startedAt,
         heartbeatAt: new Date().toISOString(),

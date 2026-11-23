@@ -10,6 +10,8 @@ export const RESOURCE_NAME = /^[a-z][a-z0-9_-]{0,63}$/;
 export const DEFAULT_SERVER_PORT = 7788;
 export const DEFAULT_MANAGED_DB_PORT = 3317;
 export const DEFAULT_ASSETS_LOCK = 'assets.lock.json';
+// packs put into this folder of a project are picked up without a line in varion.toml
+export const DEFAULT_ASSETS_SOURCE = 'assets-source';
 export const DEFAULT_CABINET = 'https://api.varionmp.net';
 export const DEPLOY_ENV = /^(test|prod|preview-[a-z0-9][a-z0-9._-]{0,62})$/;
 
@@ -353,7 +355,11 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
       root,
       check.string(assetsTable, 'lock', '[assets]', { fallback: DEFAULT_ASSETS_LOCK }),
     ),
-    source: resolve(check.string(assetsTable, 'source', '[assets]')),
+    source:
+      resolve(check.string(assetsTable, 'source', '[assets]')) ||
+      (fs.existsSync(path.join(root, DEFAULT_ASSETS_SOURCE))
+        ? path.join(root, DEFAULT_ASSETS_SOURCE)
+        : null),
     url: check.string(assetsTable, 'url', '[assets]', { fallback: null }),
   };
 

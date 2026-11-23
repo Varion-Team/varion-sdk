@@ -11,6 +11,7 @@ const GiB = 1024 * MiB;
 
 export const LIMITS = Object.freeze({
   bundleBytes: 512 * MiB, // the cabinet's limit
+  sealedBundleBytes: 512 * MiB + 4 * MiB, // the same bundle sealed: a header and a tag for every chunk
   files: 100_000, // the server's own limits from here on
   fileBytes: 2 * GiB,
   totalBytes: 8 * GiB,
@@ -157,10 +158,13 @@ export function validateRelease(manifest, expected = null, limits = LIMITS) {
       bad(`assets: ${asset.name}: ${t('sha256 must be 64 lowercase hex digits')}`);
     if (!Number.isSafeInteger(asset.size) || asset.size < 0 || asset.size > limits.assetBytes)
       bad(`assets: ${asset.name}: ${t('bad size {size}', { size: asset.size })}`);
-    try {
-      checkUrl(asset.url, `assets: ${asset.name}: url`);
-    } catch (error) {
-      bad(error.message);
+    // a pack without an address comes from the developer along with the deploy
+    if (asset.url !== undefined) {
+      try {
+        checkUrl(asset.url, `assets: ${asset.name}: url`);
+      } catch (error) {
+        bad(error.message);
+      }
     }
     // a DLC pack's usual place unless the CLI names one
     const placement = asset.file === undefined ? `resources/${asset.name}/dlc.rpf` : asset.file;
@@ -200,7 +204,7 @@ export function validateRelease(manifest, expected = null, limits = LIMITS) {
       name: asset.name,
       sha256: asset.sha256,
       size: asset.size,
-      url: String(asset.url),
+      ...(asset.url === undefined ? {} : { url: String(asset.url) }),
       file: checked.path,
     });
   }

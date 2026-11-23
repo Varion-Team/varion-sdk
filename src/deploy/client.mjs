@@ -6,9 +6,16 @@ import os from 'node:os';
 import path from 'node:path';
 import { t } from '../i18n/index.mjs';
 import { VarionError } from '../shared/errors.mjs';
-import { formatBytes } from '../shared/format.mjs';
+import {
+  boxFingerprint,
+  isBoxPublicKey,
+  sealedSize,
+  sealFile,
+  sealStream,
+} from '../shared/box.mjs';
 import {
   ensureDir,
+  randomTag,
   sha256 as sha256Hex,
   sha256File,
   sleep,
@@ -32,6 +39,7 @@ const KEY_VARIABLE = 'VARION_DEPLOY_KEY';
 const PRIVATE_FILE = 'deploy-ed25519.pem';
 const PUBLIC_FILE = 'deploy-ed25519.pub';
 const LOGIN_FILE = 'login.json';
+const KNOWN_HOSTS_FILE = 'known-hosts.json';
 const ED25519_SPKI = Buffer.from('302a300506032b6570032100', 'hex');
 const MAX_ANSWER_BYTES = 4 * 1024 * 1024;
 const RETRY_DELAYS_MS = [1_000, 3_000, 8_000];
@@ -439,7 +447,7 @@ function send({
       );
     });
     if (file) {
-      const stream = fs.createReadStream(file.path);
+      const stream = file.open ? file.open() : fs.createReadStream(file.path);
       let sent = 0;
       stream.on('data', (chunk) => {
         sent += chunk.length;
@@ -522,16 +530,87 @@ export async function listReleases({
   return answer.body;
 }
 
+// Where a deploy to the server goes: whether its host is on the line, and the key a bundle
+// is sealed with so that only that machine opens it.
+export async function deployTarget({ cabinetUrl, serverId, token, allowInsecureHttp = false }) {
+  checkTarget({ serverId, token });
+  const url = endpoint(cabinetUrl, `${serverPath(serverId)}/deploy-target`, { allowInsecureHttp });
+  const answer = await withRetries(() => send({ url, token }));
+  if (answer.status === 404 && !(answer.body && answer.body.code)) {
+    throw new DeployError(
+      t('the cabinet {host} does not carry releases to the host: it is older than this SDK', {
+        host: url.host,
+      }),
+      { code: 'cabinet_outdated', status: 404 },
+    );
+  }
+  if (answer.status !== 200 || !answer.body || typeof answer.body !== 'object') {
+    throw refusal(answer, t('cannot ask where the deploy goes'));
+  }
+  const { online, hostId, boxKey } = answer.body;
+  return {
+    online: online === true,
+    hostId: typeof hostId === 'string' ? hostId : '',
+    boxKey: isBoxPublicKey(boxKey) ? boxKey : '',
+  };
+}
+
+// The machines this computer has sealed releases for, by cabinet and server. The key comes
+// through the cabinet, so it is remembered: a different key later is a different machine, or
+// someone in the middle, and a person decides which.
+export function knownHostsFile(env = process.env) {
+  return path.join(configDir(env), KNOWN_HOSTS_FILE);
+}
+
+function readKnownHosts(env) {
+  const data = tryReadJson(knownHostsFile(env), null);
+  const cabinets = data?.format === 1 ? data.cabinets : null;
+  return cabinets && typeof cabinets === 'object' && !Array.isArray(cabinets) ? cabinets : {};
+}
+
+export function knownHost(cabinetUrl, serverId, { env = process.env } = {}) {
+  const servers = readKnownHosts(env)[cabinetBase(cabinetUrl)];
+  const entry = servers && Object.hasOwn(servers, serverId) ? servers[serverId] : null;
+  return entry && isBoxPublicKey(entry.boxKey) ? entry : null;
+}
+
+export function rememberHost(
+  cabinetUrl,
+  serverId,
+  { boxKey, hostId = '' },
+  { env = process.env, now = new Date() } = {},
+) {
+  const cabinets = readKnownHosts(env);
+  const base = cabinetBase(cabinetUrl);
+  cabinets[base] = {
+    ...(cabinets[base] || {}),
+    [serverId]: { boxKey, hostId, since: now.toISOString() },
+  };
+  writeJsonAtomic(knownHostsFile(env), { format: 1, cabinets }, { mode: 0o600 });
+}
+
+// Sends the bundle to the host through the cabinet, sealed for the host's machine. The cabinet
+// hands it on as it comes and keeps none of it; the call returns once the host has all of it.
+// The deploy request that names this release has to be sent first.
 export async function uploadRelease({
   cabinetUrl,
   serverId,
   token,
   bundlePath,
+  releaseId,
+  boxKey,
   onProgress,
-  retries = 2,
   allowInsecureHttp = false,
 }) {
   checkTarget({ serverId, token });
+  if (typeof releaseId !== 'string' || !RELEASE_ID.test(releaseId)) {
+    throw new DeployError(t('no release id for the bundle'), { code: 'bad_request' });
+  }
+  if (!isBoxPublicKey(boxKey)) {
+    throw new DeployError(t('no key of the server machine to seal the release with'), {
+      code: 'no_box_key',
+    });
+  }
   let stat;
   try {
     stat = fs.statSync(bundlePath);
@@ -545,77 +624,97 @@ export async function uploadRelease({
       code: 'no_bundle',
     });
   }
-  const { sha256 } = await sha256File(bundlePath);
-  const uploaded = (body, existing) => {
-    if (
-      !body ||
-      typeof body !== 'object' ||
-      typeof body.releaseId !== 'string' ||
-      !RELEASE_ID.test(body.releaseId) ||
-      typeof body.project !== 'string' ||
-      !PROJECT.test(body.project) ||
-      typeof body.env !== 'string' ||
-      !DEPLOY_ENV.test(body.env)
-    ) {
-      throw new DeployError(t('the cabinet returned invalid release metadata'), {
-        code: 'bad_answer',
-      });
-    }
-    return {
-      releaseId: body.releaseId,
-      sha256,
-      size: stat.size,
-      project: body.project,
-      env: body.env,
-      existing,
-    };
-  };
-  // a refused token or server shows up before a byte of the bundle is sent
-  const listed = await listReleases({ cabinetUrl, serverId, token, retries, allowInsecureHttp });
-  const known = (Array.isArray(listed.releases) ? listed.releases : []).find(
-    (release) => release && release.sha256 === sha256 && release.stored !== false,
-  );
-  if (known) {
-    return uploaded(known, true);
-  }
-  const limit = listed.limits && Number(listed.limits.maxBundleBytes);
-  if (limit && stat.size > limit) {
-    throw new DeployError(
-      t(
-        'the release is {size}, over the cabinet limit of {limit}: put big packs in assets, the host downloads them by hash',
-        { size: formatBytes(stat.size), limit: formatBytes(limit) },
-      ),
-      { code: 'too_large' },
+  const sealedPath = `${bundlePath}.${randomTag()}.sealed`;
+  try {
+    const sealed = await sealFile(bundlePath, sealedPath, boxKey);
+    const url = endpoint(
+      cabinetUrl,
+      `${serverPath(serverId)}/releases/${encodeURIComponent(releaseId)}/stream`,
+      { allowInsecureHttp },
     );
+    // not sent twice: the host takes the bundle once, as it comes
+    const answer = await send({
+      url,
+      method: 'PUT',
+      token,
+      headers: { 'Content-Type': 'application/octet-stream' },
+      file: { path: sealedPath, size: sealed.size },
+      idleMs: 150_000,
+      onProgress,
+    });
+    if (answer.status !== 200) throw refusal(answer, t('the release did not reach the server'));
+    return { releaseId, size: stat.size, sealedSize: sealed.size };
+  } finally {
+    fs.rmSync(sealedPath, { force: true });
   }
-  const url = endpoint(cabinetUrl, `${serverPath(serverId)}/releases`, { allowInsecureHttp });
-  const answer = await withRetries(
-    () =>
-      send({
-        url,
-        method: 'POST',
-        token,
-        headers: { 'Content-Type': 'application/zip', 'X-Varion-Release-Sha256': sha256 },
-        file: { path: bundlePath, size: stat.size },
-        idleMs: 120_000,
-        onProgress,
-      }),
-    retries,
+}
+
+// The packs of a release the host is waiting for right now: the ones it does not have yet.
+export async function assetWants({
+  cabinetUrl,
+  serverId,
+  token,
+  releaseId,
+  allowInsecureHttp = false,
+}) {
+  checkTarget({ serverId, token });
+  const url = endpoint(
+    cabinetUrl,
+    `${serverPath(serverId)}/releases/${encodeURIComponent(releaseId)}/asset-wants`,
+    { allowInsecureHttp },
   );
-  if (answer.status !== 200 && answer.status !== 201) {
-    throw refusal(answer, t('the release was not uploaded'));
+  const answer = await send({ url, token });
+  if (answer.status !== 200)
+    throw refusal(answer, t('the cabinet did not say which packs to send'));
+  const wants = Array.isArray(answer.body?.wants) ? answer.body.wants : [];
+  return wants.filter((sha256) => typeof sha256 === 'string' && /^[0-9a-f]{64}$/.test(sha256));
+}
+
+// Sends one pack to the host that asked for it, sealed for its machine as it is read: no second
+// copy of a big file is made on this disk, and the cabinet keeps none of it.
+export async function uploadAsset({
+  cabinetUrl,
+  serverId,
+  token,
+  releaseId,
+  sha256,
+  file,
+  boxKey,
+  onProgress,
+  allowInsecureHttp = false,
+}) {
+  checkTarget({ serverId, token });
+  if (!isBoxPublicKey(boxKey)) {
+    throw new DeployError(t('no key of the server machine to seal the release with'), {
+      code: 'no_box_key',
+    });
   }
-  const body = answer.body || {};
-  if (body.sha256 !== sha256) {
-    throw new DeployError(
-      t('the cabinet confirmed SHA-256 {confirmed}, but the bundle has {sha256}', {
-        confirmed: body.sha256,
-        sha256,
-      }),
-      { code: 'sha256_mismatch' },
-    );
-  }
-  return uploaded(body, !!body.existing);
+  const { size } = fs.statSync(file);
+  const url = endpoint(
+    cabinetUrl,
+    `${serverPath(serverId)}/releases/${encodeURIComponent(releaseId)}/assets/${sha256}/stream`,
+    { allowInsecureHttp },
+  );
+  const answer = await send({
+    url,
+    method: 'PUT',
+    token,
+    headers: { 'Content-Type': 'application/octet-stream' },
+    file: {
+      size: sealedSize(size),
+      open: () => {
+        const sealed = sealStream(boxKey);
+        const source = fs.createReadStream(file);
+        source.on('error', (error) => sealed.destroy(error));
+        sealed.on('close', () => source.destroy());
+        return source.pipe(sealed);
+      },
+    },
+    idleMs: 150_000,
+    onProgress,
+  });
+  if (answer.status !== 200) throw refusal(answer, t('the pack did not reach the server'));
+  return { sha256, size };
 }
 
 // a rollback names the active release, and the host goes back to the one before it
@@ -628,13 +727,18 @@ export async function requestDeploy({
   project,
   releaseId,
   sha256,
+  relaySize,
   keysDir: dir,
   privateKey,
   allowInsecureHttp = false,
 }) {
   checkTarget({ serverId, token });
   const request = buildDeployRequest({ action, env, project, releaseId, serverId, sha256 });
-  const body = signDeployRequest(request, { privateKey, dir });
+  // `relay.size`: the sealed bundle follows this request, this many bytes of it
+  const body = {
+    ...signDeployRequest(request, { privateKey, dir }),
+    ...(relaySize ? { relay: { size: relaySize } } : {}),
+  };
   const url = endpoint(cabinetUrl, `${serverPath(serverId)}/deploys`, { allowInsecureHttp });
   const accepted = (deployId, status = 'queued') => {
     if (typeof deployId !== 'string' || !deployId || typeof status !== 'string' || !status) {
@@ -757,13 +861,19 @@ export async function waitDeploy({
   }
 }
 
+// The whole of a deploy from a script: the bundle is sealed for the server's machine, the signed
+// request goes first, the bundle follows it to the host. The machine's key is remembered the
+// first time and has to stay the same afterwards (`trustNewHost` accepts a new one).
 export async function deployRelease({
   cabinetUrl,
   serverId,
   token,
   bundlePath,
-  action = 'activate',
+  releaseId,
+  env,
+  project,
   wait = true,
+  trustNewHost = false,
   onProgress,
   onStatus,
   keysDir: dir,
@@ -772,25 +882,55 @@ export async function deployRelease({
   intervalMs,
   allowInsecureHttp = false,
 }) {
+  const target = await deployTarget({ cabinetUrl, serverId, token, allowInsecureHttp });
+  if (!target.online) {
+    throw new DeployError(t('the host of server {serverId} is not on the line', { serverId }), {
+      code: 'host_offline',
+    });
+  }
+  if (!target.boxKey) {
+    throw new DeployError(
+      t('the host of server {serverId} runs an older SDK: update it', { serverId }),
+      {
+        code: 'host_outdated',
+      },
+    );
+  }
+  const known = knownHost(cabinetUrl, serverId);
+  if (known && known.boxKey !== target.boxKey && !trustNewHost) {
+    throw new DeployError(
+      t('the machine of server {serverId} has another key now ({now}, was {was})', {
+        serverId,
+        now: boxFingerprint(target.boxKey),
+        was: boxFingerprint(known.boxKey),
+      }),
+      { code: 'host_key_changed' },
+    );
+  }
+  if (!known || known.boxKey !== target.boxKey) rememberHost(cabinetUrl, serverId, target);
+  const { sha256, size } = await sha256File(bundlePath);
+  const requested = await requestDeploy({
+    cabinetUrl,
+    serverId,
+    token,
+    action: 'activate',
+    env,
+    project,
+    releaseId,
+    sha256,
+    relaySize: sealedSize(size),
+    keysDir: dir,
+    privateKey,
+    allowInsecureHttp,
+  });
   const upload = await uploadRelease({
     cabinetUrl,
     serverId,
     token,
     bundlePath,
+    releaseId,
+    boxKey: target.boxKey,
     onProgress,
-    allowInsecureHttp,
-  });
-  const requested = await requestDeploy({
-    cabinetUrl,
-    serverId,
-    token,
-    action,
-    env: upload.env,
-    project: upload.project,
-    releaseId: upload.releaseId,
-    sha256: upload.sha256,
-    keysDir: dir,
-    privateKey,
     allowInsecureHttp,
   });
   if (!wait) return { upload, deployId: requested.deployId, final: null };

@@ -111,8 +111,8 @@ export default {
     'кабинет {cabinet} не подключает хосты по коду — запусти хост с --token из кабинета',
   'the cabinet gave no code for this machine ({error}); retrying':
     'кабинет не выдал код для хоста ({error}) — повторю',
-  'to connect this machine, enter the code {code} in the cabinet on the page of your server: {url} (the code is valid for {minutes} min)':
-    'введи код {code} в кабинете на странице своего сервера, чтобы подключить хост: {url} (код действует {minutes} мин)',
+  'to connect this machine, open {url} and check that the page shows the code {code} (valid for {minutes} min)':
+    'чтобы подключить этот компьютер, открой {url} и убедись, что на странице тот же код {code} (действует {minutes} мин)',
   'the code {code} is no longer valid; asking for a new one':
     'код {code} больше не действует — запрашиваю новый',
 
@@ -132,6 +132,7 @@ export default {
   'host: running (pid {pid}, id {hostId}), cabinet {cabinet}, last poll: {poll}':
     'хост: работает (pid {pid}, id {hostId}), кабинет {cabinet}, опрос: {poll}',
   'now: {action} {releaseId}': 'сейчас: {action} {releaseId}',
+  'key for releases: {fingerprint}': 'ключ для выпусков: {fingerprint}',
   'unsent statuses: {count}': 'неотправленных статусов: {count}',
   'host: not running (last seen {time})': 'хост: не запущен (последний раз {time})',
   'host: not running': 'хост: не запущен',
@@ -251,6 +252,8 @@ export default {
   '{instance}: release {releaseId} verified (bundle {size}, files: {files}, engine {engine})':
     '{instance}: выпуск {releaseId} проверен (архив {size}, файлов: {files}, движок {engine})',
   'no free preview ports in {from}-{to}': 'нет свободных портов для превью в {from}-{to}',
+  '{instance}: ports {wanted} are taken by another server of this host, so it runs on {port}/{httpPort}':
+    '{instance}: порты {wanted} заняты другим сервером этого хоста, поэтому он работает на {port}/{httpPort}',
   'port {port} is already taken by instance {name} of this host':
     'порт {port} уже занят экземпляром {name} этого хоста',
   '{instance}: the preview expired (last deploy {time}); stopping and removing it':

@@ -5,6 +5,7 @@ import {
   DeployError,
   initKeys,
   registerKey,
+  savedLogin,
   saveLogin,
   signIn,
 } from '../../deploy/client.mjs';
@@ -71,15 +72,9 @@ export function openBrowser(url, platform = process.platform) {
   }
 }
 
-export async function run(argv, { output: root }) {
-  const { options, positionals } = parseArgs(argv, {
-    command: 'login',
-    options: { cabinet: 'string', name: 'string', 'no-browser': 'boolean', json: 'boolean' },
-  });
-  noArguments('varion login', positionals);
-  const output = root.child('login');
-  const cabinet = cabinetOption(options);
-  const name = oneLine(options.name || os.hostname()) || 'varion';
+// Signs this computer in and adds its developer key to the account: what `varion login` does,
+// and what a command that needs the sign-in does by itself the first time it is run.
+export async function signInHere({ cabinet, name, noBrowser = false, output }) {
   const { token, account } = await signIn({
     cabinetUrl: cabinet,
     name,
@@ -94,7 +89,7 @@ export async function run(argv, { output: root }) {
           minutes,
         })}`,
       );
-      if (!options.noBrowser) openBrowser(verifyUrl);
+      if (!noBrowser) openBrowser(verifyUrl);
     },
   });
   saveLogin(cabinet, { token, account });
@@ -134,7 +129,7 @@ export async function run(argv, { output: root }) {
           })
         : t('the developer key was not added to your account: {error}', { error: error.message }),
     );
-    return 1;
+    return { token, account, keyAdded: false };
   }
   output.event(
     'key',
@@ -144,5 +139,35 @@ export async function run(argv, { output: root }) {
       { fingerprint: registered.fingerprint },
     )}`,
   );
-  return 0;
+  return { token, account, keyAdded: true };
+}
+
+// A person at a terminal: a command may open the browser and wait for them. Not CI, not a pipe.
+export function canAskToSignIn(env = process.env) {
+  return (
+    !!process.stdin.isTTY && !!process.stdout.isTTY && !env.CI && env.VARION_NO_SIGN_IN !== '1'
+  );
+}
+
+// The saved sign-in of this computer, made now when there is none and someone can confirm it.
+export async function ensureSignedIn(cabinet, root, { env = process.env } = {}) {
+  const saved = savedLogin(cabinet, { env });
+  if (saved || !canAskToSignIn(env)) return saved;
+  const output = root.child('login');
+  output.info(t('this computer is not signed in to {cabinet} yet: signing in', { cabinet }));
+  const made = await signInHere({ cabinet, name: oneLine(os.hostname()) || 'varion', output });
+  return { token: made.token, account: made.account };
+}
+
+export async function run(argv, { output: root }) {
+  const { options, positionals } = parseArgs(argv, {
+    command: 'login',
+    options: { cabinet: 'string', name: 'string', 'no-browser': 'boolean', json: 'boolean' },
+  });
+  noArguments('varion login', positionals);
+  const output = root.child('login');
+  const cabinet = cabinetOption(options);
+  const name = oneLine(options.name || os.hostname()) || 'varion';
+  const made = await signInHere({ cabinet, name, noBrowser: !!options.noBrowser, output });
+  return made.keyAdded ? 0 : 1;
 }

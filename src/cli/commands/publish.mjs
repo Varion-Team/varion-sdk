@@ -7,7 +7,7 @@ import { packResource, readPacked } from '../../market/pack.mjs';
 import { formatBytes } from '../../shared/format.mjs';
 import { parseArgs } from '../args.mjs';
 import { CliError } from '../output.mjs';
-import { cabinetOption, loginCommand } from './login.mjs';
+import { cabinetOption, ensureSignedIn, loginCommand } from './login.mjs';
 import { reportPacked, resourceDir } from './pack.mjs';
 
 export function signedIn(cabinet) {
@@ -52,6 +52,7 @@ export async function run(argv, { output: root }) {
   });
   const output = root.child('publish');
   const cabinet = cabinetOption(options);
+  await ensureSignedIn(cabinet, root);
   const login = signedIn(cabinet);
 
   let name;

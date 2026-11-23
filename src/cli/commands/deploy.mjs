@@ -2,12 +2,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   DeployError,
+  deployTarget as askDeployTarget,
+  knownHost,
   listReleases,
+  rememberHost,
   requestDeploy,
   savedLogin,
+  assetWants,
+  uploadAsset,
   uploadRelease,
   waitDeploy,
 } from '../../deploy/client.mjs';
+import { boxFingerprint, sealedSize } from '../../shared/box.mjs';
 import { t } from '../../i18n/index.mjs';
 import { formatBytes } from '../../shared/format.mjs';
 import {
@@ -24,10 +30,11 @@ import { CliError } from '../output.mjs';
 import { DEFAULT_CABINET, DEPLOY_ENV, loadDotenv, serverSettings } from '../config.mjs';
 import { resolveEngine } from '../engine.mjs';
 import { createBuilder } from '../build.mjs';
-import { assetsActive, readAssetsLock } from '../assets.mjs';
+import { assetsActive, obtainAsset, readAssetsLock } from '../assets.mjs';
 import { runProgram } from '../proc.mjs';
 import { openProject, populateServerFolder } from '../prepare.mjs';
-import { loginCommand } from './login.mjs';
+import { canAskToSignIn, ensureSignedIn, loginCommand } from './login.mjs';
+import { findDeployServer } from '../deploy-server.mjs';
 
 export function serverPartSha256(files) {
   return sha256(files.map((file) => `${file.path}\0${file.size}\0${file.sha256}\n`).join(''));
@@ -103,6 +110,7 @@ export async function run(argv, { output: root }) {
       'pack-only': 'boolean',
       'no-validate': 'boolean',
       rollback: 'boolean',
+      'trust-host': 'boolean',
       json: 'boolean',
       cwd: 'string',
     },
@@ -124,6 +132,8 @@ export async function run(argv, { output: root }) {
   }
   const project = openProject(options, output);
   // no token or no server shows up before a long build
+  // the first deploy from a computer signs it in by itself; CI keeps using VARION_DEPLOY_TOKEN
+  if (!options.packOnly) await ensureSignedInFor(project, env, root);
   const target = options.packOnly ? null : deployTarget(project, env);
   if (options.rollback) return rollback({ project, env, output, target });
   const { config, paths } = project;
@@ -179,24 +189,27 @@ export async function run(argv, { output: root }) {
     output.info(t('the server itself checked the release resources (--pack-resources)'));
   }
 
-  // the host fetches DLC packs by URL; a resource archive is already in the bundle
+  // A DLC pack with an address is fetched by the host from there. One without goes from this
+  // computer along with the release, if the host does not have it yet. A resource archive is
+  // already in the bundle.
   const assets = [];
+  const packs = [];
   if (assetsActive(project)) {
     for (const asset of readAssetsLock(config.assets.lock).assets) {
       if (asset.kind !== 'dlc') continue;
       if (!asset.url) {
-        throw new CliError(
-          t(
-            '{name}: no url in {lock}, so the server cannot download it (upload the pack, then run varion assets lock with [assets] url)',
-            { name: asset.name, lock: path.basename(config.assets.lock) },
-          ),
+        // not having it here is no trouble while the server has it already
+        const file = await obtainAsset(project, asset, output, { offline: true }).then(
+          (found) => found.file,
+          () => null,
         );
+        packs.push({ name: asset.name, sha256: asset.sha256, size: asset.size, file });
       }
       assets.push({
         name: asset.name,
         sha256: asset.sha256,
         size: asset.size,
-        url: asset.url,
+        ...(asset.url ? { url: asset.url } : {}),
         file: `resources/${asset.name}/dlc.rpf`,
       });
     }
@@ -244,7 +257,27 @@ export async function run(argv, { output: root }) {
     output.paint('green', `[deploy] ${releaseText}`),
   );
   if (options.packOnly) return 0;
-  return upload({ project, env, bundle, output, target });
+  return upload({ project, env, bundle, packs, output, target, trustHost: !!options.trustHost });
+}
+
+async function ensureSignedInFor(project, env, root, vars = process.env) {
+  const { config } = project;
+  if (vars.VARION_DEPLOY_TOKEN || loadDotenv(project.root).values.VARION_DEPLOY_TOKEN) return;
+  const target = config.deploy.envs[env] || {};
+  const cabinetUrl =
+    target.cabinet || config.deploy.cabinet || vars.VARION_CABINET_URL || DEFAULT_CABINET;
+  const login = await ensureSignedIn(cabinetUrl, root, { env: vars });
+  // the account knows its servers: the id is not something to copy out of the cabinet by hand
+  if (!login || target.server || env.startsWith('preview-')) return;
+  const server = await findDeployServer({
+    project,
+    env,
+    login,
+    cabinetUrl,
+    output: root.child('deploy'),
+    interactive: canAskToSignIn(vars),
+  });
+  config.deploy.envs[env] = { ...target, server };
 }
 
 export function deployTarget(project, env, vars = process.env) {
@@ -295,26 +328,158 @@ async function cabinetCall(target, call) {
   }
 }
 
-async function upload({ project, env, bundle, output, target }) {
+// The machine the release is sealed for. Its key reaches this computer through the cabinet, so
+// it is remembered the first time and has to stay the same: a new key is a new machine (the
+// host was connected again) or someone in between, and that is for a person to say.
+async function serverMachine({ target, output, trustHost }) {
+  const { cabinetUrl, serverId, token } = target;
+  const machine = await cabinetCall(target, () => askDeployTarget({ cabinetUrl, serverId, token }));
+  if (!machine.online) {
+    throw new CliError(
+      t(
+        'the server {serverId} is not on the line: varion host is not running on its machine, or is not connected',
+        { serverId },
+      ),
+      { code: 'host_offline' },
+    );
+  }
+  if (!machine.boxKey) {
+    throw new CliError(
+      t(
+        'varion host on the machine of server {serverId} is outdated: update the SDK there and start the host again',
+        {
+          serverId,
+        },
+      ),
+      { code: 'host_outdated' },
+    );
+  }
+  const known = knownHost(cabinetUrl, serverId);
+  const fingerprint = boxFingerprint(machine.boxKey);
+  if (!known) {
+    rememberHost(cabinetUrl, serverId, machine);
+    output.info(
+      t(
+        'the release is sealed for the machine of the server, key {fingerprint} (varion host status shows the same)',
+        {
+          fingerprint,
+        },
+      ),
+    );
+  } else if (known.boxKey !== machine.boxKey) {
+    if (!trustHost) {
+      throw new CliError(
+        t(
+          'the machine of server {serverId} has another key now: {now}, was {was}. If its host was connected again, check the key with varion host status there and deploy with --trust-host',
+          { serverId, now: fingerprint, was: boxFingerprint(known.boxKey) },
+        ),
+        { code: 'host_key_changed' },
+      );
+    }
+    rememberHost(cabinetUrl, serverId, machine);
+    output.warn(t('the new key of the server machine is trusted: {fingerprint}', { fingerprint }));
+  }
+  return machine;
+}
+
+// While the host puts the release together it asks for the packs it lacks; they are sent as it
+// asks. Returns the way to stop.
+function sendPacksAsAsked({ target, releaseId, packs, boxKey, output }) {
+  const { cabinetUrl, serverId, token } = target;
+  let on = packs.length > 0;
+  const work = (async () => {
+    while (on) {
+      let wants = [];
+      try {
+        wants = await assetWants({ cabinetUrl, serverId, token, releaseId });
+      } catch {
+        // the wait for the deploy itself tells what went wrong
+      }
+      for (const sha256 of wants) {
+        const pack = packs.find((item) => item.sha256 === sha256);
+        if (!pack || !on) continue;
+        if (!pack.file) {
+          if (!pack.told) {
+            pack.told = true;
+            output.warn(
+              t(
+                'the server asks for the pack {name}, and it is not on this computer: put it into the packs folder of the project, or onto the server by hand',
+                { name: pack.name },
+              ),
+            );
+          }
+          continue;
+        }
+        output.info(
+          t('sending the pack {name} ({size}) to the server', {
+            name: pack.name,
+            size: formatBytes(pack.size),
+          }),
+        );
+        try {
+          await uploadAsset({
+            cabinetUrl,
+            serverId,
+            token,
+            releaseId,
+            sha256,
+            file: pack.file,
+            boxKey,
+          });
+          output.event(
+            'asset-sent',
+            { name: pack.name, sha256, size: pack.size },
+            `[deploy] ${t('the pack {name} reached the server', { name: pack.name })}`,
+          );
+        } catch (error) {
+          output.warn(
+            t('the pack {name} was not sent: {reason}', { name: pack.name, reason: error.message }),
+          );
+        }
+      }
+      if (on) await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  })();
+  return async () => {
+    on = false;
+    await work;
+  };
+}
+
+async function upload({ project, env, bundle, packs = [], output, target, trustHost }) {
   const { cabinetUrl, serverId, token } = target;
   const { releaseId } = bundle;
-  output.info(
-    t('uploading {releaseId} to {cabinet} (server {serverId})', {
-      releaseId,
-      cabinet: cabinetUrl,
-      serverId,
-    }),
-  );
-  const uploaded = await cabinetCall(target, () =>
-    uploadRelease({ cabinetUrl, serverId, token, bundlePath: bundle.zip }),
-  );
-  output.event(
-    'upload',
-    { env, serverId, releaseId, ...uploaded },
-    `[deploy] ${t('uploaded {releaseId}', { releaseId })}`,
-  );
+  const machine = await serverMachine({ target, output, trustHost });
   const release = { project: project.config.project.name, releaseId, sha256: bundle.sha256 };
-  return sendRequest({ env, output, target, action: 'activate', release });
+  return sendRequest({
+    env,
+    output,
+    target,
+    action: 'activate',
+    release,
+    relaySize: sealedSize(fs.statSync(bundle.zip).size),
+    whileWaiting: () =>
+      sendPacksAsAsked({ target, releaseId, packs, boxKey: machine.boxKey, output }),
+    // the cabinet keeps nothing: the bundle goes to the host while this command waits
+    afterRequest: async () => {
+      output.info(t('sending {releaseId} to server {serverId}', { releaseId, serverId }));
+      const sent = await cabinetCall(target, () =>
+        uploadRelease({
+          cabinetUrl,
+          serverId,
+          token,
+          bundlePath: bundle.zip,
+          releaseId,
+          boxKey: machine.boxKey,
+        }),
+      );
+      output.event(
+        'upload',
+        { env, serverId, ...sent },
+        `[deploy] ${t('{releaseId} reached the server', { releaseId })}`,
+      );
+    },
+  });
 }
 
 async function rollback({ project, env, output, target }) {
@@ -353,7 +518,16 @@ async function rollback({ project, env, output, target }) {
   return sendRequest({ env, output, target, action: 'rollback', release: active });
 }
 
-async function sendRequest({ env, output, target, action, release }) {
+async function sendRequest({
+  env,
+  output,
+  target,
+  action,
+  release,
+  relaySize,
+  afterRequest,
+  whileWaiting,
+}) {
   const { cabinetUrl, serverId, token } = target;
   const { releaseId } = release;
   const { deployId } = await cabinetCall(target, () =>
@@ -366,6 +540,7 @@ async function sendRequest({ env, output, target, action, release }) {
       project: release.project,
       releaseId,
       sha256: release.sha256,
+      relaySize,
     }),
   );
   output.event(
@@ -380,16 +555,23 @@ async function sendRequest({ env, output, target, action, release }) {
     },
     `[deploy] ${t('deploy request signed and sent ({deployId})', { deployId })}`,
   );
-  const final = await cabinetCall(target, () =>
-    waitDeploy({
-      cabinetUrl,
-      serverId,
-      token,
-      deployId,
-      onStatus: (status) =>
-        output.event('deploy-status', { env, ...status }, `[deploy] ${status.phase}`),
-    }),
-  );
+  if (afterRequest) await afterRequest();
+  const stop = whileWaiting ? whileWaiting() : null;
+  let final;
+  try {
+    final = await cabinetCall(target, () =>
+      waitDeploy({
+        cabinetUrl,
+        serverId,
+        token,
+        deployId,
+        onStatus: (status) =>
+          output.event('deploy-status', { env, ...status }, `[deploy] ${status.phase}`),
+      }),
+    );
+  } finally {
+    if (stop) await stop();
+  }
   const { phase, link, error } = final;
   // the host reports its own successful rollback as rolled-back
   const done =

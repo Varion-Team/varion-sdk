@@ -29,6 +29,7 @@ export function hostLayout(root) {
     root,
     hostJson: path.join(root, 'host.json'),
     tokenFile: path.join(root, 'host-token.json'),
+    boxFile: path.join(root, 'host-box.json'),
     trustDir: path.join(root, 'trust'),
     trustFile: path.join(root, 'trust', 'deploy-keys.json'),
     stateDir: state,
@@ -41,6 +42,8 @@ export function hostLayout(root) {
     downloads: path.join(state, 'downloads'),
     engineDir: path.join(root, 'engine'),
     assetsDir: path.join(root, 'cache', 'assets'),
+    // packs brought to this machine by hand
+    packsDir: path.join(root, 'packs'),
     instancesDir: path.join(root, 'instances'),
     logsDir: path.join(root, 'logs'),
     hostLog: path.join(root, 'logs', 'host.log'),

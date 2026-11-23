@@ -626,6 +626,7 @@ function statusCommand(positionals, options, out) {
           running: true,
           pid: status.pid,
           hostId: status.hostId,
+          boxKey: status.boxKey || null,
           startedAt: status.startedAt,
           heartbeatAt: status.heartbeatAt,
           cabinet: status.cabinet,
@@ -683,6 +684,8 @@ function statusCommand(positionals, options, out) {
         }),
       );
     }
+    if (status.boxKey)
+      parts.push(t('key for releases: {fingerprint}', { fingerprint: status.boxKey }));
     if (status.outbox) parts.push(t('unsent statuses: {count}', { count: status.outbox }));
     out.write(`${parts.join(', ')}\n`);
   } else {
