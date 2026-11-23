@@ -20,7 +20,7 @@ import { CliError, downloadProgress } from './output.mjs';
 import { toolsDir } from './paths.mjs';
 import { runProgram } from './proc.mjs';
 
-export const MARIADB = Object.freeze({
+const MARIADB = Object.freeze({
   version: '11.8.9',
   // from sha256sums.txt next to the archive
   sha256: '830c46727d9278eae212ae3eca44eeb9e71b2a68704e95f344a64fba7b1963f5',
@@ -29,7 +29,7 @@ export const MARIADB = Object.freeze({
 
 const VERIFIED = '.varion-verified';
 
-export const DB_ENV_ALIASES = {
+const DB_ENV_ALIASES = {
   host: ['DB_HOST', 'DATABASE_HOST', 'MYSQL_HOST'],
   port: ['DB_PORT', 'DATABASE_PORT', 'MYSQL_PORT'],
   name: ['DB_DATABASE', 'DB_NAME', 'DATABASE_NAME', 'MYSQL_DATABASE'],
@@ -156,7 +156,7 @@ function sqlClient(bin, rootCnf) {
           stdio: ['pipe', 'pipe', 'pipe'],
         });
         let stderr = '';
-        child.stderr.on('data', (chunk) => (stderr += chunk.toString('utf8')));
+        child.stderr.setEncoding('utf8').on('data', (text) => (stderr += text));
         child.stdout.resume();
         child.on('error', (error) => resolve({ code: -1, stderr: error.message }));
         child.on('close', (code) => resolve({ code: code ?? -1, stderr }));
@@ -171,7 +171,7 @@ function sqlClient(bin, rootCnf) {
   };
 }
 
-export async function startManagedDb(bin, dataDir, port, output) {
+async function startManagedDb(bin, dataDir, port, output) {
   if (await reachable('127.0.0.1', port)) return false;
   const exe = path.join(bin, 'mariadbd.exe');
   const defaults = `--defaults-file=${path.join(dataDir, 'my.ini')}`;
@@ -251,43 +251,92 @@ async function seedDatabase(client, database, seed, output) {
   return true;
 }
 
-export async function createManagedDatabase(project, output, { envFile }) {
-  const { database } = project.config;
+// A fresh MariaDB data folder for the project, with its root password in root.cnf.
+async function installDatabase(project, output, { bin, rootCnf }) {
   const { db: dbDir, dbData: dataDir } = project.paths;
-  const port = database.port;
-  const bin = await ensureMariaDb(output);
-  const rootCnf = path.join(dbDir, 'root.cnf');
-  if (!fs.existsSync(path.join(dataDir, 'mysql'))) {
-    if (!(await tcpPortFree('127.0.0.1', port))) {
-      throw new CliError(
-        t('port {port} is taken: give the project database another one in [database] port', {
-          port,
-        }),
-      );
-    }
-    output.info(
-      t('database: creating a new one in {dir} (127.0.0.1:{port})', {
-        dir: path.relative(project.root, dataDir),
+  const { port } = project.config.database;
+  if (!(await tcpPortFree('127.0.0.1', port))) {
+    throw new CliError(
+      t('port {port} is taken: give the project database another one in [database] port', {
         port,
       }),
     );
-    const rootPassword = randomSecret();
-    removeTree(dataDir);
-    ensureDir(dbDir);
-    const install = runProgram(path.join(bin, 'mariadb-install-db.exe'), [
-      `--datadir=${dataDir}`,
-      `--port=${port}`,
-      `--password=${rootPassword}`,
-    ]);
-    if (install.code !== 0)
-      throw new CliError(`mariadb-install-db: ${(install.stderr || install.stdout).trim()}`);
-    // this computer only: nobody from the network, no firewall prompt
-    fs.appendFileSync(path.join(dataDir, 'my.ini'), '\n[mysqld]\nbind-address=127.0.0.1\n');
-    fs.writeFileSync(
-      rootCnf,
-      `[client]\nuser=root\npassword=${rootPassword}\nhost=127.0.0.1\nport=${port}\n`,
-      { mode: 0o600 },
+  }
+  output.info(
+    t('database: creating a new one in {dir} (127.0.0.1:{port})', {
+      dir: path.relative(project.root, dataDir),
+      port,
+    }),
+  );
+  const rootPassword = randomSecret();
+  removeTree(dataDir);
+  ensureDir(dbDir);
+  const install = runProgram(path.join(bin, 'mariadb-install-db.exe'), [
+    `--datadir=${dataDir}`,
+    `--port=${port}`,
+    `--password=${rootPassword}`,
+  ]);
+  if (install.code !== 0)
+    throw new CliError(`mariadb-install-db: ${(install.stderr || install.stdout).trim()}`);
+  // this computer only: nobody from the network, no firewall prompt
+  fs.appendFileSync(path.join(dataDir, 'my.ini'), '\n[mysqld]\nbind-address=127.0.0.1\n');
+  fs.writeFileSync(
+    rootCnf,
+    `[client]\nuser=root\npassword=${rootPassword}\nhost=127.0.0.1\nport=${port}\n`,
+    { mode: 0o600 },
+  );
+}
+
+// The project's database and its user, with a new password every time.
+function createSchema(client, database) {
+  const password = randomSecret();
+  const name = quoteIdent(database.name);
+  const statements = [`CREATE DATABASE IF NOT EXISTS ${name} CHARACTER SET utf8mb4`];
+  for (const user of [`'${database.user}'@'localhost'`, `'${database.user}'@'127.0.0.1'`]) {
+    statements.push(
+      `CREATE USER IF NOT EXISTS ${user} IDENTIFIED BY '${password}'`,
+      `ALTER USER ${user} IDENTIFIED BY '${password}'`,
+      `GRANT ALL PRIVILEGES ON ${name}.* TO ${user}`,
     );
+  }
+  const setup = client.run(['-e', statements.join('; ')]);
+  if (setup.code !== 0) {
+    throw new CliError(t('database: setup failed ({reason})', { reason: setup.stderr.trim() }));
+  }
+  return password;
+}
+
+// .env with the database of this computer, on top of what .env.example lists.
+function writeDatabaseEnv(project, envFile, password) {
+  const { database } = project.config;
+  const { port, name, user } = database;
+  const example = path.join(project.root, '.env.example');
+  const values = fs.existsSync(example) ? parseDotenv(fs.readFileSync(example, 'utf8')) : {};
+  const keys = databaseEnvKeys(database, values);
+  Object.assign(values, {
+    [keys.host]: '127.0.0.1',
+    [keys.port]: String(port),
+    [keys.name]: name,
+    [keys.user]: user,
+    [keys.password]: password,
+  });
+  if (keys.url) values[keys.url] = `mysql://${user}:${password}@127.0.0.1:${port}/${name}`;
+  const header = [
+    t('Written by varion: the project database is in .varion/db (MariaDB, this computer only).'),
+    t('The passwords work on this computer only; this file stays out of git.'),
+  ].join('\n');
+  fs.writeFileSync(envFile, stringifyDotenv(values, { header }), 'utf8');
+  return values;
+}
+
+export async function createManagedDatabase(project, output, { envFile }) {
+  const { database } = project.config;
+  const { db: dbDir, dbData: dataDir } = project.paths;
+  const { port } = database;
+  const bin = await ensureMariaDb(output);
+  const rootCnf = path.join(dbDir, 'root.cnf');
+  if (!fs.existsSync(path.join(dataDir, 'mysql'))) {
+    await installDatabase(project, output, { bin, rootCnf });
   }
   if (!fs.existsSync(rootCnf)) {
     throw new CliError(
@@ -298,22 +347,7 @@ export async function createManagedDatabase(project, output, { envFile }) {
   }
   await startManagedDb(bin, dataDir, port, output);
   const client = sqlClient(bin, rootCnf);
-  const password = randomSecret();
-  const users = [`'${database.user}'@'localhost'`, `'${database.user}'@'127.0.0.1'`];
-  const statements = [
-    `CREATE DATABASE IF NOT EXISTS ${quoteIdent(database.name)} CHARACTER SET utf8mb4`,
-  ];
-  for (const user of users) {
-    statements.push(
-      `CREATE USER IF NOT EXISTS ${user} IDENTIFIED BY '${password}'`,
-      `ALTER USER ${user} IDENTIFIED BY '${password}'`,
-      `GRANT ALL PRIVILEGES ON ${quoteIdent(database.name)}.* TO ${user}`,
-    );
-  }
-  const setup = client.run(['-e', statements.join('; ')]);
-  if (setup.code !== 0) {
-    throw new CliError(t('database: setup failed ({reason})', { reason: setup.stderr.trim() }));
-  }
+  const password = createSchema(client, database);
   if ((await tablesIn(client, database.name)) === 0)
     await seedDatabase(client, database.name, database.seed, output);
   writeJsonAtomic(path.join(dbDir, 'managed.json'), {
@@ -323,23 +357,7 @@ export async function createManagedDatabase(project, output, { envFile }) {
     mariadb: MARIADB.version,
     createdAt: new Date().toISOString(),
   });
-  const example = path.join(project.root, '.env.example');
-  const values = fs.existsSync(example) ? parseDotenv(fs.readFileSync(example, 'utf8')) : {};
-  const keys = databaseEnvKeys(database, values);
-  Object.assign(values, {
-    [keys.host]: '127.0.0.1',
-    [keys.port]: String(port),
-    [keys.name]: database.name,
-    [keys.user]: database.user,
-    [keys.password]: password,
-  });
-  if (keys.url)
-    values[keys.url] = `mysql://${database.user}:${password}@127.0.0.1:${port}/${database.name}`;
-  const header = [
-    t('Written by varion: the project database is in .varion/db (MariaDB, this computer only).'),
-    t('The passwords work on this computer only; this file stays out of git.'),
-  ].join('\n');
-  fs.writeFileSync(envFile, stringifyDotenv(values, { header }), 'utf8');
+  const values = writeDatabaseEnv(project, envFile, password);
   const text = t('database ready, {file} written', {
     file: path.relative(project.root, envFile) || envFile,
   });

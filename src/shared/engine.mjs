@@ -19,21 +19,21 @@ import {
 } from './fs.mjs';
 import { download as httpDownload, request as httpRequest } from './http.mjs';
 import { checkEntryPath, foldPath, openZip } from './zip.mjs';
+import { SHA256 } from './deploy-format.mjs';
 
 export const RELEASE_KEY =
   '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAEqMpm43saTokcihq6h7TG5JNE8FI4/30i3TpQiH/nOk=\n-----END PUBLIC KEY-----\n';
 export const DEFAULT_CDN = 'https://cdn.varionmp.net';
 
-export const MANIFEST = 'server-manifest.json';
-export const SIGNATURE = 'server-manifest.json.sig';
-export const MARKER = '.verified';
+const MANIFEST = 'server-manifest.json';
+const SIGNATURE = 'server-manifest.json.sig';
+const MARKER = '.verified';
 
 const PACKAGE_ROOT = 'Varion-Server/';
-const SHA256 = /^[0-9a-f]{64}$/;
 const VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,6}(?:[-+][0-9A-Za-z.-]{1,32})?$/;
 const CHANNEL = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
-export class EngineError extends VarionError {}
+class EngineError extends VarionError {}
 
 export function serverExecutableName(platform = process.platform) {
   return platform === 'win32' ? 'varion-server.exe' : 'varion-server';
@@ -50,7 +50,7 @@ export function engineManifestName(platform = process.platform, arch = process.a
   return platform === 'win32' ? MANIFEST : `server-manifest-${platform}-${arch}.json`;
 }
 
-export function verifyManifestSignature(manifestBytes, signatureText, releaseKey = RELEASE_KEY) {
+function verifyManifestSignature(manifestBytes, signatureText, releaseKey = RELEASE_KEY) {
   const signature = Buffer.from(String(signatureText).trim(), 'base64');
   if (signature.length !== 64) return false;
   try {
@@ -62,10 +62,38 @@ export function verifyManifestSignature(manifestBytes, signatureText, releaseKey
   }
 }
 
-export function parseManifest(
-  manifestBytes,
-  { version, channel, platform = process.platform } = {},
-) {
+// The files a manifest lists, by path: their size and SHA-256.
+function manifestFiles(manifest) {
+  const bad = (message) => new EngineError(message, { code: 'engine-manifest' });
+  if (!Array.isArray(manifest.files) || !manifest.files.length) {
+    throw bad(t('the engine manifest lists no files'));
+  }
+  const files = new Map();
+  const folded = new Set();
+  for (const file of manifest.files) {
+    const relative = String(file?.path || '').replace(/\\/g, '/');
+    let checked;
+    try {
+      checked = checkEntryPath(relative);
+    } catch (error) {
+      throw bad(t('engine manifest: {reason}', { reason: error.message }));
+    }
+    if (checked.directory || [MANIFEST, SIGNATURE, MARKER].includes(relative)) {
+      throw bad(t('engine manifest: "{path}" is not allowed', { path: relative }));
+    }
+    if (!Number.isSafeInteger(file.size) || file.size < 0 || !SHA256.test(String(file.sha256))) {
+      throw bad(t('engine manifest: "{path}" has no valid size or SHA-256', { path: relative }));
+    }
+    if (folded.has(foldPath(relative))) {
+      throw bad(t('engine manifest: "{path}" is listed twice', { path: relative }));
+    }
+    folded.add(foldPath(relative));
+    files.set(relative, { size: file.size, sha256: file.sha256 });
+  }
+  return files;
+}
+
+function parseManifest(manifestBytes, { version, channel, platform = process.platform } = {}) {
   let manifest;
   try {
     manifest = JSON.parse(stripBom(Buffer.from(manifestBytes).toString('utf8')));
@@ -91,40 +119,7 @@ export function parseManifest(
       { code: 'engine-manifest' },
     );
   }
-  if (!Array.isArray(manifest.files) || !manifest.files.length) {
-    throw new EngineError(t('the engine manifest lists no files'), { code: 'engine-manifest' });
-  }
-  const files = new Map();
-  const folded = new Set();
-  for (const file of manifest.files) {
-    const relative = String(file?.path || '').replace(/\\/g, '/');
-    let checked;
-    try {
-      checked = checkEntryPath(relative);
-    } catch (error) {
-      throw new EngineError(t('engine manifest: {reason}', { reason: error.message }), {
-        code: 'engine-manifest',
-      });
-    }
-    if (checked.directory || [MANIFEST, SIGNATURE, MARKER].includes(relative)) {
-      throw new EngineError(t('engine manifest: "{path}" is not allowed', { path: relative }), {
-        code: 'engine-manifest',
-      });
-    }
-    if (!Number.isSafeInteger(file.size) || file.size < 0 || !SHA256.test(String(file.sha256))) {
-      throw new EngineError(
-        t('engine manifest: "{path}" has no valid size or SHA-256', { path: relative }),
-        { code: 'engine-manifest' },
-      );
-    }
-    if (folded.has(foldPath(relative))) {
-      throw new EngineError(t('engine manifest: "{path}" is listed twice', { path: relative }), {
-        code: 'engine-manifest',
-      });
-    }
-    folded.add(foldPath(relative));
-    files.set(relative, { size: file.size, sha256: file.sha256 });
-  }
+  const files = manifestFiles(manifest);
   if (!files.has(serverExecutableName(platform))) {
     throw new EngineError(
       t('the engine package {version} has no {exe} (a package for another system?)', {
@@ -297,7 +292,15 @@ export class EngineStore {
         return found(result);
       } catch (error) {
         this.verified.delete(dir);
-        // keep the bad copy for inspection
+        // The last bad copy is kept for inspection; the ones before it only take up the disk.
+        // Windows does not let a folder in use be renamed, so a bad copy there runs nothing;
+        // elsewhere a server may still be running from one, and it is left alone.
+        if (this.platform === 'win32') {
+          for (const name of fs.readdirSync(path.dirname(dir))) {
+            if (name.startsWith(`${path.basename(dir)}.bad-`))
+              tryRemoveTree(path.join(path.dirname(dir), name));
+          }
+        }
         const aside = `${dir}.bad-${utcStamp()}`;
         try {
           await renameWithRetry(dir, aside, { attempts: 4 });
@@ -338,46 +341,7 @@ export class EngineStore {
       { version, channel, url: base },
       'engine-download',
     );
-    const manifestName = engineManifestName(this.platform, this.arch);
-    let manifestBytes;
-    try {
-      manifestBytes = (
-        await this.request(`${base}/${manifestName}`, {
-          maxBytes: 8 << 20,
-          what: t('engine manifest'),
-          timeoutMs: 60_000,
-        })
-      ).body;
-    } catch (error) {
-      // a release made before this system had packages still has the Windows one
-      if (error.status !== 404 || manifestName === MANIFEST) throw error;
-      throw new EngineError(
-        t('engine {version} ({channel}) has no package for {system}', {
-          version,
-          channel,
-          system: `${this.platform} ${this.arch}`,
-        }),
-        { code: 'engine-platform' },
-      );
-    }
-    const signatureText = (
-      await this.request(`${base}/${manifestName}.sig`, {
-        maxBytes: 4096,
-        what: t('engine manifest signature'),
-        timeoutMs: 60_000,
-      })
-    ).body.toString('utf8');
-    if (!verifyManifestSignature(manifestBytes, signatureText, this.releaseKey)) {
-      throw new EngineError(
-        t(
-          'the signature of the engine {version} manifest does not match the Varion release key: the package is not installed',
-          {
-            version,
-          },
-        ),
-        { code: 'engine-signature' },
-      );
-    }
+    const { manifestBytes, signatureText } = await this.fetchManifest(base, { version, channel });
     const { manifest, files } = parseManifest(manifestBytes, {
       version,
       channel,
@@ -388,31 +352,7 @@ export class EngineStore {
     ensureDir(staging);
     try {
       const archive = path.join(staging, 'package.zip');
-      const total = [...files.values()].reduce((sum, file) => sum + file.size, 0);
-      let reported = 0;
-      const packageName = enginePackageName(version, this.platform, this.arch);
-      await this.download(`${base}/${packageName}`, archive, {
-        maxBytes: total + (64 << 20),
-        what: t('engine package'),
-        stallMs: 120_000,
-        onProgress: (received, size) => {
-          this.onProgress?.(received, size);
-          // log every 25%
-          const quarter = size ? Math.floor((received / size) * 4) : 0;
-          if (quarter > reported && quarter < 4) {
-            reported = quarter;
-            this.log?.info(
-              t('engine {version}: {received} of {total}', {
-                version,
-                received: formatBytes(received),
-                total: formatBytes(size),
-              }),
-              { version, channel, received, total: size },
-              'engine-progress',
-            );
-          }
-        },
-      });
+      await this.downloadPackage(base, archive, { version, channel, files });
       const unpacked = path.join(staging, 'Varion-Server');
       await extractPackage(archive, unpacked, files, this.platform);
       fs.rmSync(archive, { force: true });
@@ -426,25 +366,19 @@ export class EngineStore {
         files,
         source: base,
       });
-      const result = await verifyEngineDir(unpacked, {
+      const check = {
         version,
         channel,
         releaseKey: this.releaseKey,
         hashes: false,
         platform: this.platform,
-      });
+      };
+      const result = await verifyEngineDir(unpacked, check);
       try {
         await renameWithRetry(unpacked, dir);
       } catch (error) {
         // another process installed it in the meantime
-        const other = await verifyEngineDir(dir, {
-          version,
-          channel,
-          releaseKey: this.releaseKey,
-          hashes: false,
-          extras: false,
-          platform: this.platform,
-        }).catch(() => null);
+        const other = await verifyEngineDir(dir, { ...check, extras: false }).catch(() => null);
         if (!other) throw error;
       }
       this.verified.set(dir, result);
@@ -461,79 +395,140 @@ export class EngineStore {
       tryRemoveTree(staging);
     }
   }
+
+  // The manifest of a release and its signature, checked against the release key.
+  async fetchManifest(base, { version, channel }) {
+    const name = engineManifestName(this.platform, this.arch);
+    const get = (url, what, maxBytes) => this.request(url, { maxBytes, what, timeoutMs: 60_000 });
+    let manifestBytes;
+    try {
+      manifestBytes = (await get(`${base}/${name}`, t('engine manifest'), 8 << 20)).body;
+    } catch (error) {
+      // a release made before this system had packages still has the Windows one
+      if (error.status !== 404 || name === MANIFEST) throw error;
+      throw new EngineError(
+        t('engine {version} ({channel}) has no package for {system}', {
+          version,
+          channel,
+          system: `${this.platform} ${this.arch}`,
+        }),
+        { code: 'engine-platform' },
+      );
+    }
+    const signature = await get(`${base}/${name}.sig`, t('engine manifest signature'), 4096);
+    const signatureText = signature.body.toString('utf8');
+    if (!verifyManifestSignature(manifestBytes, signatureText, this.releaseKey)) {
+      throw new EngineError(
+        t(
+          'the signature of the engine {version} manifest does not match the Varion release key: the package is not installed',
+          { version },
+        ),
+        { code: 'engine-signature' },
+      );
+    }
+    return { manifestBytes, signatureText };
+  }
+
+  async downloadPackage(base, archive, { version, channel, files }) {
+    const total = [...files.values()].reduce((sum, file) => sum + file.size, 0);
+    let reported = 0;
+    const url = `${base}/${enginePackageName(version, this.platform, this.arch)}`;
+    await this.download(url, archive, {
+      maxBytes: total + (64 << 20),
+      what: t('engine package'),
+      stallMs: 120_000,
+      onProgress: (received, size) => {
+        this.onProgress?.(received, size);
+        // log every 25%
+        const quarter = size ? Math.floor((received / size) * 4) : 0;
+        if (quarter <= reported || quarter >= 4) return;
+        reported = quarter;
+        this.log?.info(
+          t('engine {version}: {received} of {total}', {
+            version,
+            received: formatBytes(received),
+            total: formatBytes(size),
+          }),
+          { version, channel, received, total: size },
+          'engine-progress',
+        );
+      },
+    });
+  }
+}
+
+// The files of the package by their manifest path. Throws on anything the manifest does not
+// list, on a file listed and missing, and on entries that are not plain files.
+function packageEntries(zip, files) {
+  const refuse = (message, code = 'engine-archive') => new EngineError(message, { code });
+  const wanted = new Map();
+  for (const entry of zip.entries) {
+    if (entry.encrypted || entry.isSymlink || entry.isSpecial) {
+      throw refuse(t('engine package: entry {name} is not allowed', { name: entry.name }));
+    }
+    let checked;
+    try {
+      // packages are built on Windows, hence the backslashes
+      checked = checkEntryPath(entry.name, { windowsSeparators: true });
+    } catch (error) {
+      throw refuse(t('engine package: {reason}', { reason: error.message }));
+    }
+    const full = checked.directory ? `${checked.path}/` : checked.path;
+    if (!full.startsWith(PACKAGE_ROOT)) {
+      throw refuse(
+        t('engine package: {name} is outside Varion-Server/', { name: entry.name }),
+        'engine-extra-file',
+      );
+    }
+    const relative = full.slice(PACKAGE_ROOT.length);
+    if (checked.directory || entry.isDirectory || !relative) continue;
+    if (relative === MANIFEST || relative === SIGNATURE) continue;
+    if (!files.has(relative)) {
+      throw refuse(
+        t('the engine package has an extra file: {path}', { path: relative }),
+        'engine-extra-file',
+      );
+    }
+    if (wanted.has(relative)) {
+      throw refuse(t('engine package: {path} is there twice', { path: relative }));
+    }
+    wanted.set(relative, entry);
+  }
+  for (const relative of files.keys()) {
+    if (!wanted.has(relative)) {
+      throw refuse(
+        t('the engine package has no {path}', { path: relative }),
+        'engine-missing-file',
+      );
+    }
+  }
+  return wanted;
+}
+
+function isExecutable(relative, entry, platform) {
+  return (
+    relative === serverExecutableName(platform) ||
+    relative === 'node' ||
+    relative === 'runtime/node' ||
+    (entry.unixMode & 0o111) !== 0
+  );
 }
 
 async function extractPackage(archive, target, files, platform) {
   const zip = await openZip(archive, { maxEntries: files.size + 1024 });
   try {
-    const wanted = new Map();
-    for (const entry of zip.entries) {
-      if (entry.encrypted || entry.isSymlink || entry.isSpecial) {
-        throw new EngineError(
-          t('engine package: entry {name} is not allowed', { name: entry.name }),
-          {
-            code: 'engine-archive',
-          },
-        );
-      }
-      let checked;
-      try {
-        // packages are built on Windows, hence the backslashes
-        checked = checkEntryPath(entry.name, { windowsSeparators: true });
-      } catch (error) {
-        throw new EngineError(t('engine package: {reason}', { reason: error.message }), {
-          code: 'engine-archive',
-        });
-      }
-      const full = checked.directory ? `${checked.path}/` : checked.path;
-      if (!full.startsWith(PACKAGE_ROOT)) {
-        throw new EngineError(
-          t('engine package: {name} is outside Varion-Server/', { name: entry.name }),
-          {
-            code: 'engine-extra-file',
-          },
-        );
-      }
-      const relative = full.slice(PACKAGE_ROOT.length);
-      if (checked.directory || entry.isDirectory || !relative) continue;
-      if (relative === MANIFEST || relative === SIGNATURE) continue;
-      if (!files.has(relative)) {
-        throw new EngineError(
-          t('the engine package has an extra file: {path}', { path: relative }),
-          {
-            code: 'engine-extra-file',
-          },
-        );
-      }
-      if (wanted.has(relative)) {
-        throw new EngineError(t('engine package: {path} is there twice', { path: relative }), {
-          code: 'engine-archive',
-        });
-      }
-      wanted.set(relative, entry);
-    }
-    for (const relative of files.keys()) {
-      if (!wanted.has(relative)) {
-        throw new EngineError(t('the engine package has no {path}', { path: relative }), {
-          code: 'engine-missing-file',
-        });
-      }
-    }
+    const wanted = packageEntries(zip, files);
     await zip.checkLayout([...wanted.values()]);
     for (const [relative, entry] of wanted) {
       const file = files.get(relative);
       const out = path.join(target, ...relative.split('/'));
       ensureDir(path.dirname(out));
-      const executable =
-        relative === serverExecutableName(platform) ||
-        relative === 'node' ||
-        relative === 'runtime/node' ||
-        (entry.unixMode & 0o111) !== 0;
+      const mode = isExecutable(relative, entry, platform) ? 0o755 : 0o644;
       try {
         await zip.extractTo(entry, out, {
           expectedSize: file.size,
           expectedSha256: file.sha256,
-          mode: process.platform === 'win32' ? undefined : executable ? 0o755 : 0o644,
+          mode: process.platform === 'win32' ? undefined : mode,
         });
       } catch (error) {
         throw new EngineError(

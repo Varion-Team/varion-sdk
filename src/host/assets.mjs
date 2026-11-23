@@ -30,8 +30,8 @@ export class AssetCache {
     return path.join(this.dir, sha256);
   }
 
-  // A file of the hand-brought packs that is this very pack: the size is looked at first, so
-  // that big files of other packs are not read.
+  // Finds this pack among the ones brought by hand. Sizes are compared first, so that other
+  // big files are not hashed.
   async brought(asset) {
     if (!this.dropDir || !fs.existsSync(this.dropDir)) return null;
     const candidates = [];
@@ -58,27 +58,7 @@ export class AssetCache {
   async ensure(asset, { releaseId } = {}) {
     ensureDir(this.dir);
     const blob = this.blob(asset.sha256);
-    if (fs.existsSync(blob)) {
-      const found = await sha256File(blob);
-      if (found.sha256 === asset.sha256 && found.size === asset.size)
-        return { file: blob, downloaded: false };
-      this.log?.warn(
-        t('asset {name}: the cached copy ({sha256}) is damaged; downloading it again', {
-          name: asset.name,
-          sha256: `${asset.sha256.slice(0, 12)}...`,
-        }),
-      );
-      if (!tryRemoveTree(blob)) {
-        throw new HostError(
-          t('asset {name}: the damaged copy {file} cannot be removed (it is in use)', {
-            name: asset.name,
-            file: blob,
-          }),
-          'asset-cache',
-        );
-      }
-    }
-    const partial = path.join(this.dir, `.partial-${asset.sha256.slice(0, 16)}-${randomTag()}`);
+    if (await this.cached(asset, blob)) return { file: blob, downloaded: false };
     const byHand = await this.brought(asset);
     if (byHand) {
       linkOrCopy(byHand, blob);
@@ -92,40 +72,65 @@ export class AssetCache {
       );
       return { file: blob, downloaded: false };
     }
-    if (!asset.url && !this.relay) {
+    await this.fetch(asset, blob, releaseId);
+    return { file: blob, downloaded: true };
+  }
+
+  // True when the pack is in the cache and intact. A damaged copy is removed.
+  async cached(asset, blob) {
+    if (!fs.existsSync(blob)) return false;
+    const found = await sha256File(blob);
+    if (found.sha256 === asset.sha256 && found.size === asset.size) return true;
+    this.log?.warn(
+      t('asset {name}: the cached copy ({sha256}) is damaged; downloading it again', {
+        name: asset.name,
+        sha256: `${asset.sha256.slice(0, 12)}...`,
+      }),
+    );
+    if (!tryRemoveTree(blob)) {
       throw new HostError(
-        t('asset {name}: it has no address and nobody is sending it', { name: asset.name }),
+        t('asset {name}: the damaged copy {file} cannot be removed (it is in use)', {
+          name: asset.name,
+          file: blob,
+        }),
+        'asset-cache',
+      );
+    }
+    return false;
+  }
+
+  // Brings the pack into the cache: from its address, or from the developer who is deploying.
+  async fetch(asset, blob, releaseId) {
+    const { name, size, url } = asset;
+    if (!url && !this.relay) {
+      throw new HostError(
+        t('asset {name}: it has no download address and no deploy is sending it', { name }),
         'asset-source',
       );
     }
     this.log?.info(
-      asset.url
-        ? t('asset {name}: downloading {size} from {url}', {
-            name: asset.name,
-            size: formatBytes(asset.size),
-            url: asset.url,
-          })
+      url
+        ? t('asset {name}: downloading {size} from {url}', { name, size: formatBytes(size), url })
         : t('asset {name}: taking {size} from the developer who is deploying', {
-            name: asset.name,
-            size: formatBytes(asset.size),
+            name,
+            size: formatBytes(size),
           }),
-      { asset: asset.name, size: asset.size },
+      { asset: name, size },
       'asset-download',
     );
+    const partial = path.join(this.dir, `.partial-${asset.sha256.slice(0, 16)}-${randomTag()}`);
     try {
-      const { sha256 } = asset.url
-        ? await this.download(asset.url, partial, {
-            maxBytes: asset.size,
-            expectedSize: asset.size,
-            what: t('asset {name}', { name: asset.name }),
+      const { sha256 } = url
+        ? await this.download(url, partial, {
+            maxBytes: size,
+            expectedSize: size,
+            what: t('asset {name}', { name }),
             stallMs: 120_000,
           })
         : await this.relay(asset, partial, { releaseId });
       if (sha256 !== asset.sha256) {
         throw new HostError(
-          t('asset {name}: the SHA-256 of what came does not match release.json', {
-            name: asset.name,
-          }),
+          t('asset {name}: the SHA-256 of what came does not match release.json', { name }),
           'asset-hash',
         );
       }
@@ -134,7 +139,6 @@ export class AssetCache {
       fs.rmSync(partial, { force: true, maxRetries: 5, retryDelay: 100 });
       throw error;
     }
-    return { file: blob, downloaded: true };
   }
 
   async place(dir, release, { releaseId } = {}) {

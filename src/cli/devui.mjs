@@ -13,7 +13,7 @@ import {
 import { t } from '../i18n/index.mjs';
 import { killTree } from '../shared/process.mjs';
 import { CliError } from './output.mjs';
-import { loadVite } from './tools.mjs';
+import { findViteConfig, loadVite } from './tools.mjs';
 
 export function engineKnowsDevUi(exe) {
   try {
@@ -81,6 +81,114 @@ function isOptIn(origin) {
   }
 }
 
+// The project's own dev server, with the proxy that puts the shims into its pages in front.
+function startOwnServer({ project, output, cliDir, url, fallback, shims }) {
+  const { dev } = project.config;
+  const shown = output.json ? 'ignore' : 'inherit';
+  const upstream = spawn(dev.uiCommand, {
+    cwd: project.root,
+    shell: true,
+    windowsHide: true,
+    // our stdin is the server console; a pipe that never ends also keeps create-react-app up
+    stdio: ['pipe', shown, shown],
+    env: { ...process.env, PORT: String(dev.uiUpstreamPort), HOST: '127.0.0.1', BROWSER: 'none' },
+  });
+  upstream.stdin.on('error', () => {});
+  const args = [
+    path.join(cliDir, 'bin', 'varion-dev-ui.mjs'),
+    '--upstream',
+    `http://127.0.0.1:${dev.uiUpstreamPort}`,
+    '--port',
+    String(dev.uiPort),
+    '--fallback',
+    fallback,
+    ...shims.flatMap((shim) => ['--shim', shim]),
+  ];
+  const proxy = spawn(process.execPath, args, {
+    cwd: project.root,
+    windowsHide: true,
+    stdio: ['ignore', shown, shown],
+  });
+  output.info(
+    t('live UI: {command} on 127.0.0.1:{port}, behind the proxy at {url}', {
+      command: dev.uiCommand,
+      port: dev.uiUpstreamPort,
+      url,
+    }),
+  );
+  return [
+    () => upstream.exitCode === null && killTree(upstream.pid),
+    () => proxy.exitCode === null && proxy.kill(),
+  ];
+}
+
+async function startVite({ project, output, url, fallback, shims }) {
+  const { build, dev } = project.config;
+  // vite refuses files under an 8.3 path such as RUNNER~1, so give it the long one
+  const uiRoot = fs.realpathSync.native(path.resolve(project.root, build.ui));
+  const { module: vite } = await loadVite(project.root);
+  const configFile = findViteConfig(uiRoot);
+  const before = process.stdin.listeners('end');
+  const server = await vite.createServer({
+    root: uiRoot,
+    base: './',
+    configFile: configFile || false,
+    clearScreen: false,
+    logLevel: 'warn',
+    plugins: [varionDevUi({ shims, fallback })],
+    server: { host: '127.0.0.1', port: dev.uiPort, strictPort: true },
+  });
+  // Vite ends the whole process when stdin ends; under a task or an editor stdin ends at once,
+  // and it is varion dev that decides when to stop
+  for (const listener of process.stdin.listeners('end')) {
+    if (!before.includes(listener)) process.stdin.off('end', listener);
+  }
+  await server.listen();
+  output.info(t('live UI: Vite at {url}, with hot reload of the page in the game', { url }));
+  return [() => server.close()];
+}
+
+// The game takes pages only from the origins named in the user's VARION_DEV_UI: adds this one,
+// with the person's consent, or tells how to do it by hand.
+async function allowOrigin(url, { name, output, yes, interactive }) {
+  const wanted = devUiOptIn(url);
+  const origins = readUserEnv('VARION_DEV_UI')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (origins.includes(wanted)) {
+    output.info(t('VARION_DEV_UI already names {origin}', { origin: wanted }));
+    return;
+  }
+  const value = devUiOptIn([...origins.filter(isOptIn), url]);
+  const question = t(
+    'the game needs the user environment variable VARION_DEV_UI={value} (the {name} pages come from {url}); set it?',
+    { value, name, url },
+  );
+  const agreed = yes || (interactive && (await ask(`${question} [y/N] `)));
+  if (agreed && writeUserEnv('VARION_DEV_UI', value)) {
+    output.success(
+      gameRunning()
+        ? t(
+            'VARION_DEV_UI={value} is set for this user; the game is already running: restart it, it reads the variable at startup',
+            { value },
+          )
+        : t('VARION_DEV_UI={value} is set for this user', { value }),
+    );
+    return;
+  }
+  output.warn(
+    t(
+      'for the game to load the page from {url}, run this in PowerShell and restart the game: {command}; to remove it: {remove}',
+      {
+        url,
+        command: `[Environment]::SetEnvironmentVariable('VARION_DEV_UI', '${value}', 'User')`,
+        remove: `[Environment]::SetEnvironmentVariable('VARION_DEV_UI', $null, 'User')`,
+      },
+    ),
+  );
+}
+
 export async function startUiLive({
   project,
   engine,
@@ -91,7 +199,7 @@ export async function startUiLive({
   interactive = false,
 }) {
   const { config } = project;
-  const dev = config.dev;
+  const { dev } = config;
   if (!engineKnowsDevUi(engine.exe)) {
     output.warn(
       t(
@@ -111,108 +219,23 @@ export async function startUiLive({
       }),
     );
   }
+  if (!dev.uiCommand && !config.build.ui) {
+    output.warn(
+      t('live UI: the project has no [build] ui and no [dev] uiCommand, nothing to start'),
+    );
+    return null;
+  }
   const url = devUiUrl(`http://127.0.0.1:${dev.uiPort}/`);
-  const fallback = `http://127.0.0.1:${settings.httpPort}/assets/${config.project.name}/${root}`;
-  const shims = dev.uiShims.map((shim) => path.resolve(project.root, shim));
-  const stops = [];
-
-  if (dev.uiCommand) {
-    const upstream = spawn(dev.uiCommand, {
-      cwd: project.root,
-      shell: true,
-      windowsHide: true,
-      // our stdin is the server console; a pipe that never ends also keeps create-react-app up
-      stdio: ['pipe', output.json ? 'ignore' : 'inherit', output.json ? 'ignore' : 'inherit'],
-      env: { ...process.env, PORT: String(dev.uiUpstreamPort), HOST: '127.0.0.1', BROWSER: 'none' },
-    });
-    upstream.stdin.on('error', () => {});
-    stops.push(() => upstream.exitCode === null && killTree(upstream.pid));
-    const args = [
-      path.join(cliDir, 'bin', 'varion-dev-ui.mjs'),
-      '--upstream',
-      `http://127.0.0.1:${dev.uiUpstreamPort}`,
-      '--port',
-      String(dev.uiPort),
-      '--fallback',
-      fallback,
-    ];
-    for (const shim of shims) args.push('--shim', shim);
-    const proxy = spawn(process.execPath, args, {
-      cwd: project.root,
-      windowsHide: true,
-      stdio: ['ignore', output.json ? 'ignore' : 'inherit', output.json ? 'ignore' : 'inherit'],
-    });
-    stops.push(() => proxy.exitCode === null && proxy.kill());
-    output.info(
-      t('live UI: {command} on 127.0.0.1:{port}, behind the proxy at {url}', {
-        command: dev.uiCommand,
-        port: dev.uiUpstreamPort,
-        url,
-      }),
-    );
-  } else {
-    if (!config.build.ui) {
-      output.warn(
-        t('live UI: the project has no [build] ui and no [dev] uiCommand, nothing to start'),
-      );
-      return null;
-    }
-    // vite refuses files under an 8.3 path such as RUNNER~1, so give it the long one
-    const uiRoot = fs.realpathSync.native(path.resolve(project.root, config.build.ui));
-    const { module: vite } = await loadVite(project.root);
-    const configFile = ['vite.config.ts', 'vite.config.mts', 'vite.config.js', 'vite.config.mjs']
-      .map((name) => path.join(uiRoot, name))
-      .find((file) => fs.existsSync(file));
-    const server = await vite.createServer({
-      root: uiRoot,
-      base: './',
-      configFile: configFile || false,
-      clearScreen: false,
-      logLevel: 'warn',
-      plugins: [varionDevUi({ shims, fallback })],
-      server: { host: '127.0.0.1', port: dev.uiPort, strictPort: true },
-    });
-    await server.listen();
-    stops.push(() => server.close());
-    output.info(t('live UI: Vite at {url}, with hot reload of the page in the game', { url }));
-  }
-
-  const wanted = devUiOptIn(url);
-  const origins = readUserEnv('VARION_DEV_UI')
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-  if (origins.includes(wanted)) {
-    output.info(t('VARION_DEV_UI already names {origin}', { origin: wanted }));
-  } else {
-    const value = devUiOptIn([...origins.filter(isOptIn), url]);
-    const question = t(
-      'the game needs the user environment variable VARION_DEV_UI={value} (the {name} pages come from {url}); set it?',
-      { value, name: config.project.name, url },
-    );
-    const agreed = yes || (interactive && (await ask(`${question} [y/N] `)));
-    if (agreed && writeUserEnv('VARION_DEV_UI', value)) {
-      output.success(
-        gameRunning()
-          ? t(
-              'VARION_DEV_UI={value} is set for this user; the game is already running: restart it, it reads the variable at startup',
-              { value },
-            )
-          : t('VARION_DEV_UI={value} is set for this user', { value }),
-      );
-    } else {
-      output.warn(
-        t(
-          'for the game to load the page from {url}, run this in PowerShell and restart the game: {command}; to remove it: {remove}',
-          {
-            url,
-            command: `[Environment]::SetEnvironmentVariable('VARION_DEV_UI', '${value}', 'User')`,
-            remove: `[Environment]::SetEnvironmentVariable('VARION_DEV_UI', $null, 'User')`,
-          },
-        ),
-      );
-    }
-  }
+  const served = {
+    project,
+    output,
+    cliDir,
+    url,
+    fallback: `http://127.0.0.1:${settings.httpPort}/assets/${config.project.name}/${root}`,
+    shims: dev.uiShims.map((shim) => path.resolve(project.root, shim)),
+  };
+  const stops = dev.uiCommand ? startOwnServer(served) : await startVite(served);
+  await allowOrigin(url, { name: config.project.name, output, yes, interactive });
 
   return {
     url,
@@ -223,7 +246,9 @@ export async function startUiLive({
       for (const stop of [...stops].reverse()) {
         try {
           await stop();
-        } catch {}
+        } catch {
+          // one that does not stop must not keep the others running
+        }
       }
     },
   };

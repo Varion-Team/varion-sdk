@@ -112,8 +112,12 @@ test('t fills placeholders and falls back to English', () => {
 test('the language comes from VARION_LANG, the locale variables, then the system', () => {
   assert.equal(detectLocale({ VARION_LANG: 'ru' }, 'en-US'), 'ru');
   assert.equal(detectLocale({ VARION_LANG: 'en', LANG: 'ru_RU.UTF-8' }, 'ru-RU'), 'en');
-  assert.equal(detectLocale({ LANG: 'ru_RU.UTF-8' }, 'en-US'), 'ru');
-  assert.equal(detectLocale({ LC_ALL: 'C', LANG: 'ru_RU.UTF-8' }, 'en-US'), 'ru');
+  assert.equal(detectLocale({ LANG: 'ru_RU.UTF-8' }, 'en-US', 'linux'), 'ru');
+  assert.equal(detectLocale({ LC_ALL: 'C', LANG: 'ru_RU.UTF-8' }, 'en-US', 'linux'), 'ru');
+  // a terminal on Windows sets LANG for its encoding: the system says the language
+  assert.equal(detectLocale({ LANG: 'en_US.UTF-8' }, 'ru-RU', 'win32'), 'ru');
+  assert.equal(detectLocale({ LANG: 'ru_RU.UTF-8' }, 'en-US', 'win32'), 'en');
+  assert.equal(detectLocale({ VARION_LANG: 'en', LANG: 'ru_RU.UTF-8' }, 'ru-RU', 'win32'), 'en');
   assert.equal(detectLocale({}, 'ru-KZ'), 'ru');
   assert.equal(detectLocale({}, 'kk-KZ'), 'en');
   assert.equal(detectLocale({}, ''), 'en');

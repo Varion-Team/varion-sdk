@@ -2,13 +2,14 @@ import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import path from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import { t } from '../i18n/index.mjs';
 import { sleep } from '../shared/fs.mjs';
 import { childPids, commandLineOf, isAlive } from '../shared/process.mjs';
 import { HostError } from './errors.mjs';
 
 // the engine prints this once it listens (plain log style)
-export const READY_LINE = /'.*' running \| listen UDP /;
+const READY_LINE = /'.*' running \| listen UDP /;
 const RING_LINES = 400;
 
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -42,7 +43,9 @@ export async function reapPids(pids, ms, { mustInclude = '' } = {}) {
     try {
       process.kill(pid, 'SIGKILL');
       ended.push(pid);
-    } catch {}
+    } catch {
+      // already gone
+    }
   }
   return ended;
 }
@@ -159,12 +162,19 @@ export class ServerProcess extends EventEmitter {
 
   forward(stream) {
     let rest = '';
+    // a character may arrive split between two chunks
+    const decoder = new StringDecoder('utf8');
     stream.on('data', (chunk) => {
       if (this.logStream.writable) this.logStream.write(chunk);
-      const parts = (rest + chunk.toString('utf8')).split(/\r?\n/);
+      const parts = (rest + decoder.write(chunk)).split(/\r?\n/);
       rest = parts.pop();
       if (rest.length > 65536) rest = '';
       for (const line of parts) this.onLine(line);
+    });
+    // a last line without a newline
+    stream.on('end', () => {
+      const last = rest + decoder.end();
+      if (last) this.onLine(last);
     });
   }
 
@@ -249,7 +259,9 @@ export class ServerProcess extends EventEmitter {
   kill(signal) {
     try {
       this.child?.kill(signal);
-    } catch {}
+    } catch {
+      // already gone
+    }
   }
 
   async stop({ graceful = true, resources = [], timeoutMs = 30_000 } = {}) {
@@ -259,7 +271,7 @@ export class ServerProcess extends EventEmitter {
       return this.exitInfo;
     }
     this.stopping = true;
-    // asked while the server lives: its children's parent id is surely this server then
+    // listed while the server is alive, when their parent id still points at it
     const childrenQuery = childPids(this.pid).catch(() => []);
     let children;
     if (process.platform === 'win32') {

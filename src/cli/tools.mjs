@@ -6,8 +6,9 @@ import { pathToFileURL } from 'node:url';
 import { t } from '../i18n/index.mjs';
 import { readJson } from '../shared/fs.mjs';
 import { CliError } from './output.mjs';
+import { shellQuote } from './proc.mjs';
 
-export function findPackageDir(root, name) {
+function findPackageDir(root, name) {
   let dir = path.resolve(root);
   for (;;) {
     const candidate = path.join(dir, 'node_modules', ...name.split('/'));
@@ -41,7 +42,7 @@ function notInstalled(name) {
 }
 
 // the project's own copy, never ours: it pins the versions it was tested with
-export async function importProjectPackage(root, name) {
+async function importProjectPackage(root, name) {
   const dir = findPackageDir(root, name);
   if (!dir) throw notInstalled(name);
   const module = await import(pathToFileURL(esmEntry(dir, packageJson(dir))).href);
@@ -63,6 +64,13 @@ export async function loadEsbuild(root) {
   return { module: require(dir), version: packageJson(dir).version, dir };
 }
 
+// The Vite config of a page's folder, if it has one.
+export function findViteConfig(uiRoot) {
+  return ['vite.config.ts', 'vite.config.mts', 'vite.config.js', 'vite.config.mjs']
+    .map((name) => path.join(uiRoot, name))
+    .find((file) => fs.existsSync(file));
+}
+
 export async function loadVite(root) {
   return importProjectPackage(root, 'vite');
 }
@@ -77,6 +85,13 @@ export function findTsc(root) {
 }
 
 // ---- package managers ----
+
+// The package manager a project is kept with, by the lock file it has.
+export function projectPackageManager(root) {
+  if (fs.existsSync(path.join(root, 'pnpm-lock.yaml'))) return 'pnpm';
+  if (fs.existsSync(path.join(root, 'yarn.lock'))) return 'yarn';
+  return 'npm';
+}
 
 export function detectPackageManager(explicit) {
   if (explicit) {
@@ -113,11 +128,14 @@ export function runPackageManager(pm, args, { cwd, stdio = 'inherit' } = {}) {
     shell = process.platform === 'win32';
   }
   return new Promise((resolve) => {
-    const child = spawn(file, argv, { cwd, stdio, shell, windowsHide: true });
+    // through a shell the arguments are one line: quoted here, not glued together by node
+    const child = shell
+      ? spawn([file, ...argv].map(shellQuote).join(' '), { cwd, stdio, shell, windowsHide: true })
+      : spawn(file, argv, { cwd, stdio, windowsHide: true });
     let output = '';
     if (stdio === 'pipe') {
-      child.stdout.on('data', (chunk) => (output += chunk));
-      child.stderr.on('data', (chunk) => (output += chunk));
+      child.stdout.setEncoding('utf8').on('data', (text) => (output += text));
+      child.stderr.setEncoding('utf8').on('data', (text) => (output += text));
     }
     child.on('error', (error) => resolve({ code: -1, output: error.message }));
     child.on('close', (code) => resolve({ code: code ?? -1, output }));

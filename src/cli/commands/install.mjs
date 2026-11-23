@@ -9,6 +9,35 @@ import { CliError } from '../output.mjs';
 import { cabinetOption, ensureSignedIn } from './login.mjs';
 import { signedIn, signedOut } from './publish.mjs';
 
+// resource.toml that asks the platform for this version, not for the newest one
+function pinVersion(data, version) {
+  const text = data
+    .toString('utf8')
+    .replace(/^license-version\s*=.*\r?\n/m, '')
+    .replace(/^(license\s*=.*)$/m, `$1\nlicense-version = "${version}"`);
+  return Buffer.from(text, 'utf8');
+}
+
+// Files edited here are kept unless --force.
+function writeFiles(dir, files, { version, force }) {
+  const written = [];
+  const kept = [];
+  for (const file of files) {
+    const target = path.resolve(dir, ...file.path.split('/'));
+    if (!isInside(dir, target)) continue;
+    const pinned = file.path === 'resource.toml' && version;
+    const data = pinned ? pinVersion(file.data, version) : file.data;
+    if (fs.existsSync(target) && !force && !fs.readFileSync(target).equals(data)) {
+      kept.push(file.path);
+      continue;
+    }
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    writeFileAtomic(target, data);
+    written.push(file.path);
+  }
+  return { written, kept };
+}
+
 // installs the open part; the code comes to the server from the platform
 export async function run(argv, { output: root }) {
   const { options, positionals } = parseArgs(argv, {
@@ -55,31 +84,7 @@ export async function run(argv, { output: root }) {
     throw signedOut(error, cabinet);
   }
 
-  const written = [];
-  const kept = [];
-  for (const file of got.files) {
-    const target = path.resolve(dir, ...file.path.split('/'));
-    if (!isInside(dir, target)) continue;
-    let data = file.data;
-    if (file.path === 'resource.toml' && options.version) {
-      // pins the version
-      data = Buffer.from(
-        data
-          .toString('utf8')
-          .replace(/^license-version\s*=.*\r?\n/m, '')
-          .replace(/^(license\s*=.*)$/m, `$1\nlicense-version = "${options.version}"`),
-        'utf8',
-      );
-    }
-    // keeps edited files unless --force
-    if (fs.existsSync(target) && !options.force && !fs.readFileSync(target).equals(data)) {
-      kept.push(file.path);
-      continue;
-    }
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    writeFileAtomic(target, data);
-    written.push(file.path);
-  }
+  const { written, kept } = writeFiles(dir, got.files, options);
   output.event(
     'installed',
     { cabinet, name: got.resource, version: got.version, dir, written, kept },

@@ -1,6 +1,6 @@
 import { stripBom } from '../shared/fs.mjs';
 
-export function stripComment(line) {
+function stripComment(line) {
   let quote = '';
   let escaped = false;
   for (let index = 0; index < line.length; index++) {
@@ -63,7 +63,7 @@ export function parseServerToml(text) {
   return values;
 }
 
-export function unquote(raw) {
+function unquote(raw) {
   const value = String(raw ?? '').trim();
   if (value.length >= 2 && value[0] === "'" && value.endsWith("'")) return value.slice(1, -1);
   if (value.length >= 2 && value[0] === '"' && value.endsWith('"')) {
@@ -76,7 +76,7 @@ export function unquote(raw) {
   return value;
 }
 
-export function parseStringArray(raw) {
+function parseStringArray(raw) {
   let value = String(raw ?? '');
   const open = value.indexOf('[');
   const close = value.lastIndexOf(']');

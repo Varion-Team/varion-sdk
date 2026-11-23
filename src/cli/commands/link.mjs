@@ -11,9 +11,9 @@ import { cabinetOption, noArguments, openBrowser } from './login.mjs';
 
 const TOKEN_FILE = path.join('data', 'masterlist-token.txt');
 
-// server.toml with the two keys that put a server in touch with the list, among its top-level
-// keys: a key that is there is rewritten, one that is not goes before the first table. The
-// rest of the file stays as it was.
+// Sets the two top-level keys of server.toml that link a server to the list: an existing
+// key is rewritten, a missing one goes before the first table. The rest of the file is
+// left as it was.
 export function withListing(text, masterListUrl) {
   const eol = /\r\n/.test(text) ? '\r\n' : '\n';
   const lines = String(text).split(/\r?\n/);

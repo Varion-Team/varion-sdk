@@ -48,8 +48,8 @@ p {
   position: fixed;
 }
 
-/* Nothing on the page snaps in: the page itself, a new line, the line to type in and the keys
-   come and go in a fifth of a second. */
+/* Nothing on the page snaps in: the page itself fades in, and a new line, the line to type in
+   and the keys come and go in a fifth of a second. */
 .hud {
   animation: come-in 0.3s ease-out;
 }

@@ -51,7 +51,7 @@ export function matchesAny(relative, patterns) {
 }
 
 // "tests/**/*.ts" -> "tests"
-export function globBase(glob) {
+function globBase(glob) {
   const parts = String(glob).replace(/\\/g, '/').split('/');
   const fixed = [];
   for (const part of parts.slice(0, -1)) {

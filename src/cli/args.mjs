@@ -28,7 +28,7 @@ export function parseArgs(argv, spec = {}) {
       continue;
     }
     const option = `--${name}`;
-    const type = known[name];
+    const type = Object.hasOwn(known, name) ? known[name] : null;
     if (!type) {
       const list = Object.keys(known)
         .map((key) => `--${key}`)

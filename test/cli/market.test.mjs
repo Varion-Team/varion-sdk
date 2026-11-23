@@ -237,3 +237,34 @@ test('varion publish sends the package up, varion install brings the open part d
   assert.equal(unknown.code, 1);
   assert.match(unknown.text, /the resource was not installed: Такого ресурса нет\./);
 });
+
+test('an answer that is not from the cabinet installs nothing', async (t) => {
+  // a proxy in front of the cabinet answering with its own page
+  const proxy = http.createServer((request, response) => {
+    response.writeHead(200, { 'content-type': 'text/html' }).end('<html>maintenance</html>');
+  });
+  await new Promise((resolve) => proxy.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise((resolve) => proxy.close(resolve)));
+  const url = `http://127.0.0.1:${proxy.address().port}`;
+  const home = tempDir();
+  saveLogin(
+    url,
+    { token: TOKEN, account: { id: 'a', name: 'author' } },
+    { env: { ...process.env, VARION_CONFIG_DIR: home } },
+  );
+
+  const serverDir = tempDir();
+  const installed = await varion(['install', 'garages', '-C', serverDir, '--cabinet', url], home);
+  assert.equal(installed.code, 1, installed.text);
+  assert.match(installed.text, /the resource was not installed: the answer is not JSON/);
+  assert.equal(fs.existsSync(path.join(serverDir, 'resources')), false);
+});
+
+test('a link inside a resource is not packed', () => {
+  const dir = resource();
+  const outside = tempDir();
+  writeFiles(outside, { 'secret.txt': 'not for sale\n' });
+  // a junction needs no rights on Windows; elsewhere it is an ordinary link
+  fs.symlinkSync(outside, path.join(dir, 'server', 'linked'), 'junction');
+  assert.throws(() => packResource(dir), /server\/linked: not a file or a folder/);
+});

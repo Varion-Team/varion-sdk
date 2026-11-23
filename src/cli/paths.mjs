@@ -1,7 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 
-export function varionHome(env = process.env) {
+function varionHome(env = process.env) {
   if (env.VARION_HOME) return path.resolve(env.VARION_HOME);
   if (process.platform === 'win32') {
     return path.join(env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Varion');

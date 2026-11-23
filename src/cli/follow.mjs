@@ -22,6 +22,62 @@ function readFrom(file, offset, length) {
   }
 }
 
+// The whole lines a log gained since the last look; `entry` remembers where that was.
+function newLines(file, entry) {
+  let chunk;
+  try {
+    const { size } = fs.statSync(file);
+    // the game started a new log
+    if (size < entry.offset)
+      Object.assign(entry, { offset: 0, rest: '', decoder: new StringDecoder('utf8') });
+    if (size === entry.offset) return [];
+    chunk = readFrom(file, entry.offset, Math.min(size - entry.offset, 1 << 20));
+  } catch {
+    return [];
+  }
+  entry.offset += chunk.length;
+  const lines = (entry.rest + entry.decoder.write(chunk)).split(/\r?\n/);
+  entry.rest = lines.pop();
+  return lines;
+}
+
+// The source file of the project a line of the game points at, once the source map put its
+// path relative to the project into the line.
+function mappedLocation(text, root) {
+  const at = /([\w.\\/-]+\.(?:tsx?|mts|cts|jsx?|mjs|cjs)):(\d+):(\d+)/.exec(text);
+  return at ? sourceLocation(`${path.resolve(root, at[1])}:${at[2]}:${at[3]}`, root) : undefined;
+}
+
+function reportLine(output, source, line, { resourceName, root, mapClient }) {
+  if (!line.trim()) return;
+  if (source !== 'game') {
+    output.event(
+      'log',
+      { source, level: 'error', text: line },
+      source === 'crash' ? t('[crash] {line}', { line }) : t('[game error] {line}', { line }),
+    );
+    return;
+  }
+  const match = /\bJS_LOG level=(\w+) resource=(\S+) (.*)$/.exec(line);
+  if (!match) return;
+  const [, level, resource] = match;
+  // engine lines (WORDS_IN_CAPITALS) and the core's chatter are not the mode's
+  if (level === 'info' && (resource === '(core)' || /^[A-Z][A-Z0-9_]{3,}(\s|$)/.test(match[3])))
+    return;
+  const text = resource === resourceName ? mapClient(match[3]) : match[3];
+  output.event(
+    'log',
+    {
+      source: 'game',
+      level,
+      resource,
+      text,
+      location: mappedLocation(text, root),
+    },
+    level === 'info' ? t('[game] {text}', { text }) : t('[game {level}] {text}', { level, text }),
+  );
+}
+
 export function followGameLogs({
   dir,
   output,
@@ -36,7 +92,9 @@ export function followGameLogs({
     let size = 0;
     try {
       size = fs.statSync(path.join(dir, name)).size;
-    } catch {}
+    } catch {
+      // the game has not written this log yet
+    }
     // only what the game writes from now on
     state.set(name, { offset: size, rest: '', decoder: new StringDecoder('utf8') });
   }
@@ -54,56 +112,10 @@ export function followGameLogs({
       return hit ? `${toPosix(path.relative(root, hit.file))}:${hit.line}:${hit.column}` : whole;
     });
 
-  const handle = (source, line) => {
-    if (!line.trim()) return;
-    if (source !== 'game') {
-      output.event(
-        'log',
-        { source, level: 'error', text: line },
-        source === 'crash' ? t('[crash] {line}', { line }) : t('[game error] {line}', { line }),
-      );
-      return;
-    }
-    const match = /\bJS_LOG level=(\w+) resource=(\S+) (.*)$/.exec(line);
-    if (!match) return;
-    const [, level, resource] = match;
-    let text = match[3];
-    // engine lines (WORDS_IN_CAPITALS) and the core's chatter are not the mode's
-    if (level === 'info' && (resource === '(core)' || /^[A-Z][A-Z0-9_]{3,}(\s|$)/.test(text)))
-      return;
-    if (resource === resourceName) text = mapClient(text);
-    output.event(
-      'log',
-      {
-        source: 'game',
-        level,
-        resource,
-        text,
-        location: sourceLocation(path.resolve(root, text), root),
-      },
-      level === 'info' ? t('[game] {text}', { text }) : t('[game {level}] {text}', { level, text }),
-    );
-  };
-
   const timer = setInterval(() => {
     for (const [name, source] of Object.entries(GAME_FILES)) {
-      const entry = state.get(name);
-      let chunk;
-      try {
-        const full = path.join(dir, name);
-        const size = fs.statSync(full).size;
-        // the game started a new log
-        if (size < entry.offset)
-          Object.assign(entry, { offset: 0, rest: '', decoder: new StringDecoder('utf8') });
-        if (size === entry.offset) continue;
-        chunk = readFrom(full, entry.offset, Math.min(size - entry.offset, 1 << 20));
-      } catch {
-        continue;
-      }
-      entry.offset += chunk.length;
-      const lines = (entry.rest + entry.decoder.write(chunk)).split(/\r?\n/);
-      entry.rest = lines.pop();
-      for (const line of lines) handle(source, line);
+      for (const line of newLines(path.join(dir, name), state.get(name)))
+        reportLine(output, source, line, { resourceName, root, mapClient });
     }
   }, intervalMs);
   timer.unref();
@@ -119,12 +131,21 @@ export function followGameLogs({
 
 export function followSlowHandlers({ port, output, intervalMs = 5000 }) {
   const seen = new Map();
+  let asking = false;
   const timer = setInterval(async () => {
+    // one question at a time: answers that overlap would be counted out of order
+    if (asking) return;
+    asking = true;
     let info;
     try {
-      info = await (await fetch(`http://127.0.0.1:${port}/server-info.json`)).json();
+      const answer = await fetch(`http://127.0.0.1:${port}/server-info.json`, {
+        signal: AbortSignal.timeout(Math.max(intervalMs, 1000)),
+      });
+      info = await answer.json();
     } catch {
       return;
+    } finally {
+      asking = false;
     }
     const sync = info?.worldSync;
     const thresholdMs = Math.round((sync?.slowResourceThresholdMicros || 25000) / 1000);

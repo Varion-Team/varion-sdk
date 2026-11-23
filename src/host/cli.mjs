@@ -4,17 +4,25 @@ import path from 'node:path';
 import { DEFAULT_CABINET } from '../cli/config.mjs';
 import { t } from '../i18n/index.mjs';
 import { errorMessage, VarionError } from '../shared/errors.mjs';
-import { readJson, sleep, walkFiles, writeFileAtomic } from '../shared/fs.mjs';
+import { readJson, sleep, writeFileAtomic } from '../shared/fs.mjs';
 import { isAlive } from '../shared/process.mjs';
-import { HOST_BIN, taskName, taskXml, windowsCommandLine, windowsSystem } from './autostart.mjs';
+import {
+  HOST_BIN,
+  insideUserFolder,
+  taskName,
+  taskXml,
+  windowsCommandLine,
+  windowsSystem,
+} from './autostart.mjs';
 import { cabinetAddress, HOST_VERSION } from './cabinet.mjs';
 import { HostError } from './errors.mjs';
-import { DEFAULT_OPTIONS, Host, parsePortRange, readHostJson } from './host.mjs';
+import { DEFAULT_OPTIONS, Host, readHostJson } from './host.mjs';
 import { loadTrust, trustKey, untrustKey } from './keys.mjs';
 import { createLogger } from './log.mjs';
 import { pairHost, readHostToken, saveHostToken } from './pairing.mjs';
-import { defaultRoot, hostCommand, hostLayout, isInstanceName } from './paths.mjs';
-import { readServerSettings } from './servertoml.mjs';
+import { defaultRoot, hostCommand, hostLayout } from './paths.mjs';
+import { parsePortRange } from './ports.mjs';
+import { hostReport, reportLines } from './status.mjs';
 
 function usage() {
   return `varion host ${HOST_VERSION}: ${t('the server side of varion deploy')}
@@ -94,7 +102,7 @@ export function parseArgs(argv, spec) {
     }
     const eq = arg.indexOf('=');
     const key = eq >= 0 ? arg.slice(2, eq) : arg.slice(2);
-    const type = spec[key];
+    const type = Object.hasOwn(spec, key) ? spec[key] : null;
     if (!type) throw new HostError(t('unknown option --{option}', { option: key }), 'usage');
     if (type === 'boolean') {
       if (eq >= 0) throw new HostError(t('--{option} takes no value', { option: key }), 'usage');
@@ -117,7 +125,7 @@ export function parseArgs(argv, spec) {
   return { options, positionals };
 }
 
-export function parseDuration(text, what) {
+function parseDuration(text, what) {
   const match = /^(\d+(?:\.\d+)?)(s|m|h|d)?$/.exec(String(text).trim());
   if (!match) {
     throw new HostError(
@@ -344,7 +352,9 @@ async function pairCommand(positionals, options, out) {
   let saved = null;
   try {
     saved = readHostToken(layout.tokenFile);
-  } catch {}
+  } catch {
+    // a token that cannot be read is as good as none here
+  }
   const cabinet = options.cabinet || saved?.cabinet || DEFAULT_CABINET;
   const log = createLogger({ json: !!options.json, file: layout.hostLog, out });
   const abort = new AbortController();
@@ -377,8 +387,7 @@ function needsWindows(system) {
   }
 }
 
-async function installCommand(positionals, options, out, system) {
-  noExtraArguments(positionals);
+function checkInstall(options, system) {
   needsWindows(system);
   if (options.token) {
     throw new HostError(
@@ -396,35 +405,53 @@ async function installCommand(positionals, options, out, system) {
       'not-admin',
     );
   }
-  const root = rootOf(options);
-  const layout = hostLayout(root);
-  const args = ['run', '--root', root];
+}
+
+// How the task finds its token: a file named on the command line, or the pairing done now.
+// Resolves the arguments for it, or null when the pairing was stopped.
+async function connectionArguments(options, layout, out) {
   if (options['token-file']) {
     const tokenFile = path.resolve(options['token-file']);
     if (!readTokenFile(tokenFile)) {
       throw new HostError(t('the token file {file} is empty', { file: tokenFile }), 'no-token');
     }
-    args.push('--token-file', tokenFile, '--cabinet', options.cabinet || DEFAULT_CABINET);
-  } else {
-    const log = createLogger({ json: !!options.json, file: layout.hostLog, out });
-    const abort = new AbortController();
-    const off = onSignals(() => abort.abort());
-    try {
-      await pairedConnection(options, layout, log, abort.signal);
-    } catch (error) {
-      if (!abort.signal.aborted) throw error;
-      log.info(t('stopped before the machine was connected'), {}, 'pair-stopped');
-      return 1;
-    } finally {
-      off();
-    }
+    return ['--token-file', tokenFile, '--cabinet', options.cabinet || DEFAULT_CABINET];
   }
-  for (const id of options['server-id'] || []) args.push('--server-id', id);
-  for (const option of PASSED_TO_TASK) {
-    if (options[option]) args.push(`--${option}`, options[option]);
+  const log = createLogger({ json: !!options.json, file: layout.hostLog, out });
+  const abort = new AbortController();
+  const off = onSignals(() => abort.abort());
+  try {
+    await pairedConnection(options, layout, log, abort.signal);
+    return [];
+  } catch (error) {
+    if (!abort.signal.aborted) throw error;
+    log.info(t('stopped before the machine was connected'), {}, 'pair-stopped');
+    return null;
+  } finally {
+    off();
   }
+}
+
+async function installCommand(positionals, options, out, system) {
+  noExtraArguments(positionals);
+  checkInstall(options, system);
+  const root = rootOf(options);
+  const layout = hostLayout(root);
+  const connection = await connectionArguments(options, layout, out);
+  if (!connection) return 1;
+  const args = [
+    'run',
+    '--root',
+    root,
+    ...connection,
+    ...(options['server-id'] || []).flatMap((id) => ['--server-id', id]),
+    ...PASSED_TO_TASK.filter((option) => options[option]).flatMap((option) => [
+      `--${option}`,
+      options[option],
+    ]),
+  ];
   const name = taskName(root);
-  const command = [process.execPath, HOST_BIN, ...args];
+  const commandLine = windowsCommandLine([process.execPath, HOST_BIN, ...args]);
   system.createTask(
     name,
     taskXml({
@@ -436,13 +463,11 @@ async function installCommand(positionals, options, out, system) {
   );
   const running = runningHost(layout);
   const started = !running && system.runTask(name);
+  // the script and the node that runs it: the task starts both as SYSTEM
+  const exposed = [HOST_BIN, process.execPath].find((file) => insideUserFolder(file));
+  const userWritable = Boolean(exposed);
   if (options.json) {
-    const report = {
-      task: name,
-      commandLine: windowsCommandLine(command),
-      started,
-      log: layout.hostLog,
-    };
+    const report = { task: name, commandLine, started, log: layout.hostLog, userWritable };
     out.write(`${JSON.stringify(report)}\n`);
     return 0;
   }
@@ -450,7 +475,7 @@ async function installCommand(positionals, options, out, system) {
     t('installed the scheduled task "{name}": it starts the host as SYSTEM when Windows starts', {
       name,
     }),
-    `  ${windowsCommandLine(command)}`,
+    `  ${commandLine}`,
     running
       ? t(
           'a host already runs in this folder (pid {pid}); the task starts it after the next restart of Windows',
@@ -464,6 +489,13 @@ async function installCommand(positionals, options, out, system) {
       name,
     }),
   ];
+  if (userWritable) {
+    const risk = t(
+      '{file} is inside your user folder, so any program you run can change what this task runs as SYSTEM; for a server that matters install the SDK where only administrators can write',
+      { file: exposed },
+    );
+    lines.push(`${t('warning')}: ${risk}`);
+  }
   out.write(`${lines.join('\n')}\n`);
   return 0;
 }
@@ -504,238 +536,14 @@ function uninstallCommand(positionals, options, out, system) {
   return 0;
 }
 
-function readInstancesFromDisk(layout) {
-  const list = [];
-  let names = [];
-  try {
-    names = fs.readdirSync(layout.instancesDir);
-  } catch {}
-  for (const name of names.filter(isInstanceName).sort()) {
-    const dir = path.join(layout.instancesDir, name);
-    const meta = readJson(path.join(dir, 'instance.json'), null);
-    if (!meta) continue;
-    let current = '';
-    try {
-      current = fs.readFileSync(path.join(dir, 'current'), 'utf8').trim();
-    } catch {}
-    let settings = null;
-    try {
-      settings = readServerSettings(fs.readFileSync(path.join(dir, 'server.toml'), 'utf8'));
-    } catch {}
-    const pid = readJson(path.join(dir, 'server.pid'), null)?.pid;
-    const alive = isAlive(pid);
-    list.push({
-      name,
-      project: meta.project,
-      env: meta.env,
-      serverId: meta.serverId,
-      preview: meta.preview,
-      releaseId: current || null,
-      state: alive ? 'running?' : 'stopped',
-      pid: alive ? pid : null,
-      childPids: [],
-      port: settings?.port ?? meta.ports?.port ?? null,
-      httpPort: settings?.httpPort ?? meta.ports?.httpPort ?? null,
-      restarts: 0,
-      lastDeployAt: meta.lastDeployAt,
-      expiresAt: null,
-      lastError: null,
-    });
-  }
-  return list;
-}
-
-function listDirs(dir) {
-  try {
-    return fs
-      .readdirSync(dir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
-  } catch {
-    return [];
-  }
-}
-
-function listEngines(engineDir) {
-  const engines = [];
-  for (const channel of listDirs(engineDir)) {
-    for (const version of listDirs(path.join(engineDir, channel))) {
-      // copies set aside after a failed check, or still being unpacked
-      if (/^\d/.test(version) && !/\.(bad|staging)-/.test(version))
-        engines.push({ version, channel });
-    }
-  }
-  return engines;
-}
-
-function stateText(state) {
-  const text = {
-    running: t('running'),
-    starting: t('starting'),
-    stopping: t('stopping'),
-    stopped: t('stopped'),
-    backoff: t('crashed, waiting to restart'),
-    failed: t('not started (error)'),
-    empty: t('no release'),
-    'running?': t('process alive (host not running)'),
-  };
-  return text[state] || state;
-}
-
 function statusCommand(positionals, options, out) {
   noExtraArguments(positionals);
-  const layout = hostLayout(rootOf(options));
-  const status = readJson(layout.status, null);
-  const running =
-    !!status &&
-    !status.stopped &&
-    isAlive(status.pid) &&
-    Date.now() - Date.parse(status.heartbeatAt) < 30_000;
-  const instances = running ? status.instances : readInstancesFromDisk(layout);
-  let trusted = [];
-  try {
-    trusted = loadTrust(layout.trustFile);
-  } catch {}
-  let connection = null;
-  let unreadable = '';
-  try {
-    connection = readHostToken(layout.tokenFile);
-  } catch (error) {
-    unreadable = errorMessage(error);
-  }
-  const cabinetKeys = running && Array.isArray(status.cabinetKeys) ? status.cabinetKeys : [];
-  const engines = listEngines(layout.engineDir);
-  let cachedAssets = 0;
-  try {
-    cachedAssets = walkFiles(layout.assetsDir).filter((name) => /^[0-9a-f]{64}$/.test(name)).length;
-  } catch {}
-  const report = {
-    root: layout.root,
-    connection: connection
-      ? {
-          cabinet: connection.cabinet,
-          serverId: connection.serverId,
-          serverName: connection.serverName,
-          pairedAt: connection.pairedAt,
-        }
-      : unreadable
-        ? { error: unreadable }
-        : null,
-    host: running
-      ? {
-          running: true,
-          pid: status.pid,
-          hostId: status.hostId,
-          boxKey: status.boxKey || null,
-          startedAt: status.startedAt,
-          heartbeatAt: status.heartbeatAt,
-          cabinet: status.cabinet,
-          lastPoll: status.lastPoll,
-          busy: status.busy,
-          outbox: status.outbox,
-          previewPorts: status.previewPorts,
-          serverIds: status.serverIds,
-        }
-      : { running: false, lastSeen: status?.heartbeatAt || null },
-    trustedKeys: trusted.map(({ name, publicKey }) => ({ name, publicKey })),
-    cabinetKeys,
-    engines,
-    cachedAssets,
-    instances,
-  };
+  const report = hostReport(hostLayout(rootOf(options)));
   if (options.json) {
     out.write(`${JSON.stringify(report, null, 2)}\n`);
     return 0;
   }
-  out.write(`${t('host folder: {dir}', { dir: layout.root })}\n`);
-  out.write(
-    `${
-      connection
-        ? t('connected to the server {name} ({serverId}) through {cabinet}', {
-            name: connection.serverName || connection.serverId || '-',
-            serverId: connection.serverId || '-',
-            cabinet: connection.cabinet,
-          })
-        : unreadable ||
-          t('not connected to a server by code (varion host does it on its first run)')
-    }\n`,
-  );
-  if (running) {
-    const { lastPoll } = status;
-    const seconds = lastPoll ? Math.round((Date.now() - Date.parse(lastPoll.at)) / 1000) : 0;
-    const poll = !lastPoll
-      ? t('not yet')
-      : lastPoll.ok
-        ? t('ok, {seconds} s ago', { seconds })
-        : t('failed: {error}, {seconds} s ago', { error: lastPoll.error, seconds });
-    const parts = [
-      t('host: running (pid {pid}, id {hostId}), cabinet {cabinet}, last poll: {poll}', {
-        pid: status.pid,
-        hostId: status.hostId,
-        cabinet: status.cabinet,
-        poll,
-      }),
-    ];
-    if (status.busy) {
-      parts.push(
-        t('now: {action} {releaseId}', {
-          action: status.busy.action,
-          releaseId: status.busy.releaseId,
-        }),
-      );
-    }
-    if (status.boxKey)
-      parts.push(t('key for releases: {fingerprint}', { fingerprint: status.boxKey }));
-    if (status.outbox) parts.push(t('unsent statuses: {count}', { count: status.outbox }));
-    out.write(`${parts.join(', ')}\n`);
-  } else {
-    const line = status?.heartbeatAt
-      ? t('host: not running (last seen {time})', { time: status.heartbeatAt })
-      : t('host: not running');
-    out.write(`${line}\n`);
-  }
-  const names = trusted.map((key) => key.name).join(', ');
-  const keysText = [
-    `${t('trusted keys: {count}', { count: trusted.length })}${names ? ` (${names})` : ''}`,
-  ];
-  if (running) {
-    const approved = cabinetKeys.map((key) => key.name).join(', ');
-    keysText.push(
-      `${t('approved in the cabinet: {count}', { count: cabinetKeys.length })}${approved ? ` (${approved})` : ''}`,
-    );
-  }
-  const engineList = engines.map(({ version, channel }) => `${version} (${channel})`).join(', ');
-  const enginesText = engineList
-    ? t('engines: {engines}', { engines: engineList })
-    : t('engines: none');
-  const assetsText = t('cached assets: {count}', { count: cachedAssets });
-  out.write(`${[...keysText, enginesText, assetsText].join('; ')}\n`);
-  if (!instances.length) {
-    out.write(`${t('no instances')}\n`);
-    return 0;
-  }
-  for (const item of instances) {
-    const children = item.childPids?.length ? ` (+${item.childPids.join(', ')})` : '';
-    const extra = [
-      item.pid ? `pid ${item.pid}${children}` : '',
-      item.restarts ? t('restarts: {count}', { count: item.restarts }) : '',
-      item.expiresAt ? t('expires {time}', { time: item.expiresAt }) : '',
-      item.lastError ? `${t('error')}: ${item.lastError}` : '',
-    ]
-      .filter(Boolean)
-      .join(', ');
-    const columns = [
-      item.name,
-      `[${item.preview ? t('preview') : item.env}]`,
-      t('release {releaseId}', { releaseId: item.releaseId || '-' }),
-      stateText(item.state),
-      item.port
-        ? t('port {port}/{httpPort}', { port: item.port, httpPort: item.httpPort })
-        : t('port {port}', { port: '-' }),
-      extra,
-    ];
-    out.write(`  ${columns.filter(Boolean).join('  ')}\n`);
-  }
+  out.write(`${reportLines(report).join('\n')}\n`);
   return 0;
 }
 
@@ -787,7 +595,7 @@ export async function main(
     return 0;
   }
   const command = first === undefined || first.startsWith('--') ? 'run' : args.shift();
-  const spec = SPECS[command];
+  const spec = Object.hasOwn(SPECS, command) ? SPECS[command] : null;
   if (!spec) {
     err.write(
       `varion host: ${t('"{command}" is not a varion host command', { command })}\n\n${usage()}`,

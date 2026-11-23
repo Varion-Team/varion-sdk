@@ -9,7 +9,7 @@ import { VarionError } from './errors.mjs';
 
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
 
-export class HttpError extends VarionError {
+class HttpError extends VarionError {
   constructor(message, { code = 'http', status, cause } = {}) {
     super(message, { code, cause });
     if (status !== undefined) this.status = status;
@@ -189,6 +189,63 @@ export async function requestJson(
   }
 }
 
+// Refuses a download by its declared length, before a byte of it is read.
+function checkDeclaredSize(declared, { what, expectedSize, maxBytes }) {
+  if (!Number.isFinite(declared)) return;
+  if (expectedSize !== undefined && declared !== expectedSize) {
+    throw new HttpError(
+      t('{what}: {size} bytes, expected {expected}', {
+        what,
+        size: declared,
+        expected: expectedSize,
+      }),
+      { code: 'size' },
+    );
+  }
+  if (maxBytes !== undefined && declared > maxBytes) {
+    throw new HttpError(
+      t('{what}: {size} bytes, over the limit of {limit}', {
+        what,
+        size: declared,
+        limit: maxBytes,
+      }),
+      { code: 'too-big' },
+    );
+  }
+}
+
+// Counts and hashes what passes through, and stops a body that grows over its limits.
+function meter({ what, expectedSize, maxBytes, onChunk }) {
+  const hash = crypto.createHash('sha256');
+  let size = 0;
+  const stream = new Transform({
+    transform(chunk, _encoding, callback) {
+      size += chunk.length;
+      if (maxBytes !== undefined && size > maxBytes) {
+        callback(
+          new HttpError(t('{what}: over the limit of {limit} bytes', { what, limit: maxBytes }), {
+            code: 'too-big',
+          }),
+        );
+        return;
+      }
+      if (expectedSize !== undefined && size > expectedSize) {
+        callback(
+          new HttpError(
+            t('{what}: more than the expected {expected} bytes', { what, expected: expectedSize }),
+            { code: 'size' },
+          ),
+        );
+        return;
+      }
+      hash.update(chunk);
+      onChunk?.(size);
+      callback(null, chunk);
+    },
+  });
+  return { stream, result: () => ({ size, sha256: hash.digest('hex') }) };
+}
+
 export async function download(
   target,
   file,
@@ -213,84 +270,38 @@ export async function download(
     const data = await readBody(response, 4096).catch(() => Buffer.alloc(0));
     throw statusError(what, response, url, data);
   }
-  const declared =
-    response.headers['content-length'] === undefined
-      ? NaN
-      : Number(response.headers['content-length']);
-  if (Number.isFinite(declared)) {
-    if (expectedSize !== undefined && declared !== expectedSize) {
-      response.destroy();
-      throw new HttpError(
-        t('{what}: {size} bytes, expected {expected}', {
-          what,
-          size: declared,
-          expected: expectedSize,
-        }),
-        { code: 'size' },
-      );
-    }
-    if (maxBytes !== undefined && declared > maxBytes) {
-      response.destroy();
-      throw new HttpError(
-        t('{what}: {size} bytes, over the limit of {limit}', {
-          what,
-          size: declared,
-          limit: maxBytes,
-        }),
-        { code: 'too-big' },
-      );
-    }
-  }
+  const length = response.headers['content-length'];
+  const declared = length === undefined ? NaN : Number(length);
   const total = Number.isFinite(declared) ? declared : expectedSize || 0;
-  const hash = crypto.createHash('sha256');
-  let size = 0;
-  // open before try: an existing file must stay untouched
   let fd;
   try {
+    checkDeclaredSize(declared, { what, expectedSize, maxBytes });
+    // opened outside the try below: a file that is already there must stay untouched
     fd = fs.openSync(file, 'wx');
   } catch (error) {
     response.destroy();
     throw error;
   }
-  const limit = new Transform({
-    transform(chunk, _encoding, callback) {
-      size += chunk.length;
-      if (maxBytes !== undefined && size > maxBytes) {
-        callback(
-          new HttpError(t('{what}: over the limit of {limit} bytes', { what, limit: maxBytes }), {
-            code: 'too-big',
-          }),
-        );
-        return;
-      }
-      if (expectedSize !== undefined && size > expectedSize) {
-        callback(
-          new HttpError(
-            t('{what}: more than the expected {expected} bytes', { what, expected: expectedSize }),
-            {
-              code: 'size',
-            },
-          ),
-        );
-        return;
-      }
-      hash.update(chunk);
-      onProgress?.(size, total);
-      callback(null, chunk);
-    },
+  const counted = meter({
+    what,
+    expectedSize,
+    maxBytes,
+    onChunk: (size) => onProgress?.(size, total),
   });
   try {
-    await pipeline(response, limit, fs.createWriteStream(null, { fd }));
-    if (expectedSize !== undefined && size !== expectedSize) {
+    await pipeline(response, counted.stream, fs.createWriteStream(null, { fd }));
+    const received = counted.result();
+    if (expectedSize !== undefined && received.size !== expectedSize) {
       throw new HttpError(
         t('{what}: received {size} bytes, expected {expected}', {
           what,
-          size,
+          size: received.size,
           expected: expectedSize,
         }),
         { code: 'size' },
       );
     }
+    return received;
   } catch (error) {
     fs.rmSync(file, { force: true, maxRetries: 5, retryDelay: 100 });
     if (error instanceof VarionError) throw error;
@@ -299,5 +310,4 @@ export async function download(
       cause: error,
     });
   }
-  return { size, sha256: hash.digest('hex') };
 }

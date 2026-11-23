@@ -82,6 +82,15 @@ export function instanceNameFor(project, env) {
   return name;
 }
 
+// The instance a request or a record is about, or '' when its project and env name none.
+export function safeInstanceName({ project, env }) {
+  try {
+    return instanceNameFor(project, env);
+  } catch {
+    return '';
+  }
+}
+
 export function isInstanceName(name) {
   try {
     return INSTANCE_NAME.test(name) && !!checkEntryPath(name);

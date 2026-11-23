@@ -41,27 +41,29 @@ function initRepository(dir, output) {
   return { initialized: true, committed };
 }
 
+const OPTIONS = {
+  dir: 'string',
+  title: 'string',
+  db: 'boolean',
+  port: 'number',
+  'db-port': 'number',
+  'engine-version': 'string',
+  'engine-channel': 'string',
+  'engine-path': 'string',
+  pm: 'string',
+  'no-install': 'boolean',
+  'no-git': 'boolean',
+  sdk: 'string',
+  start: 'boolean',
+  play: 'boolean',
+  json: 'boolean',
+  cwd: 'string',
+};
+
 export async function run(argv, { output: root, cliDir }) {
   const { options, positionals } = parseArgs(argv, {
     command: 'new',
-    options: {
-      dir: 'string',
-      title: 'string',
-      db: 'boolean',
-      port: 'number',
-      'db-port': 'number',
-      'engine-version': 'string',
-      'engine-channel': 'string',
-      'engine-path': 'string',
-      pm: 'string',
-      'no-install': 'boolean',
-      'no-git': 'boolean',
-      sdk: 'string',
-      start: 'boolean',
-      play: 'boolean',
-      json: 'boolean',
-      cwd: 'string',
-    },
+    options: OPTIONS,
     aliases: { C: 'cwd' },
   });
   const output = root.child('new');
@@ -99,23 +101,7 @@ export async function run(argv, { output: root, cliDir }) {
     ),
   );
 
-  if (!options.noInstall) {
-    output.info(t('installing dependencies ({pm} install)', { pm }));
-    const installed = await runPackageManager(pm, ['install'], {
-      cwd: dir,
-      stdio: output.json ? 'pipe' : 'inherit',
-    });
-    output.event('install', { pm, ok: installed.code === 0, code: installed.code });
-    if (installed.code !== 0) {
-      throw new CliError(
-        t('{pm} install failed (exit code {code}); run it again in {dir}', {
-          pm,
-          code: installed.code,
-          dir,
-        }),
-      );
-    }
-  }
+  if (!options.noInstall) await installDependencies(dir, pm, output);
 
   const repository = options.noGit
     ? { initialized: false, committed: false }
@@ -128,18 +114,38 @@ export async function run(argv, { output: root, cliDir }) {
     return dev.run(['--cwd', dir, ...(options.play ? ['--play'] : [])], { output: root, cliDir });
   }
 
+  output.line(nextSteps({ dir, pm, port, installLater: options.noInstall }));
+  return 0;
+}
+
+async function installDependencies(dir, pm, output) {
+  output.info(t('installing dependencies ({pm} install)', { pm }));
+  const installed = await runPackageManager(pm, ['install'], {
+    cwd: dir,
+    stdio: output.json ? 'pipe' : 'inherit',
+  });
+  output.event('install', { pm, ok: installed.code === 0, code: installed.code });
+  if (installed.code !== 0) {
+    throw new CliError(
+      t('{pm} install failed (exit code {code}); run it again in {dir}', {
+        pm,
+        code: installed.code,
+        dir,
+      }),
+    );
+  }
+}
+
+function nextSteps({ dir, pm, port, installLater }) {
   const relative = path.relative(process.cwd(), dir) || '.';
   const runScript = pm === 'npm' ? 'npm run' : pm;
-  output.line(
-    [
-      '',
-      t('Next:'),
-      `  cd ${relative}`,
-      ...(options.noInstall ? [`  ${pm} install`] : []),
-      `  ${runScript} dev      # ${t('server on 127.0.0.1:{port}, restarts on save', { port })}`,
-      '',
-      t('Events live in src/shared/events.ts, settings in varion.toml, details in README.md'),
-    ].join('\n'),
-  );
-  return 0;
+  return [
+    '',
+    t('Next:'),
+    `  cd ${relative}`,
+    ...(installLater ? [`  ${pm} install`] : []),
+    `  ${runScript} dev      # ${t('server on 127.0.0.1:{port}, restarts on save', { port })}`,
+    '',
+    t('Events live in src/shared/events.ts, settings in varion.toml, details in README.md'),
+  ].join('\n');
 }

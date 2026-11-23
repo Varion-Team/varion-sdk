@@ -5,8 +5,15 @@ export const LOCALES = Object.keys(CATALOGS);
 
 let current = detectLocale();
 
-export function detectLocale(env = process.env, systemLocale = defaultSystemLocale()) {
-  const candidates = [env.VARION_LANG, env.LC_ALL, env.LC_MESSAGES, env.LANG, systemLocale];
+// On Windows, terminals and editors set LANG and its relatives for the encoding, not for the
+// language: the system language is used there instead.
+export function detectLocale(
+  env = process.env,
+  systemLocale = defaultSystemLocale(),
+  platform = process.platform,
+) {
+  const shell = platform === 'win32' ? [] : [env.LC_ALL, env.LC_MESSAGES, env.LANG];
+  const candidates = [env.VARION_LANG, ...shell, systemLocale];
   const chosen = candidates.find((value) => value && value !== 'C' && value !== 'POSIX');
   return /^ru\b/i.test(String(chosen || '').replace(/_/g, '-')) ? 'ru' : 'en';
 }

@@ -1,25 +1,19 @@
 import crypto from 'node:crypto';
-import dgram from 'node:dgram';
 import fs from 'node:fs';
-import net from 'node:net';
 import path from 'node:path';
 import { t } from '../i18n/index.mjs';
 import {
   boxFingerprint,
   isBoxPublicKey,
-  isSealed,
   newBoxKeys,
   openFile,
   sealedSize,
 } from '../shared/box.mjs';
 import { EngineStore } from '../shared/engine.mjs';
 import { errorMessage } from '../shared/errors.mjs';
-import { formatBytes } from '../shared/format.mjs';
 import {
   ensureDir,
-  randomTag,
   readJson,
-  renameWithRetry,
   sleep,
   tryReadJson,
   tryRemoveTree,
@@ -27,16 +21,18 @@ import {
 } from '../shared/fs.mjs';
 import { isAlive } from '../shared/process.mjs';
 import { AssetCache } from './assets.mjs';
-import { Cabinet, cabinetAddress, HOST_ID, isPermanentRefusal } from './cabinet.mjs';
-import { HostError, RequestRejected } from './errors.mjs';
+import { Cabinet, cabinetAddress, HOST_ID } from './cabinet.mjs';
+import { CabinetKeys } from './cabinet-keys.mjs';
+import { HostError } from './errors.mjs';
 import { Instance } from './instance.mjs';
+import { DeployJournal } from './journal.mjs';
 import { loadTrust } from './keys.mjs';
 import { readHostToken } from './pairing.mjs';
-import { hostCommand, hostLayout, instanceNameFor, isInstanceName } from './paths.mjs';
-import { LIMITS, RELEASE_MARKER, unpackBundle, verifyReleaseDir } from './release.mjs';
-import { NonceStore, PREVIEW_SERVER, verifySignedRequest } from './request.mjs';
+import { hostCommand, hostLayout, isInstanceName } from './paths.mjs';
+import { parsePortRange, Ports } from './ports.mjs';
+import { NonceStore } from './request.mjs';
+import { handleRequest } from './requests.mjs';
 
-const FINAL = new Set(['active', 'failed', 'rolled-back']);
 const DAY = 24 * 60 * 60 * 1000;
 
 export const DEFAULT_OPTIONS = Object.freeze({
@@ -70,57 +66,13 @@ export function readHostJson(layout) {
 
 // The key releases are sealed with for this machine. It is made once and stays here: the
 // public half goes to the cabinet with every poll, the private half never leaves this file.
-export function readBoxKeys(layout) {
+function readBoxKeys(layout) {
   const saved = tryReadJson(layout.boxFile, null);
   if (saved && isBoxPublicKey(saved.publicKey) && typeof saved.privateKey === 'string')
     return saved;
   const keys = { format: 1, ...newBoxKeys() };
   writeJsonAtomic(layout.boxFile, keys, { mode: 0o600 });
   return keys;
-}
-
-export function parsePortRange(text) {
-  const match = /^(\d{1,5})-(\d{1,5})$/.exec(String(text || '').trim());
-  const from = match ? Number(match[1]) : NaN;
-  const to = match ? Number(match[2]) : NaN;
-  if (!match || from < 1024 || to > 65535 || to - from < 1) {
-    throw new HostError(
-      t(
-        '--preview-ports: expected a range like 7962-7999 (each preview takes a game port and the next one for HTTP)',
-      ),
-      'usage',
-    );
-  }
-  return [from, to];
-}
-
-function udpFree(port) {
-  return new Promise((resolve) => {
-    const socket = dgram.createSocket('udp4');
-    socket.once('error', () => {
-      socket.close();
-      resolve(false);
-    });
-    socket.bind(port, '127.0.0.1', () => socket.close(() => resolve(true)));
-  });
-}
-
-function tcpFree(port) {
-  return new Promise((resolve) => {
-    const server = net.createServer();
-    server.once('error', () => resolve(false));
-    server.listen({ port, host: '127.0.0.1', exclusive: true }, () =>
-      server.close(() => resolve(true)),
-    );
-  });
-}
-
-function restartText(result) {
-  if (result.mode === 'hot') {
-    const names = result.restarted.map((item) => item.name).join(', ');
-    return t('resources restarted: {resources}', { resources: names || '-' });
-  }
-  return result.mode === 'full' ? t('full restart') : t('no restart');
 }
 
 export class Host {
@@ -140,23 +92,19 @@ export class Host {
     this.lastPoll = null;
     this.pollFailures = 0;
     this.startedAt = new Date().toISOString();
-    this.busy = null;
-    this.cabinetKeys = { keys: [], state: '', checkedAt: 0, fetchedAt: 0, skipped: 0 };
-    this.untrustedWarned = false;
+    this.cabinetKeys = new CabinetKeys({
+      fetch: () => this.cabinet.approvedKeys(),
+      trustFile: this.layout.trustFile,
+      log: this.log,
+      options: this.options,
+    });
   }
 
   // ---- start ----
 
   async init() {
     const { layout } = this;
-    ensureDir(layout.root);
-    ensureDir(layout.trustDir, 0o700);
-    ensureDir(layout.stateDir, 0o700);
-    ensureDir(layout.downloads);
-    ensureDir(layout.engineDir);
-    ensureDir(layout.assetsDir);
-    ensureDir(layout.instancesDir);
-    ensureDir(layout.logsDir);
+    this.makeFolders();
     this.takeLock();
     const hostJson = readHostJson(layout);
     this.hostId = this.options.hostId || hostJson.hostId;
@@ -170,18 +118,16 @@ export class Host {
     }
     const paired =
       this.options.token || !this.options.tokenFile ? null : readHostToken(this.options.tokenFile);
-    // the owner bound this machine to the server by entering its code
-    const pairedServer = paired?.serverId ? [paired.serverId] : null;
-    this.serverIds = this.options.serverIds?.length
-      ? this.options.serverIds
-      : pairedServer || (Array.isArray(hostJson.serverIds) ? hostJson.serverIds.map(String) : []);
-    this.previewPorts =
-      this.options.previewPorts ||
-      (hostJson.previewPorts ? parsePortRange(hostJson.previewPorts) : null);
+    this.serverIds = this.serversFor(hostJson, paired);
+    this.ports = new Ports({
+      instances: this.instances,
+      log: this.log,
+      previews:
+        this.options.previewPorts ||
+        (hostJson.previewPorts ? parsePortRange(hostJson.previewPorts) : null),
+    });
     this.nonces = new NonceStore(layout.nonces);
     this.nonces.prune(this.now());
-    this.deploys = readJson(layout.deploys, { format: 1, deploys: {} });
-    this.outbox = readJson(layout.outbox, { format: 1, statuses: [] });
     this.engines = new EngineStore({
       root: layout.engineDir,
       cdn: this.options.engineCdn,
@@ -203,16 +149,53 @@ export class Host {
         hostId: this.hostId,
         boxKey: this.box.publicKey,
       });
+    this.journal = new DeployJournal({
+      layout,
+      log: this.log,
+      reportStatus: (status) => this.cabinet.reportStatus(status),
+    });
+    this.loadInstances();
+    this.journal.closeInterrupted();
+    this.announceStart();
+  }
+
+  makeFolders() {
+    const { layout } = this;
+    ensureDir(layout.root);
+    ensureDir(layout.trustDir, 0o700);
+    ensureDir(layout.stateDir, 0o700);
+    for (const dir of [
+      layout.downloads,
+      layout.engineDir,
+      layout.assetsDir,
+      layout.instancesDir,
+      layout.logsDir,
+    ])
+      ensureDir(dir);
+    // what an interrupted run left behind
     for (const name of fs.readdirSync(layout.downloads))
       tryRemoveTree(path.join(layout.downloads, name));
     fs.rmSync(layout.stopRequest, { force: true });
-    for (const entry of fs.readdirSync(layout.instancesDir, { withFileTypes: true })) {
+  }
+
+  // The command line names the servers first, then the pairing code, then host.json.
+  serversFor(hostJson, paired) {
+    if (this.options.serverIds?.length) return this.options.serverIds;
+    if (paired?.serverId) return [paired.serverId];
+    return Array.isArray(hostJson.serverIds) ? hostJson.serverIds.map(String) : [];
+  }
+
+  loadInstances() {
+    const dir = this.layout.instancesDir;
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
       if (!entry.isDirectory() || !isInstanceName(entry.name)) continue;
       const instance = Instance.load(this, entry.name);
       if (instance) this.instances.set(entry.name, instance);
     }
-    this.closeInterruptedDeploys();
-    const trusted = loadTrust(layout.trustFile);
+  }
+
+  announceStart() {
+    const trusted = loadTrust(this.layout.trustFile).length;
     const summary = [
       t(
         'host {hostId} in {root}: cabinet {cabinet}, trusted keys: {keys}, instances: {instances}',
@@ -220,7 +203,7 @@ export class Host {
           hostId: this.hostId,
           root: this.root,
           cabinet: this.cabinet.base?.origin || t('(custom)'),
-          keys: trusted.length,
+          keys: trusted,
           instances: this.instances.size,
         },
       ),
@@ -228,18 +211,13 @@ export class Host {
     if (this.serverIds.length)
       summary.push(t('servers: {servers}', { servers: this.serverIds.join(', ') }));
     summary.push(
-      this.previewPorts
-        ? t('previews on ports {ports}', { ports: this.previewPorts.join('-') })
+      this.ports.previews
+        ? t('previews on ports {ports}', { ports: this.ports.previews.join('-') })
         : t('previews off'),
     );
     this.log.info(
       summary.join(', '),
-      {
-        hostId: this.hostId,
-        root: this.root,
-        trusted: trusted.length,
-        instances: this.instances.size,
-      },
+      { hostId: this.hostId, root: this.root, trusted, instances: this.instances.size },
       'host-start',
     );
     if (!this.serverIds.length) {
@@ -249,33 +227,6 @@ export class Host {
         ),
       );
     }
-  }
-
-  closeInterruptedDeploys() {
-    for (const [deployId, record] of Object.entries(this.deploys.deploys)) {
-      if (FINAL.has(record.phase)) continue;
-      const name = this.safeInstanceName(record);
-      const currentFile = path.join(this.layout.instancesDir, name, 'current');
-      const current =
-        name && fs.existsSync(currentFile) ? fs.readFileSync(currentFile, 'utf8').trim() : '';
-      const error = current
-        ? t('the host restarted during the deploy (phase {phase}); {releaseId} is active', {
-            phase: record.phase,
-            releaseId: current,
-          })
-        : t('the host restarted during the deploy (phase {phase})', { phase: record.phase });
-      Object.assign(record, { phase: 'failed', error, at: new Date().toISOString() });
-      this.outbox.statuses = this.outbox.statuses
-        .filter((item) => item.deployId !== deployId)
-        .concat([{ deployId, phase: 'failed', error }]);
-      this.log.warn(
-        t('deploy {deployId}: {error}', { deployId, error }),
-        { deployId },
-        'deploy-interrupted',
-      );
-    }
-    writeJsonAtomic(this.layout.deploys, this.deploys);
-    writeJsonAtomic(this.layout.outbox, this.outbox);
   }
 
   takeLock() {
@@ -333,7 +284,7 @@ export class Host {
     if (this.stopping) return;
     this.nonces.prune(this.now());
     await this.expirePreviews();
-    await this.flushOutbox();
+    await this.journal.sendUnsent();
   }
 
   // ---- loop ----
@@ -344,7 +295,7 @@ export class Host {
     this.writeStatus();
     await this.bootInstances();
     this.writeStatus();
-    await this.refreshCabinetKeys();
+    await this.cabinetKeys.refresh();
     while (!this.stopping) {
       const started = Date.now();
       let items = [];
@@ -388,14 +339,14 @@ export class Host {
           );
         }
       }
-      if (!failed && !this.stopping) await this.refreshCabinetKeys();
+      if (!failed && !this.stopping) await this.cabinetKeys.refresh();
       for (const item of items) {
         if (this.stopping) break;
-        await this.handle(item);
+        await handleRequest(this, item);
         this.writeStatus();
       }
       if (this.stopping) break;
-      await this.flushOutbox();
+      await this.journal.sendUnsent();
       const elapsed = Date.now() - started;
       const interval =
         pollAfterMs === null
@@ -452,7 +403,7 @@ export class Host {
     }
     this.cabinet.token = saved.token;
     if (!this.options.serverIds?.length && saved.serverId) this.serverIds = [saved.serverId];
-    this.cabinetKeys.checkedAt = 0;
+    this.cabinetKeys.forget();
     this.log.info(
       t('picked up the new host token from {file}', { file: this.options.tokenFile }),
       { serverId: saved.serverId },
@@ -465,104 +416,6 @@ export class Host {
 
   trustedKeys() {
     return [...loadTrust(this.layout.trustFile), ...this.cabinetKeys.keys];
-  }
-
-  async refreshCabinetKeys() {
-    const known = this.cabinetKeys;
-    const now = Date.now();
-    if (now - known.checkedAt < this.options.keysRefreshMs) return;
-    known.checkedAt = now;
-    let fetched;
-    try {
-      fetched = await this.cabinet.approvedKeys();
-    } catch (error) {
-      this.cabinetKeysFailed(error, now);
-      return;
-    }
-    known.fetchedAt = now;
-    this.useCabinetKeys(fetched.keys, 'ok');
-    if (fetched.skipped && fetched.skipped !== known.skipped) {
-      this.log.warn(
-        t('the cabinet sent {count} keys that are not Ed25519 public keys; they are not trusted', {
-          count: fetched.skipped,
-        }),
-        {},
-        'cabinet-keys-skipped',
-      );
-    }
-    known.skipped = fetched.skipped;
-  }
-
-  cabinetKeysFailed(error, now) {
-    const known = this.cabinetKeys;
-    if (error?.status === 404) {
-      if (known.state !== 'unsupported') {
-        this.log.info(
-          t('the cabinet hands out no approved keys: only the keys trusted here count'),
-          {},
-          'cabinet-keys',
-        );
-      }
-      this.useCabinetKeys([], 'unsupported');
-      return;
-    }
-    // a key revoked in the cabinet must not stay trusted for long while the cabinet is away
-    const lost = isPermanentRefusal(error) || now - known.fetchedAt > this.options.keysStaleMs;
-    const state = lost ? 'lost' : 'stale';
-    if (known.state !== state) {
-      const params = { error: errorMessage(error) };
-      this.log.warn(
-        lost
-          ? t(
-              'the keys approved in the cabinet are not trusted until the cabinet hands them out again ({error})',
-              params,
-            )
-          : t(
-              'could not refresh the keys approved in the cabinet ({error}); the last list stays for a few minutes',
-              params,
-            ),
-        {},
-        'cabinet-keys-failed',
-      );
-    }
-    if (lost) this.useCabinetKeys([], state);
-    else known.state = state;
-  }
-
-  useCabinetKeys(keys, state) {
-    const known = this.cabinetKeys;
-    const list = (entries) =>
-      entries
-        .map((entry) => entry.publicKey)
-        .sort()
-        .join();
-    const announce = state === 'ok' && (list(keys) !== list(known.keys) || known.state !== 'ok');
-    known.keys = keys;
-    known.state = state;
-    if (announce) {
-      this.log.info(
-        keys.length
-          ? t('keys approved in the cabinet: {count} ({names})', {
-              count: keys.length,
-              names: keys.map((entry) => entry.name).join(', '),
-            })
-          : t('no keys are approved in the cabinet for this server'),
-        { keys: keys.map(({ name, publicKey, accountId }) => ({ name, publicKey, accountId })) },
-        'cabinet-keys',
-      );
-    }
-    let none = false;
-    try {
-      none = !keys.length && !loadTrust(this.layout.trustFile).length;
-    } catch {}
-    if (none && !this.untrustedWarned) {
-      this.log.warn(
-        t(
-          'no trusted keys: every deploy request will be refused (approve a developer key for this server in the cabinet, or add one with varion host trust <key>)',
-        ),
-      );
-    }
-    this.untrustedWarned = none;
   }
 
   requestStop() {
@@ -591,519 +444,6 @@ export class Host {
       this.log.info(t('the host stopped'), {}, 'host-stopped');
     })();
     return this.shutdownDone;
-  }
-
-  // ---- requests ----
-
-  async handle(item) {
-    const deployId = item.deployId;
-    const known = deployId ? this.deploys.deploys[deployId] : null;
-    // handed over again after a lost answer: say again how it ended
-    if (known && known.signature === item.signature && FINAL.has(known.phase)) {
-      await this.report(deployId, known.phase, {
-        error: known.error,
-        port: known.port,
-        final: true,
-      });
-      return;
-    }
-    let verified;
-    try {
-      verified = verifySignedRequest(item, { trusted: this.trustedKeys(), now: this.now() });
-      const used = this.nonces.get(verified.request.nonce);
-      if (used) {
-        if (deployId && used.deployId === deployId && known) {
-          await this.report(deployId, known.phase, {
-            error: known.error,
-            port: known.port,
-            final: FINAL.has(known.phase),
-          });
-          return;
-        }
-        throw new RequestRejected(t('replayed request: its nonce was already used'), 'replay');
-      }
-      this.checkScope(verified.request);
-      this.checkSignerRights(verified.signer, verified.request);
-      this.nonces.add(verified.request.nonce, {
-        issuedAt: verified.issuedAtMs,
-        deployId,
-        seenAt: this.now(),
-      });
-    } catch (error) {
-      const reason = errorMessage(error);
-      this.log.warn(
-        deployId
-          ? t('request {deployId} refused: {error}', { deployId, error: reason })
-          : t('request without a deployId refused: {error}', { error: reason }),
-        { deployId, code: error.code },
-        'request-rejected',
-      );
-      if (deployId)
-        await this.finish(deployId, 'failed', { error: reason, signature: item.signature });
-      return;
-    }
-    const { request, signer } = verified;
-    this.log.info(
-      t('request {deployId}: {action} {releaseId} for {project}/{env} (key "{key}")', {
-        deployId,
-        action: request.action,
-        releaseId: request.releaseId,
-        project: request.project,
-        env: request.env,
-        key: signer.name,
-      }),
-      { deployId, ...request, signer: signer.name },
-      'request-accepted',
-    );
-    this.record(deployId, {
-      phase: 'accepted',
-      signature: item.signature,
-      nonce: request.nonce,
-      action: request.action,
-      releaseId: request.releaseId,
-      project: request.project,
-      env: request.env,
-      serverId: request.serverId,
-    });
-    this.busy = {
-      deployId,
-      action: request.action,
-      releaseId: request.releaseId,
-      since: new Date().toISOString(),
-    };
-    try {
-      const outcome =
-        request.action === 'activate'
-          ? await this.activateRequest(deployId, request)
-          : await this.rollbackRequest(deployId, request);
-      await this.finish(deployId, outcome.phase, { port: outcome.port, signature: item.signature });
-    } catch (error) {
-      const phase = request.action === 'activate' && error.revertedTo ? 'rolled-back' : 'failed';
-      this.log.error(
-        t('deploy {deployId}: {error}', { deployId, error: errorMessage(error) }),
-        { deployId, code: error.code, phase },
-        'deploy-failed',
-      );
-      const instance = this.instances.get(this.safeInstanceName(request));
-      await this.finish(deployId, phase, {
-        error: errorMessage(error),
-        port: instance?.ports()?.port,
-        signature: item.signature,
-      });
-    } finally {
-      this.busy = null;
-    }
-  }
-
-  safeInstanceName(request) {
-    try {
-      return instanceNameFor(request.project, request.env);
-    } catch {
-      return '';
-    }
-  }
-
-  // a key the cabinet approved deploys only where its account may
-  checkSignerRights(signer, request) {
-    if (!signer.rights) return;
-    const prod = request.env === 'prod';
-    if (prod ? signer.rights.prod : signer.rights.test) return;
-    throw new RequestRejected(
-      prod
-        ? t('key "{name}" may not deploy to prod on this server', { name: signer.name })
-        : t('key "{name}" may not deploy to test and previews on this server', {
-            name: signer.name,
-          }),
-      'key-rights',
-    );
-  }
-
-  // test and prod only for this host's own --server-id, never on the cabinet's word
-  checkScope(request) {
-    const { env, serverId } = request;
-    const own = this.serverIds.includes(serverId);
-    const serverIds = this.serverIds.join(', ');
-    if (env.startsWith('preview-')) {
-      if (!this.previewPorts) {
-        throw new RequestRejected(
-          t('previews are off on this host (no --preview-ports)'),
-          'previews-off',
-        );
-      }
-      if (serverId === PREVIEW_SERVER || own) return;
-      throw new RequestRejected(
-        serverIds
-          ? t('the request is for server {serverId}, this host serves {serverIds}', {
-              serverId,
-              serverIds,
-            })
-          : t('the preview is for server {serverId}, this host has no --server-id', { serverId }),
-        'wrong-server',
-      );
-    }
-    if (!serverIds) {
-      throw new RequestRejected(
-        t(
-          'this host has no --server-id: {env} deploys are refused (the request is for server {serverId})',
-          { env, serverId },
-        ),
-        'no-server-id',
-      );
-    }
-    if (!own) {
-      throw new RequestRejected(
-        t('the request is for server {serverId}, this host serves {serverIds}', {
-          serverId,
-          serverIds,
-        }),
-        'wrong-server',
-      );
-    }
-  }
-
-  instanceFor(request) {
-    const name = instanceNameFor(request.project, request.env);
-    const instance = this.instances.get(name);
-    // a preview may name its server "preview" or by id: the same instance either way
-    const otherServer =
-      instance && !instance.meta.preview && instance.meta.serverId !== request.serverId;
-    if (instance && (otherServer || instance.meta.project !== request.project)) {
-      throw new HostError(
-        t('instance {name} belongs to {project} on server {serverId}', {
-          name,
-          project: instance.meta.project,
-          serverId: instance.meta.serverId,
-        }),
-        'wrong-instance',
-      );
-    }
-    return { name, instance };
-  }
-
-  async activateRequest(deployId, request) {
-    const { name, instance: existing } = this.instanceFor(request);
-    let instance = existing;
-    let created = false;
-    if (!instance) {
-      const preview = request.env.startsWith('preview-');
-      const ports = preview ? await this.allocatePreviewPorts() : null;
-      instance = Instance.create(this, {
-        name,
-        project: request.project,
-        env: request.env,
-        serverId: request.serverId,
-        preview,
-        ports,
-      });
-      this.instances.set(name, instance);
-      created = true;
-      this.log.info(
-        ports
-          ? t('instance {name} created (ports {port}/{httpPort})', {
-              name,
-              port: ports.port,
-              httpPort: ports.httpPort,
-            })
-          : t('instance {name} created', { name }),
-        { instance: name, ports },
-        'instance-created',
-      );
-    }
-    try {
-      return await this.activateOn(instance, deployId, request);
-    } catch (error) {
-      // a first deploy that never got a release leaves no instance behind
-      if (created && !instance.currentId) {
-        await instance
-          .exclusive(() => instance.remove(t('the first deploy failed')))
-          .catch(() => {});
-        this.instances.delete(name);
-      }
-      throw error;
-    }
-  }
-
-  async activateOn(instance, deployId, request) {
-    const { name } = instance;
-    return instance.exclusive(async () => {
-      await this.obtainRelease(instance, request.releaseId, request.sha256, deployId);
-      const release = instance.readRelease(request.releaseId);
-      const engine = await this.engines.ensure(release.engine, { recheck: true });
-      await this.progress(deployId, 'activating', instance);
-      const result = await instance.activate(request.releaseId, { engine });
-      instance.pushStack({
-        releaseId: request.releaseId,
-        sha256: request.sha256,
-        action: 'activate',
-        deployId,
-        at: new Date(this.now()).toISOString(),
-      });
-      instance.meta.lastDeployAt = new Date(this.now()).toISOString();
-      instance.saveMeta();
-      const pruned = instance.pruneReleases(this.options.keepReleases);
-      const params = { instance: name, releaseId: request.releaseId, how: restartText(result) };
-      this.log.info(
-        pruned.length
-          ? t('{instance}: release {releaseId} is active ({how}); old releases removed: {pruned}', {
-              ...params,
-              pruned: pruned.join(', '),
-            })
-          : t('{instance}: release {releaseId} is active ({how})', params),
-        {
-          deployId,
-          instance: name,
-          releaseId: request.releaseId,
-          mode: result.mode,
-          restarted: result.restarted,
-          reasons: result.reasons,
-          pruned,
-        },
-        'deploy-active',
-      );
-      return { phase: 'active', port: instance.ports()?.port };
-    });
-  }
-
-  async rollbackRequest(deployId, request) {
-    const { name, instance } = this.instanceFor(request);
-    if (!instance) {
-      throw new HostError(
-        t('there is no instance {name} on this host: nothing to roll back', { name }),
-        'no-instance',
-      );
-    }
-    return instance.exclusive(async () => {
-      // only the active release rolls back, one step down the stack each time
-      const stack = instance.meta.stack;
-      const top = stack[stack.length - 1];
-      const current = instance.currentId;
-      if (!top || top.releaseId !== current) {
-        throw new HostError(t('rollback: {name} has no deploy history', { name }), 'no-history');
-      }
-      if (request.releaseId !== current) {
-        throw new HostError(
-          t(
-            'rollback: the request rolls back {releaseId}, but {current} is active on {name}; only the active release can be rolled back',
-            { releaseId: request.releaseId, current, name },
-          ),
-          'rollback-not-current',
-        );
-      }
-      if (request.sha256 !== top.sha256) {
-        throw new HostError(
-          t('rollback: the SHA-256 in the request does not match the active release'),
-          'rollback-mismatch',
-        );
-      }
-      const index = stack.length - 2;
-      if (index < 0) {
-        throw new HostError(
-          t('rollback: nothing was active on {name} before {current}', { name, current }),
-          'no-previous',
-        );
-      }
-      const target = stack[index];
-      await this.obtainRelease(instance, target.releaseId, target.sha256, deployId);
-      const release = instance.readRelease(target.releaseId);
-      const engine = await this.engines.ensure(release.engine, { recheck: true });
-      await this.progress(deployId, 'activating', instance);
-      const result = await instance.activate(target.releaseId, { engine });
-      instance.meta.stack = stack.slice(0, index + 1);
-      instance.meta.lastDeployAt = new Date(this.now()).toISOString();
-      instance.saveMeta();
-      this.log.info(
-        t('{instance}: rolled back from {from} to {releaseId} ({how})', {
-          instance: name,
-          from: top.releaseId,
-          releaseId: target.releaseId,
-          how: restartText(result),
-        }),
-        {
-          deployId,
-          instance: name,
-          from: top.releaseId,
-          releaseId: target.releaseId,
-          mode: result.mode,
-          restarted: result.restarted,
-        },
-        'deploy-rolled-back',
-      );
-      return { phase: 'rolled-back', port: instance.ports()?.port };
-    });
-  }
-
-  async obtainRelease(instance, releaseId, sha256, deployId) {
-    const dir = instance.releaseDir(releaseId);
-    if (fs.existsSync(dir)) {
-      const marker = instance.releaseMarker(releaseId);
-      if (marker?.zipSha256 === sha256) {
-        await this.progress(deployId, 'verifying', instance);
-        try {
-          await verifyReleaseDir(dir, instance.readRelease(releaseId));
-          this.log.info(
-            t('{instance}: release {releaseId} is already on disk and matches', {
-              instance: instance.name,
-              releaseId,
-            }),
-            { instance: instance.name, releaseId },
-            'release-cached',
-          );
-          return;
-        } catch (error) {
-          this.log.warn(
-            t(
-              '{instance}: the copy of release {releaseId} does not match ({error}); downloading it again',
-              { instance: instance.name, releaseId, error: errorMessage(error) },
-            ),
-            { instance: instance.name },
-            'release-damaged',
-          );
-        }
-      }
-      const aside = path.join(instance.paths.releases, `.staging-replaced-${randomTag()}`);
-      await renameWithRetry(dir, aside);
-      tryRemoveTree(aside);
-    }
-    await this.progress(deployId, 'downloading', instance);
-    ensureDir(this.layout.downloads);
-    const zipFile = path.join(this.layout.downloads, `${releaseId}-${randomTag()}.zip`);
-    const staging = path.join(instance.paths.releases, `.staging-${releaseId}-${randomTag()}`);
-    try {
-      // the bundle comes sealed for this machine; an older cabinet still hands out a plain zip
-      const taken = `${zipFile}.sealed`;
-      let downloaded = await this.cabinet.downloadRelease(releaseId, taken, {
-        maxBytes: LIMITS.sealedBundleBytes,
-      });
-      try {
-        if (isSealed(taken)) downloaded = await openFile(taken, zipFile, this.box.privateKey);
-        else fs.renameSync(taken, zipFile);
-      } finally {
-        fs.rmSync(taken, { force: true });
-      }
-      if (downloaded.sha256 !== sha256) {
-        throw new HostError(
-          t('the bundle SHA-256 ({found}...) does not match the signed one ({expected}...)', {
-            found: downloaded.sha256.slice(0, 12),
-            expected: sha256.slice(0, 12),
-          }),
-          'zip-hash',
-        );
-      }
-      await this.progress(deployId, 'verifying', instance);
-      const release = await unpackBundle(zipFile, staging, {
-        project: instance.meta.project,
-        env: instance.meta.env,
-        releaseId,
-      });
-      const placed = await this.assets.place(staging, release, { releaseId });
-      writeJsonAtomic(path.join(staging, RELEASE_MARKER), {
-        zipSha256: sha256,
-        size: downloaded.size,
-        verifiedAt: new Date().toISOString(),
-      });
-      await renameWithRetry(staging, dir);
-      const params = {
-        instance: instance.name,
-        releaseId,
-        size: formatBytes(downloaded.size),
-        files: release.files.size,
-        engine: release.engine.version,
-      };
-      this.log.info(
-        release.assets.length
-          ? t(
-              '{instance}: release {releaseId} verified (bundle {size}, files: {files}, assets: {assets}, downloaded: {downloaded}, engine {engine})',
-              { ...params, assets: placed.placed, downloaded: placed.downloaded },
-            )
-          : t(
-              '{instance}: release {releaseId} verified (bundle {size}, files: {files}, engine {engine})',
-              params,
-            ),
-        {
-          instance: instance.name,
-          releaseId,
-          size: downloaded.size,
-          files: release.files.size,
-          assets: release.assets.length,
-        },
-        'release-verified',
-      );
-    } catch (error) {
-      tryRemoveTree(staging);
-      throw error;
-    } finally {
-      fs.rmSync(zipFile, { force: true });
-    }
-  }
-
-  async allocatePreviewPorts() {
-    const [from, to] = this.previewPorts;
-    const used = new Set();
-    for (const instance of this.instances.values()) {
-      const ports = instance.ports();
-      if (ports) {
-        used.add(ports.port);
-        used.add(ports.httpPort);
-      }
-    }
-    for (let port = from; port + 1 <= to; port += 2) {
-      if (used.has(port) || used.has(port + 1)) continue;
-      if ((await udpFree(port)) && (await tcpFree(port + 1))) return { port, httpPort: port + 1 };
-    }
-    throw new HostError(t('no free preview ports in {from}-{to}', { from, to }), 'no-ports');
-  }
-
-  // A test server and the main one usually come from the same varion.toml, ports and all. On one
-  // host the test server then gets the next free pair by itself, and keeps it; the main server
-  // never moves: players and firewalls know its ports.
-  async settlePorts(instance, settings) {
-    if (instance.meta.preview || instance.meta.env === 'prod') return;
-    const taken = new Set();
-    for (const other of this.instances.values()) {
-      const ports = other === instance ? null : other.ports();
-      if (ports && other.currentId) taken.add(ports.port).add(ports.httpPort);
-    }
-    if (!taken.has(settings.port) && !taken.has(settings.httpPort)) return;
-    for (let port = settings.port + 2; port + 1 <= 65535 && port < settings.port + 200; port += 2) {
-      if (taken.has(port) || taken.has(port + 1)) continue;
-      if (!(await udpFree(port)) || !(await tcpFree(port + 1))) continue;
-      instance.meta.ports = { port, httpPort: port + 1 };
-      instance.saveMeta();
-      this.log.info(
-        t(
-          '{instance}: ports {wanted} are taken by another server of this host, so it runs on {port}/{httpPort}',
-          {
-            instance: instance.name,
-            wanted: `${settings.port}/${settings.httpPort}`,
-            port,
-            httpPort: port + 1,
-          },
-        ),
-        { instance: instance.name, ports: instance.meta.ports },
-        'ports-moved',
-      );
-      return;
-    }
-  }
-
-  checkPortConflicts(instance, settings) {
-    const mine = new Set([settings.port, settings.httpPort]);
-    for (const other of this.instances.values()) {
-      if (other === instance) continue;
-      const ports = other.ports();
-      if (!ports || !other.currentId) continue;
-      for (const port of [ports.port, ports.httpPort]) {
-        if (mine.has(port)) {
-          throw new HostError(
-            t('port {port} is already taken by instance {name} of this host', {
-              port,
-              name: other.name,
-            }),
-            'port-conflict',
-          );
-        }
-      }
-    }
   }
 
   async expirePreviews() {
@@ -1147,15 +487,6 @@ export class Host {
 
   // ---- reporting ----
 
-  record(deployId, fields) {
-    if (!deployId) return;
-    const deploys = this.deploys.deploys;
-    deploys[deployId] = { ...(deploys[deployId] || {}), ...fields, at: new Date().toISOString() };
-    const ids = Object.keys(deploys);
-    if (ids.length > 500) for (const id of ids.slice(0, ids.length - 500)) delete deploys[id];
-    writeJsonAtomic(this.layout.deploys, this.deploys);
-  }
-
   // A pack with no address of its own: the developer who is deploying sends it sealed for this
   // machine, the cabinet hands it on. Resolves the SHA-256 and the size of the pack itself.
   async takeAsset(asset, file, releaseId) {
@@ -1168,7 +499,7 @@ export class Host {
       } catch (error) {
         throw new HostError(
           t(
-            'asset {name}: nobody sent it ({error}). It has to be on the computer that deploys, or put the file into {dir} on this machine and deploy again',
+            'asset {name}: it was not sent ({error}). It has to be on the computer that deploys, or put the file into {dir} on this machine and deploy again',
             { name: asset.name, error: errorMessage(error), dir: this.layout.packsDir },
           ),
           'asset-not-sent',
@@ -1177,80 +508,6 @@ export class Host {
       return await openFile(taken, file, this.box.privateKey);
     } finally {
       fs.rmSync(taken, { force: true });
-    }
-  }
-
-  async progress(deployId, phase, instance) {
-    if (!deployId) return;
-    this.record(deployId, { phase });
-    await this.report(deployId, phase, { port: instance?.ports()?.port });
-  }
-
-  async finish(deployId, phase, { error, port, signature }) {
-    this.record(deployId, {
-      phase,
-      error: error || undefined,
-      port: port ?? undefined,
-      ...(signature ? { signature } : {}),
-    });
-    await this.report(deployId, phase, { error, port, final: true });
-  }
-
-  async report(deployId, phase, { error, port, final = false } = {}) {
-    const status = {
-      deployId,
-      phase,
-      ...(error ? { error } : {}),
-      ...(Number.isInteger(port) ? { port } : {}),
-    };
-    let line = t('status {deployId}: {phase}', { deployId, phase });
-    if (error) line += ` - ${error}`;
-    if (Number.isInteger(port)) line += ` (${t('port {port}', { port })})`;
-    this.log.info(line, { ...status }, 'status');
-    try {
-      await this.cabinet.reportStatus(status);
-    } catch (problem) {
-      if (!final) return;
-      if (isPermanentRefusal(problem)) {
-        this.log.warn(
-          t('the cabinet refused the status of {deployId} ({error})', {
-            deployId,
-            error: errorMessage(problem),
-          }),
-          { deployId },
-          'status-refused',
-        );
-        return;
-      }
-      this.outbox.statuses = this.outbox.statuses
-        .filter((item) => item.deployId !== deployId)
-        .concat([status])
-        .slice(-200);
-      writeJsonAtomic(this.layout.outbox, this.outbox);
-      this.log.warn(
-        t('the status of {deployId} did not reach the cabinet ({error}); will send it later', {
-          deployId,
-          error: errorMessage(problem),
-        }),
-        { deployId },
-        'status-queued',
-      );
-    }
-  }
-
-  async flushOutbox() {
-    if (!this.outbox.statuses.length) return;
-    const left = [];
-    for (const status of this.outbox.statuses) {
-      try {
-        await this.cabinet.reportStatus(status);
-      } catch (problem) {
-        if (!isPermanentRefusal(problem)) left.push(status);
-      }
-    }
-    if (left.length !== this.outbox.statuses.length) {
-      this.outbox.statuses = left;
-      writeJsonAtomic(this.layout.outbox, this.outbox);
     }
   }
 
@@ -1272,13 +529,15 @@ export class Host {
         stopped,
         cabinet: this.cabinet?.base?.origin || null,
         serverIds: this.serverIds || [],
-        previewPorts: this.previewPorts ? this.previewPorts.join('-') : null,
+        previewPorts: this.ports?.previews ? this.ports.previews.join('-') : null,
         lastPoll: this.lastPoll,
-        busy: this.busy,
-        outbox: this.outbox?.statuses.length || 0,
+        busy: this.journal?.current ?? null,
+        outbox: this.journal?.unsentCount || 0,
         cabinetKeys: this.cabinetKeys.keys.map(({ name, publicKey }) => ({ name, publicKey })),
         instances: this.instanceSummaries(),
       });
-    } catch {}
+    } catch {
+      // the status file only feeds `varion host status`
+    }
   }
 }

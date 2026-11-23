@@ -3,13 +3,16 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { getAccount } from '../deploy/client.mjs';
 import { t } from '../i18n/index.mjs';
+import { SERVER_ID } from '../shared/deploy-format.mjs';
 import { CONFIG_FILE } from './config.mjs';
 import { CliError } from './output.mjs';
+import { tomlString } from './toml.mjs';
 
-// The servers of the account this environment may be deployed to.
+// The servers of the account this environment may be deployed to. What the cabinet sends is
+// not trusted: an id that is not one never reaches varion.toml.
 export function serversFor(servers, env) {
   const right = env === 'prod' ? 'deployProd' : 'deployTest';
-  return servers.filter((server) => server.id && server[right]);
+  return servers.filter((server) => SERVER_ID.test(String(server.id ?? '')) && server[right]);
 }
 
 // varion.toml with `[deploy.<env>] server = "<id>"` in it: into the table when it is there,
@@ -18,7 +21,7 @@ export function withDeployServer(text, env, id) {
   const lines = String(text).split(/\r?\n/);
   const eol = /\r\n/.test(text) ? '\r\n' : '\n';
   const header = lines.findIndex((line) => line.trim() === `[deploy.${env}]`);
-  const entry = `server = "${id}"`;
+  const entry = `server = ${tomlString(String(id))}`;
   if (header < 0) {
     const body = lines.join(eol).replace(/\s+$/, '');
     return `${body}${eol}${eol}[deploy.${env}]${eol}${entry}${eol}`;

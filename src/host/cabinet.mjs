@@ -1,22 +1,25 @@
+import { fileURLToPath } from 'node:url';
 import { t } from '../i18n/index.mjs';
+import { text } from '../shared/format.mjs';
+import { readJson } from '../shared/fs.mjs';
 import { checkUrl, download, requestJson } from '../shared/http.mjs';
 import { HostError } from './errors.mjs';
 import { cabinetTrust } from './keys.mjs';
 
-export const HOST_VERSION = '1.0.5';
+// the host is a part of the SDK and carries its version
+export const HOST_VERSION = readJson(
+  fileURLToPath(new URL('../../package.json', import.meta.url)),
+).version;
 export const HOST_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$/;
 const MAX_ITEMS = 32;
 const POLL_WAIT_S = 25;
-
-const text = (value) =>
-  typeof value === 'string' || typeof value === 'number' ? String(value) : '';
 
 export function cabinetAddress(url) {
   const parsed = checkUrl(url, '--cabinet');
   return `${parsed.origin}${parsed.pathname.replace(/\/+$/, '')}`;
 }
 
-export function normalizePollItems(data) {
+function normalizePollItems(data) {
   const list = Array.isArray(data)
     ? data
     : Array.isArray(data?.deploys)

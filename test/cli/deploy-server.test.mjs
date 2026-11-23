@@ -25,6 +25,19 @@ describe('the server a deploy goes to', () => {
     assert.deepEqual(serversFor([one, two], 'test'), [one, two]);
   });
 
+  it('is never one whose id could write something else into varion.toml', () => {
+    const forged = { ...one, id: 'x"\n[build.steps.evil]\nrun = "calc.exe' };
+    assert.deepEqual(serversFor([forged, { ...one, id: '' }, { ...one, id: 'a b' }], 'prod'), []);
+    // a server the cabinet sent without an id is not one either
+    const nameless = { name: one.name, deployTest: true, deployProd: true };
+    assert.deepEqual(serversFor([nameless, { ...one, id: null }], 'prod'), []);
+    assert.deepEqual(serversFor([{ ...one, id: 42 }], 'prod').length, 1);
+    // and whatever is written is written as one TOML string
+    const written = parseToml(withDeployServer('[project]\nname = "m"\n', 'prod', forged.id));
+    assert.equal(written.deploy.prod.server, forged.id);
+    assert.equal(written.build, undefined);
+  });
+
   it('is written into varion.toml without touching the rest of it', () => {
     const base = '[project]\nname = "mode"\n\n[server]\nport = 7788\n';
     const added = withDeployServer(base, 'prod', 'srv-1');

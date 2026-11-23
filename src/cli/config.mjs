@@ -1,19 +1,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { t } from '../i18n/index.mjs';
+import { DEPLOY_ENV } from '../shared/deploy-format.mjs';
 import { CliError } from './output.mjs';
 import { projectPaths } from './paths.mjs';
-import { parseToml, TomlError } from './toml.mjs';
+import { isPlainObject, parseToml, TomlError } from './toml.mjs';
 
 export const CONFIG_FILE = 'varion.toml';
 export const RESOURCE_NAME = /^[a-z][a-z0-9_-]{0,63}$/;
-export const DEFAULT_SERVER_PORT = 7788;
-export const DEFAULT_MANAGED_DB_PORT = 3317;
-export const DEFAULT_ASSETS_LOCK = 'assets.lock.json';
+const DEFAULT_SERVER_PORT = 7788;
+const DEFAULT_MANAGED_DB_PORT = 3317;
+const DEFAULT_ASSETS_LOCK = 'assets.lock.json';
 // packs put into this folder of a project are picked up without a line in varion.toml
-export const DEFAULT_ASSETS_SOURCE = 'assets-source';
+const DEFAULT_ASSETS_SOURCE = 'assets-source';
 export const DEFAULT_CABINET = 'https://api.varionmp.net';
-export const DEPLOY_ENV = /^(test|prod|preview-[a-z0-9][a-z0-9._-]{0,62})$/;
 
 const KNOWN_TABLES = [
   'project',
@@ -29,7 +29,7 @@ const KNOWN_TABLES = [
   'env',
 ];
 
-export function findProjectRoot(start = process.cwd()) {
+function findProjectRoot(start = process.cwd()) {
   let dir = path.resolve(start);
   for (;;) {
     if (fs.existsSync(path.join(dir, CONFIG_FILE))) return dir;
@@ -55,7 +55,7 @@ export function loadProject(start = process.cwd(), { requireRoot = true } = {}) 
   return { root, file, paths: projectPaths(root), config, warnings };
 }
 
-export function readToml(file) {
+function readToml(file) {
   let text;
   try {
     text = fs.readFileSync(file, 'utf8');
@@ -168,18 +168,7 @@ function describe(value) {
   return String(value);
 }
 
-export function isPlainObject(value) {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
-
-export function normalizeConfig(raw, { root = process.cwd() } = {}) {
-  const check = new Checker();
-  for (const key of Object.keys(raw)) {
-    if (!KNOWN_TABLES.includes(key))
-      check.warn(t('unknown table [{table}], ignored', { table: key }));
-  }
-  const resolve = (value) => (value ? path.resolve(root, value) : null);
-
+function readProject(check, raw) {
   const projectTable = check.table(raw.project, '[project]');
   check.unknown(projectTable, ['name', 'title', 'version'], '[project]');
   const name = check.string(projectTable, 'name', '[project]');
@@ -197,12 +186,14 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
     );
     check.fail(`[project] ${rule}`);
   }
-  const project = {
+  return {
     name,
     title: check.string(projectTable, 'title', '[project]', { fallback: name }),
     version: check.string(projectTable, 'version', '[project]', { fallback: '0.0.0' }),
   };
+}
 
+function readEngine(check, raw, resolve) {
   const engineTable = check.table(raw.engine, '[engine]');
   check.unknown(engineTable, ['version', 'channel', 'path'], '[engine]');
   const engine = {
@@ -229,11 +220,13 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
       }),
     );
   }
+  return engine;
+}
 
+function readServer(check, raw) {
   const server = { ...check.table(raw.server, '[server]') };
   checkServerTable(check, server, '[server]');
   server.port ??= DEFAULT_SERVER_PORT;
-  server.httpPort ??= server.port + 1;
   if (server.port === server.httpPort) {
     check.fail(
       t('{table} port and httpPort are the same ({port})', {
@@ -242,7 +235,10 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
       }),
     );
   }
+  return server;
+}
 
+function readBuild(check, raw, { root, resolve }) {
   const buildTable = check.table(raw.build, '[build]');
   check.unknown(
     buildTable,
@@ -275,7 +271,7 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
       cwd: resolve(check.string(step, 'cwd', where)) || root,
     };
   });
-  const build = {
+  return {
     kind: steps.length ? 'custom' : 'standard',
     server: optionalEntry(check.string(buildTable, 'server', '[build]'), 'src/server/index.ts'),
     client: optionalEntry(check.string(buildTable, 'client', '[build]'), 'src/client/index.ts'),
@@ -289,7 +285,9 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
     target: check.string(buildTable, 'target', '[build]', { fallback: 'node22' }),
     steps,
   };
+}
 
+function readResources(check, raw, root) {
   const resourcesTable = check.table(raw.resources, '[resources]');
   check.unknown(resourcesTable, ['extra', 'lists', 'dir'], '[resources]');
   const resources = {
@@ -305,9 +303,10 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
       check.fail(t('[resources] extra "{name}" is not a resource name', { name: extra }));
     }
   }
+  return resources;
+}
 
-  const resourceConfig = check.table(raw.config, '[config]');
-
+function readDatabase(check, raw, { name, resolve }) {
   let database = null;
   if (raw.database !== undefined) {
     const db = check.table(raw.database, '[database]');
@@ -346,10 +345,13 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
       }
     }
   }
+  return database;
+}
 
+function readAssets(check, raw, { root, resolve }) {
   const assetsTable = check.table(raw.assets, '[assets]');
   check.unknown(assetsTable, ['lock', 'source', 'url'], '[assets]');
-  const assets = {
+  return {
     declared: raw.assets !== undefined,
     lock: path.resolve(
       root,
@@ -362,7 +364,9 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
         : null),
     url: check.string(assetsTable, 'url', '[assets]', { fallback: null }),
   };
+}
 
+function readDev(check, raw) {
   const devTable = check.table(raw.dev, '[dev]');
   check.unknown(
     devTable,
@@ -399,7 +403,10 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
       }),
     );
   }
+  return dev;
+}
 
+function readEnvs(check, raw) {
   const envTable = check.table(raw.env, '[env]');
   const env = {};
   for (const [envName, overridesRaw] of Object.entries(envTable)) {
@@ -422,7 +429,10 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
       config: { ...check.table(overrides.config, `${where}.config`) },
     };
   }
+  return env;
+}
 
+function readDeploy(check, raw) {
   const deployTable = check.table(raw.deploy, '[deploy]');
   const deploy = { cabinet: null, envs: {} };
   for (const [key, value] of Object.entries(deployTable)) {
@@ -446,19 +456,29 @@ export function normalizeConfig(raw, { root = process.cwd() } = {}) {
       cabinet: check.string(value, 'cabinet', where, { fallback: null }),
     };
   }
+  return deploy;
+}
 
+export function normalizeConfig(raw, { root = process.cwd() } = {}) {
+  const check = new Checker();
+  for (const key of Object.keys(raw)) {
+    if (!KNOWN_TABLES.includes(key))
+      check.warn(t('unknown table [{table}], ignored', { table: key }));
+  }
+  const resolve = (value) => (value ? path.resolve(root, value) : null);
+  const project = readProject(check, raw);
   const config = {
     project,
-    engine,
-    server,
-    build,
-    resources,
-    config: resourceConfig,
-    database,
-    assets,
-    dev,
-    env,
-    deploy,
+    engine: readEngine(check, raw, resolve),
+    server: readServer(check, raw),
+    build: readBuild(check, raw, { root, resolve }),
+    resources: readResources(check, raw, root),
+    config: check.table(raw.config, '[config]'),
+    database: readDatabase(check, raw, { name: project.name, resolve }),
+    assets: readAssets(check, raw, { root, resolve }),
+    dev: readDev(check, raw),
+    env: readEnvs(check, raw),
+    deploy: readDeploy(check, raw),
   };
   return { config, warnings: check.warnings };
 }
@@ -513,6 +533,16 @@ export function serverSettings(config, { envName = null, release = false } = {})
   if (!release && (settings.host === undefined || settings.host === ''))
     settings.host = '127.0.0.1';
   settings.name ??= config.project.title;
+  // the HTTP port follows the game port of the environment unless a table names its own
+  settings.httpPort ??= settings.port + 1;
+  if (settings.port === settings.httpPort) {
+    throw new CliError(
+      t('{table} port and httpPort are the same ({port})', {
+        table: envName ? `[env.${envName}]` : '[server]',
+        port: settings.port,
+      }),
+    );
+  }
   return settings;
 }
 
@@ -558,7 +588,7 @@ export function parseDotenv(text) {
   return values;
 }
 
-export function dotenvValue(value) {
+function dotenvValue(value) {
   const text = String(value);
   if (/^[A-Za-z0-9_./:@+,=-]*$/.test(text)) return text;
   return `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r')}"`;

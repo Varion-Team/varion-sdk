@@ -9,7 +9,7 @@ const TRANSIENT = new Set(['EBUSY', 'EPERM', 'EACCES', 'ENOTEMPTY', 'EMFILE', 'E
 
 export const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-export function sleepSync(ms) {
+function sleepSync(ms) {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
@@ -201,7 +201,9 @@ export function copyIfChanged(from, to) {
   let target = null;
   try {
     target = fs.statSync(to);
-  } catch {}
+  } catch {
+    // nothing there yet
+  }
   if (target && target.size === source.size && Math.abs(target.mtimeMs - source.mtimeMs) < 1) {
     return false;
   }
@@ -229,7 +231,7 @@ export function mirrorDir(from, to, { skip } = {}) {
   return { copied, removed, files: wanted.length };
 }
 
-export function removeEmptyDirs(dir) {
+function removeEmptyDirs(dir) {
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
@@ -242,6 +244,8 @@ export function removeEmptyDirs(dir) {
     removeEmptyDirs(child);
     try {
       if (fs.readdirSync(child).length === 0) fs.rmdirSync(child);
-    } catch {}
+    } catch {
+      // not empty, or already removed
+    }
   }
 }

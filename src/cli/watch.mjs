@@ -43,7 +43,9 @@ export function watchProject(root, dirs, onBatch, { debounceMs = 300 } = {}) {
           const full = path.join(dir, relative);
           try {
             state.set(full, fs.statSync(full).mtimeMs);
-          } catch {}
+          } catch {
+            // the file went away while the folder was read
+          }
         }
       }
       return state;

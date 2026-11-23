@@ -6,13 +6,13 @@ import { DEFAULT_CABINET, RESOURCE_NAME } from './config.mjs';
 import { CliError } from './output.mjs';
 import { tomlString } from './toml.mjs';
 
-export const SDK_TYPE_FILES = ['varion-server.d.ts', 'varion-client.d.ts', 'varion-natives.d.ts'];
+const SDK_TYPE_FILES = ['varion-server.d.ts', 'varion-client.d.ts', 'varion-natives.d.ts'];
 
 // the engine a new project starts on
 export const DEFAULT_ENGINE = { version: '1.0.97', channel: 'rc' };
 
 // what the template is tested with
-export const TEMPLATE_VERSIONS = {
+const TEMPLATE_VERSIONS = {
   esbuild: '^0.28.2',
   vite: '^8.3.5',
   typescript: '^5.9.3',
@@ -56,12 +56,13 @@ const escapeHtml = (text) =>
 const escapeSingleQuoted = (text) =>
   text.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, '\\n');
 
-export function fillPlaceholders(text, { name, title, db }) {
+export function fillPlaceholders(text, { name, title, db, port = 7788 }) {
   const out = text
     .replace(/__TITLE_HTML__/g, escapeHtml(title))
     .replace(/__TITLE_TS__/g, escapeSingleQuoted(title))
     .replace(/__TITLE__/g, title)
-    .replace(/__NAME__/g, name);
+    .replace(/__NAME__/g, name)
+    .replace(/__PORT__/g, String(port));
   // <!-- if db --> ... <!-- end db --> stays (without the markers) only in --db projects
   return out.replace(/\n?<!-- if db -->([\s\S]*?)<!-- end db -->/g, (whole, inner) =>
     db ? inner.replace(/\n$/, '') : '',
@@ -70,7 +71,7 @@ export function fillPlaceholders(text, { name, title, db }) {
 
 const comment = (text) => `# ${text}`;
 
-export function varionTomlText({ name, title, engine, port, db, dbPort }) {
+function varionTomlText({ name, title, engine, port, db, dbPort }) {
   const httpPort = port + 1;
   const lines = [
     comment(t('{title}: a Varion game mode. The only settings file of the project.', { title })),
@@ -208,7 +209,7 @@ export function packageJsonText({ name, spec, db }) {
   return `${JSON.stringify(pkg, null, 2)}\n`;
 }
 
-export function envExampleText({ name, db, dbPort }) {
+function envExampleText({ name, db, dbPort }) {
   const lines = [comment(t('Secrets of the mode. Copy to .env; .env stays out of git.'))];
   if (db) {
     lines.push(
@@ -294,7 +295,7 @@ export function generateProject({
     const bytes = fs.readFileSync(source);
     const text = bytes.toString('utf8');
     const isText = Buffer.from(text, 'utf8').equals(bytes);
-    write(target, isText ? fillPlaceholders(text, { name, title, db }) : bytes);
+    write(target, isText ? fillPlaceholders(text, { name, title, db, port }) : bytes);
   }
   write('varion.toml', varionTomlText({ name, title, engine, port, db, dbPort }));
   write('package.json', packageJsonText({ name, spec: spec || sdkSpec(sdkDir), db }));

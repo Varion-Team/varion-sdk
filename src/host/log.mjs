@@ -14,7 +14,9 @@ export function createLogger({
   if (file) {
     try {
       fileSize = fs.statSync(file).size;
-    } catch {}
+    } catch {
+      // no log file yet
+    }
   }
   const listeners = new Set();
   const toFile = (record) => {
@@ -23,16 +25,19 @@ export function createLogger({
     const bytes = Buffer.byteLength(line);
     try {
       if (fileSize + bytes > MAX_FILE_BYTES) {
-        // a viewer holding the file blocks the rename; keep appending then
         try {
           fs.renameSync(file, `${file}.1`);
           fileSize = 0;
-        } catch {}
+        } catch {
+          // a viewer holding the file blocks the rename: keep appending
+        }
       }
       fs.mkdirSync(path.dirname(file), { recursive: true });
       fs.appendFileSync(file, line);
       fileSize += bytes;
-    } catch {}
+    } catch {
+      // a log that cannot be written must not stop the host
+    }
   };
   const emit = (level, event, text, data) => {
     const record = { time: new Date().toISOString(), level, event, text, ...(data || {}) };

@@ -7,7 +7,7 @@ npm install
 npm run dev
 ```
 
-Join `varion://127.0.0.1:<port>` from the Varion launcher. The mode restarts on save.
+Join `varion://127.0.0.1:__PORT__` from the Varion launcher. The mode restarts on save.
 <!-- if db -->
 
 On Windows the first run sets up a local MariaDB in `.varion/db` and writes its settings to

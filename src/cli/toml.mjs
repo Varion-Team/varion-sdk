@@ -606,6 +606,6 @@ export function stringifyToml(object, { header = '' } = {}) {
   return `${lines.join('\n')}\n`;
 }
 
-function isPlainObject(value) {
+export function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

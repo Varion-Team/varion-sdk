@@ -68,7 +68,7 @@ export function readAssetsLock(file) {
   return lock;
 }
 
-export function writeAssetsLock(file, lock) {
+function writeAssetsLock(file, lock) {
   writeJsonAtomic(file, { schemaVersion: 1, assets: lock.assets });
 }
 

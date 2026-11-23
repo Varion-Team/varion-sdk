@@ -12,6 +12,8 @@ export default {
   'server: PID {pid}, log {log}': 'сервер: PID {pid}, журнал {log}',
   'stopping the server': 'останавливаю сервер',
   'server ready: {url}': 'сервер готов: {url}',
+  'type server commands here; Ctrl+C stops the server':
+    'команды серверу вводи здесь; Ctrl+C останавливает сервер',
   'server ready: {url} (the {name} page comes from {uiUrl})':
     'сервер готов: {url} (страница «{name}» — из {uiUrl})',
   'opening the game': 'открываю игру',

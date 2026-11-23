@@ -4,9 +4,10 @@ import { readJson, writeJsonAtomic } from '../shared/fs.mjs';
 import { RequestRejected } from './errors.mjs';
 import { decodeBase64, findTrusted } from './keys.mjs';
 import { canonicalJson } from '../shared/canonical-json.mjs';
+import { PROJECT, RELEASE_ID, SERVER_ID, SHA256 } from '../shared/deploy-format.mjs';
 export { canonicalJson };
 
-export const REQUEST_FIELDS = Object.freeze([
+const REQUEST_FIELDS = Object.freeze([
   'action',
   'env',
   'issuedAt',
@@ -16,17 +17,13 @@ export const REQUEST_FIELDS = Object.freeze([
   'serverId',
   'sha256',
 ]);
-export const MAX_AGE_MS = 10 * 60 * 1000;
+const MAX_AGE_MS = 10 * 60 * 1000;
 // the cabinet allows the same skew
-export const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
+const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
 // stands for the server the host token belongs to
 export const PREVIEW_SERVER = 'preview';
 
-export const ENV_PATTERN = /^(test|prod|preview-[a-z0-9][a-z0-9._-]{0,62})$/;
-const PROJECT = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-const RELEASE_ID = /^\d{8}-\d{6}-[0-9a-f]{8}$/;
-const SERVER_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
-const SHA256 = /^[0-9a-f]{64}$/;
+const ENV_PATTERN = /^(test|prod|preview-[a-z0-9][a-z0-9._-]{0,62})$/;
 const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
 
 // the signed fields only: the cabinet may add its own
@@ -40,7 +37,7 @@ const reject = (message, code = 'bad-request') => {
   throw new RequestRejected(message, code);
 };
 
-export function checkRequestFields(request) {
+function checkRequestFields(request) {
   if (!request || typeof request !== 'object' || Array.isArray(request))
     reject(t('the deploy request has no "request" object'));
   for (const field of REQUEST_FIELDS) {

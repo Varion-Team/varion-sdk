@@ -31,7 +31,9 @@ export function killTree(pid) {
   } catch {
     try {
       process.kill(pid, 'SIGKILL');
-    } catch {}
+    } catch {
+      // already gone
+    }
   }
 }
 
@@ -79,7 +81,9 @@ export async function childPids(pid) {
         const stat = fs.readFileSync(`/proc/${name}/stat`, 'utf8');
         const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ');
         if (Number(fields[1]) === pid) children.push(Number(name));
-      } catch {}
+      } catch {
+        // the process ended while /proc was read
+      }
     }
     return children;
   }

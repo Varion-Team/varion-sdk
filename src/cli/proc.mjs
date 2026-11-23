@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import { spawn, spawnSync } from 'node:child_process';
+import { StringDecoder } from 'node:string_decoder';
 import { writeJsonAtomic } from '../shared/fs.mjs';
 import { commandLineOf } from '../shared/process.mjs';
 
@@ -31,7 +32,7 @@ export function shellQuote(value) {
 
 export function runShell(commandLine, { cwd, env, vars = {}, capture = false, onLine } = {}) {
   const line = commandLine.replace(/\{([a-zA-Z]+)\}/g, (whole, name) =>
-    name in vars ? shellQuote(vars[name]) : whole,
+    Object.hasOwn(vars, name) ? shellQuote(vars[name]) : whole,
   );
   return new Promise((resolve) => {
     const child = spawn(line, {
@@ -44,8 +45,10 @@ export function runShell(commandLine, { cwd, env, vars = {}, capture = false, on
     let output = '';
     const take = (stream, target) => {
       let rest = '';
+      // a character may arrive split between two chunks
+      const decoder = new StringDecoder('utf8');
       stream.on('data', (chunk) => {
-        const text = chunk.toString('utf8');
+        const text = decoder.write(chunk);
         output += text;
         if (output.length > 1 << 20) output = output.slice(-(1 << 19));
         if (!capture) target.write(chunk);
@@ -54,6 +57,11 @@ export function runShell(commandLine, { cwd, env, vars = {}, capture = false, on
           rest = lines.pop();
           for (const item of lines) onLine(item);
         }
+      });
+      // a last line without a newline
+      stream.on('end', () => {
+        const last = rest + decoder.end();
+        if (onLine && last) onLine(last);
       });
     };
     take(child.stdout, process.stdout);
@@ -93,8 +101,8 @@ export function runProgramAsync(file, args, { cwd, env } = {}) {
     });
     let stdout = '';
     let stderr = '';
-    child.stdout.on('data', (chunk) => (stdout += chunk.toString('utf8')));
-    child.stderr.on('data', (chunk) => (stderr += chunk.toString('utf8')));
+    child.stdout.setEncoding('utf8').on('data', (text) => (stdout += text));
+    child.stderr.setEncoding('utf8').on('data', (text) => (stderr += text));
     child.on('error', (error) =>
       resolve({ code: -1, stdout, stderr: `${stderr}${error.message}` }),
     );

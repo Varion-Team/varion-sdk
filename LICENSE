@@ -1,0 +1,21 @@
+VARION SDK Developer Licence
+
+The VARION SDK copyright holders grant a non-exclusive, royalty-free licence to
+install, copy, run and adapt the SDK material they are authorised to license
+for developing, testing, building and deploying projects for VARION Multiplayer.
+
+You may distribute covered starter files and TypeScript declarations, including
+modified versions, as part of your own VARION projects. Keep the copyright and
+licence notices that accompany those files. You retain any rights you hold in
+the original code and content you create.
+
+Redistributing the SDK itself, reselling it or sublicensing it requires separate
+written permission from the relevant rights holders. This does not limit rights
+under applicable law or GitHub's terms. Sales through VARION are subject to
+separate platform terms and applicable third-party permissions.
+
+This licence grants no rights in other VARION products, GTA V or third-party
+material. Onest remains under its own licence. Data from external native
+databases in types/varion-natives.d.ts is outside this grant.
+
+To the extent permitted by law, the SDK is provided as is, without warranty.

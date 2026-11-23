@@ -3,6 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import readline from 'node:readline';
 import { t } from '../../i18n/index.mjs';
+import { errorMessage } from '../../shared/errors.mjs';
 import { killTree } from '../../shared/process.mjs';
 import { parseArgs } from '../args.mjs';
 import { createBuilder } from '../build.mjs';
@@ -24,22 +25,21 @@ import {
 import { startServer, stopLeftoverServer } from '../server.mjs';
 import { watchProject } from '../watch.mjs';
 
+const OPTIONS = {
+  env: 'string',
+  dotenv: 'string',
+  'no-build': 'boolean',
+  'no-watch': 'boolean',
+  play: 'boolean',
+  'ui-live': 'boolean',
+  verbose: 'boolean',
+  yes: 'boolean',
+  json: 'boolean',
+  cwd: 'string',
+};
+
 export async function run(argv, { output: root, cliDir }) {
-  const { options } = parseArgs(argv, {
-    command: 'dev',
-    options: {
-      env: 'string',
-      dotenv: 'string',
-      'no-build': 'boolean',
-      'no-watch': 'boolean',
-      play: 'boolean',
-      'ui-live': 'boolean',
-      yes: 'boolean',
-      json: 'boolean',
-      cwd: 'string',
-    },
-    aliases: { C: 'cwd' },
-  });
+  const { options } = parseArgs(argv, { command: 'dev', options: OPTIONS, aliases: { C: 'cwd' } });
   const output = root.child('dev');
   const project = openProject(options, output);
   const { config, paths } = project;
@@ -48,95 +48,51 @@ export async function run(argv, { output: root, cliDir }) {
   checkEnvName(project, envName);
 
   const dotenv = await prepareDotenv(project, output, { envName, dotenvFile: options.dotenv });
-  if (envName) {
-    const files = dotenv.files.map((file) => path.basename(file)).join(' + ');
-    output.info(
-      dotenv.files.length > 1
-        ? t('environment {env}: [env.{env}] over [server], {files}', { env: envName, files })
-        : t('environment {env}: [env.{env}] over [server]', { env: envName }),
-    );
-  }
+  if (envName) announceEnvironment(output, envName, dotenv);
   const engine = await resolveEngine(project, output);
   await ensureDatabaseRunning(project, dotenv.values, output);
-
   await stopLeftoverServer(paths.server, output);
   const settings = serverSettings(config, { envName });
   await ensurePortsFree(settings);
 
-  const builder = createBuilder(project, output, {
-    outDir: paths.server,
-    mapsDir: paths.maps,
-    mode: 'dev',
-    envName,
-    typecheckCache: paths.tsc,
-    failureNote: t('the server keeps running the previous build'),
-  });
-  if (!options.noBuild) {
-    const built = await builder.build();
-    if (!built.ok) {
-      await builder.dispose();
-      throw new CliError(t('the game mode did not build: see the errors above'));
-    }
-  } else if (!fs.existsSync(path.join(builder.resourceDir, 'resource.toml'))) {
-    throw new CliError(t('--no-build: the resource is not built yet; run without --no-build'));
-  }
-
-  let uiLive = null;
-  if (options.uiLive || config.dev.ui === 'live') {
-    uiLive = await startUiLive({
-      project,
-      engine,
-      settings,
-      output,
-      cliDir,
-      yes: Boolean(options.yes),
-      interactive: Boolean(process.stdin.isTTY) && !output.json,
-    });
-    if (uiLive) builder.setResourceTransform(uiLive.declare, { undo: uiLive.undeclare });
-  }
+  const builder = await firstBuild(project, output, { envName, skip: options.noBuild });
+  const uiLive =
+    options.uiLive || config.dev.ui === 'live'
+      ? await startUiLive({
+          project,
+          engine,
+          settings,
+          output,
+          cliDir,
+          yes: Boolean(options.yes),
+          interactive: Boolean(process.stdin.isTTY) && !output.json,
+        })
+      : null;
+  if (uiLive) builder.setResourceTransform(uiLive.declare, { undo: uiLive.undeclare });
   const undeclareUi = () => {
     if (!uiLive) return;
     try {
       builder.setResourceTransform(null, { undo: uiLive.undeclare });
-    } catch {}
+    } catch {
+      // the resource folder is already gone
+    }
   };
 
-  const resources = await populateServerFolder(project, output, {
-    serverDir: paths.server,
-    settings,
-    envValues: dotenv.values,
-  });
-  output.event(
-    'config',
-    {
-      serverToml: path.join(paths.server, 'server.toml'),
-      resources,
-      port: settings.port,
-      httpPort: settings.httpPort,
-    },
-    `[dev] ${t('server.toml: port {port} (HTTP {httpPort}), resources: {count}', {
-      port: settings.port,
-      httpPort: settings.httpPort,
-      count: resources.length,
-    })}`,
-  );
-
-  const server = startServer({
-    exe: engine.exe,
-    serverDir: paths.server,
-    env: dotenv.values,
-    output,
-    root: project.root,
-    resourceName: name,
-  });
-  output.event(
-    'server',
-    { pid: server.pid, cliPid: process.pid, exe: engine.exe, log: server.logFile },
-    `[dev] ${t('server: PID {pid}, log {log}', {
-      pid: server.pid,
-      log: path.relative(project.root, server.logFile),
-    })}`,
-  );
+  let server;
+  try {
+    await writeServerFolder(project, output, { settings, envValues: dotenv.values });
+    server = launchServer(project, output, {
+      engine,
+      env: dotenv.values,
+      // the whole of the server's start is in its log; --verbose shows it here too
+      brief: !options.verbose,
+    });
+  } catch (error) {
+    undeclareUi();
+    await uiLive?.stop();
+    await builder.dispose();
+    throw error;
+  }
 
   let stopping = false;
   const stop = () => {
@@ -152,26 +108,127 @@ export async function run(argv, { output: root, cliDir }) {
     undeclareUi();
     if (server.child.exitCode === null) killTree(server.pid);
   });
-
-  let console_ = null;
-  if (!process.stdin.destroyed) {
-    console_ = readline.createInterface({ input: process.stdin, terminal: false });
-    console_.on('line', (line) => {
-      if (line.trim()) server.send(line.trim());
-    });
-    console_.on('error', () => {});
-  }
+  const typed = serverConsole(server);
+  const cleanup = async () => {
+    typed?.close();
+    undeclareUi();
+    await uiLive?.stop();
+    await builder.dispose();
+  };
 
   try {
     await server.ready;
   } catch (error) {
-    await builder.dispose();
-    console_?.close();
-    undeclareUi();
-    await uiLive?.stop();
+    await cleanup();
     throw error;
   }
   const url = `varion://${connectHost(settings)}:${settings.port}`;
+  announceReady(output, { url, name, settings, server, uiLive });
+  if (!options.verbose) output.info(t('type server commands here; Ctrl+C stops the server'));
+
+  const followers = startFollowers(project, output, { builder, settings });
+  if (options.play || config.dev.play) openGame(url, output);
+  const watcher = options.noWatch
+    ? null
+    : startWatching(project, builder, server, output, followers.gameLogs, {
+        uiLive: Boolean(uiLive),
+        partRestart: engineKnowsPartRestart(engine),
+      });
+
+  const code = await server.exited;
+  watcher?.close();
+  followers.stop();
+  await cleanup();
+  output.event('stopped', { code }, `[dev] ${t('server stopped (code {code})', { code })}`);
+  return stopping ? 0 : code || 1;
+}
+
+function announceEnvironment(output, envName, dotenv) {
+  const files = dotenv.files.map((file) => path.basename(file)).join(' + ');
+  output.info(
+    dotenv.files.length > 1
+      ? t('environment {env}: [env.{env}] over [server], {files}', { env: envName, files })
+      : t('environment {env}: [env.{env}] over [server]', { env: envName }),
+  );
+}
+
+async function firstBuild(project, output, { envName, skip }) {
+  const builder = createBuilder(project, output, {
+    outDir: project.paths.server,
+    mapsDir: project.paths.maps,
+    mode: 'dev',
+    envName,
+    typecheckCache: project.paths.tsc,
+    failureNote: t('the server keeps running the previous build'),
+  });
+  if (skip) {
+    if (!fs.existsSync(path.join(builder.resourceDir, 'resource.toml')))
+      throw new CliError(t('--no-build: the resource is not built yet; run without --no-build'));
+    return builder;
+  }
+  const built = await builder.build();
+  if (!built.ok) {
+    await builder.dispose();
+    throw new CliError(t('the game mode did not build: see the errors above'));
+  }
+  return builder;
+}
+
+async function writeServerFolder(project, output, { settings, envValues }) {
+  const serverDir = project.paths.server;
+  const resources = await populateServerFolder(project, output, { serverDir, settings, envValues });
+  const { port, httpPort } = settings;
+  output.event(
+    'config',
+    { serverToml: path.join(serverDir, 'server.toml'), resources, port, httpPort },
+    `[dev] ${t('server.toml: port {port} (HTTP {httpPort}), resources: {count}', {
+      port,
+      httpPort,
+      count: resources.length,
+    })}`,
+  );
+}
+
+function launchServer(project, output, { engine, env, brief }) {
+  const server = startServer({
+    exe: engine.exe,
+    serverDir: project.paths.server,
+    env,
+    output,
+    root: project.root,
+    resourceName: project.config.project.name,
+    brief,
+  });
+  output.event(
+    'server',
+    { pid: server.pid, cliPid: process.pid, exe: engine.exe, log: server.logFile },
+    `[dev] ${t('server: PID {pid}, log {log}', {
+      pid: server.pid,
+      log: path.relative(project.root, server.logFile),
+    })}`,
+  );
+  return server;
+}
+
+// What is typed here goes to the server console.
+function serverConsole(server) {
+  if (process.stdin.destroyed) return null;
+  const lines = readline.createInterface({ input: process.stdin, terminal: false });
+  lines.on('line', (line) => {
+    if (line.trim()) server.send(line.trim());
+  });
+  lines.on('error', () => {});
+  return lines;
+}
+
+function announceReady(output, { url, name, settings, server, uiLive }) {
+  const text = uiLive
+    ? t('server ready: {url} (the {name} page comes from {uiUrl})', {
+        url,
+        name,
+        uiUrl: uiLive.url,
+      })
+    : t('server ready: {url}', { url });
   output.event(
     'ready',
     {
@@ -181,62 +238,41 @@ export async function run(argv, { output: root, cliDir }) {
       pid: server.pid,
       uiLive: uiLive ? uiLive.url : null,
     },
-    output.paint(
-      'green',
-      `[dev] ${
-        uiLive
-          ? t('server ready: {url} (the {name} page comes from {uiUrl})', {
-              url,
-              name,
-              uiUrl: uiLive.url,
-            })
-          : t('server ready: {url}', { url })
-      }`,
-    ),
+    output.paint('green', `[dev] ${text}`),
   );
+}
 
-  const followers = [];
-  if (config.dev.gameLogs) {
-    followers.push(
-      followGameLogs({
+function startFollowers(project, output, { builder, settings }) {
+  const { dev, project: about } = project.config;
+  const gameLogs = dev.gameLogs
+    ? followGameLogs({
         dir: gameLogsDir(),
         output,
         root: project.root,
-        resourceName: name,
-        mapFile: path.join(paths.maps, 'client.js.map'),
+        resourceName: about.name,
+        mapFile: path.join(project.paths.maps, 'client.js.map'),
         mapBase: path.join(builder.resourceDir, 'client'),
-      }),
-    );
-  }
-  if (config.dev.slowHandlers)
-    followers.push(followSlowHandlers({ port: settings.httpPort, output }));
-  if (options.play || config.dev.play) {
-    if (process.platform === 'win32')
-      spawn('cmd.exe', ['/c', 'start', '""', url], {
-        detached: true,
-        stdio: 'ignore',
-        windowsHide: true,
-      }).unref();
-    output.info(t('opening the game'));
-  }
+      })
+    : null;
+  const slow = dev.slowHandlers ? followSlowHandlers({ port: settings.httpPort, output }) : null;
+  return {
+    gameLogs,
+    stop() {
+      gameLogs?.stop();
+      slow?.stop();
+    },
+  };
+}
 
-  let watcher = null;
-  if (!options.noWatch) {
-    watcher = startWatching(project, builder, server, output, followers[0], {
-      uiLive: Boolean(uiLive),
-      partRestart: engineKnowsPartRestart(engine),
-    });
+function openGame(url, output) {
+  if (process.platform === 'win32') {
+    spawn('cmd.exe', ['/c', 'start', '""', url], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    }).unref();
   }
-
-  const code = await server.exited;
-  watcher?.close();
-  for (const follower of followers) follower.stop();
-  console_?.close();
-  undeclareUi();
-  await uiLive?.stop();
-  await builder.dispose();
-  output.event('stopped', { code }, `[dev] ${t('server stopped (code {code})', { code })}`);
-  return stopping ? 0 : code || 1;
+  output.info(t('opening the game'));
 }
 
 export function engineKnowsPartRestart(engine) {
@@ -260,6 +296,15 @@ export function restartCommand(parts, name, partRestart) {
   return `restart ${name}`;
 }
 
+const onlySide = (parts, side) => parts.every((part) => side.has(part));
+
+async function rebuild(builder, parts) {
+  const code = parts.filter((part) => part !== 'copy');
+  if (code.length && !(await builder.build(code)).ok) return false;
+  if (parts.includes('copy')) builder.copyOnly();
+  return true;
+}
+
 function startWatching(
   project,
   builder,
@@ -272,63 +317,60 @@ function startWatching(
   let pending = new Set();
   let busy = false;
   let toldWholeRestart = false;
+
+  const restart = (parts, started) => {
+    const command = restartCommand(parts, name, partRestart);
+    const oneSide = onlySide(parts, CLIENT_PARTS) || onlySide(parts, SERVER_PARTS);
+    if (!partRestart && !toldWholeRestart && oneSide) {
+      toldWholeRestart = true;
+      output.info(
+        t(
+          'this engine cannot restart one part of a resource (restart-client and restart-server need an engine newer than 1.0.75): restarting the whole resource',
+        ),
+      );
+    }
+    server.send(command);
+    const ms = Date.now() - started;
+    const params = { name, seconds: (ms / 1000).toFixed(1) };
+    const text = command.startsWith('restart-client')
+      ? t('{name}: client part restarted ({seconds} s)', params)
+      : command.startsWith('restart-server')
+        ? t('{name}: server part restarted ({seconds} s)', params)
+        : t('{name}: resource restarted ({seconds} s)', params);
+    output.event(
+      'restart',
+      { resource: name, parts, command, ms },
+      output.paint('green', `[dev] ${text}`),
+    );
+  };
+
   const flush = async () => {
     if (busy || pending.size === 0) return;
-    busy = true;
     // with the live UI the page reloads itself from its dev server
     const parts = [...pending].filter((part) => !(uiLive && part === 'ui'));
     pending = new Set();
-    if (!parts.length) {
-      busy = false;
-      return;
-    }
+    if (!parts.length) return;
+    busy = true;
     const started = Date.now();
     output.event(
       'change',
       { parts },
       `[dev] ${t('change: rebuilding {parts}', { parts: parts.join(', ') })}`,
     );
-    let ok;
-    if (parts.length === 1 && parts[0] === 'copy') {
-      builder.copyOnly();
-      ok = true;
-    } else {
-      ok = (await builder.build(parts.filter((part) => part !== 'copy'))).ok;
-      if (ok && parts.includes('copy')) builder.copyOnly();
-    }
-    if (ok) {
-      if (parts.includes('client')) gameLogs?.resetSourceMap();
-      const command = restartCommand(parts, name, partRestart);
-      if (
-        !partRestart &&
-        !toldWholeRestart &&
-        (parts.every((part) => CLIENT_PARTS.has(part)) ||
-          parts.every((part) => SERVER_PARTS.has(part)))
-      ) {
-        toldWholeRestart = true;
-        output.info(
-          t(
-            'this engine cannot restart one part of a resource (restart-client and restart-server need an engine newer than 1.0.75): restarting the whole resource',
-          ),
-        );
+    try {
+      if (await rebuild(builder, parts)) {
+        if (parts.includes('client')) gameLogs?.resetSourceMap();
+        restart(parts, started);
       }
-      server.send(command);
-      const ms = Date.now() - started;
-      const params = { name, seconds: (ms / 1000).toFixed(1) };
-      const text = command.startsWith('restart-client')
-        ? t('{name}: client part restarted ({seconds} s)', params)
-        : command.startsWith('restart-server')
-          ? t('{name}: server part restarted ({seconds} s)', params)
-          : t('{name}: resource restarted ({seconds} s)', params);
-      output.event(
-        'restart',
-        { resource: name, parts, command, ms },
-        output.paint('green', `[dev] ${text}`),
-      );
+    } catch (error) {
+      // a build tool that is gone, say: the server keeps running what it has
+      output.error(errorMessage(error));
+    } finally {
+      busy = false;
     }
-    busy = false;
     if (pending.size) setTimeout(flush, 100);
   };
+
   const dirs = [...builder.watchDirs(), project.file];
   const watcher = watchProject(project.root, dirs, (files) => {
     for (const file of files) {

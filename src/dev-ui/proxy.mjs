@@ -25,8 +25,9 @@ function isHtml(headers) {
   return /^\s*text\/html\b/i.test(String(headers['content-type'] || ''));
 }
 
-export async function startDevUiProxy(options = {}) {
-  const log = options.log || (() => {});
+const hostnameOf = (url) => url.hostname.replace(/^\[|\]$/g, '');
+
+function readOptions(options) {
   const upstream = loopbackHttpUrl(options.upstream, 'upstream');
   const fallback = options.fallback ? loopbackHttpUrl(options.fallback, 'fallback') : null;
   const host = options.host || '127.0.0.1';
@@ -40,78 +41,120 @@ export async function startDevUiProxy(options = {}) {
     throw new Error(t('port: {port} is not a port number', { port: options.port }));
   const cwd = options.cwd || process.cwd();
   const files = [].concat(options.shims || []).map((file) => path.resolve(cwd, String(file)));
-  const shimSources = files.map((_, index) => shimUrl(index));
-  const upstreamHost = upstream.hostname.replace(/^\[|\]$/g, '');
-  const serveShim = shimHandler(() => files, log);
+  return { upstream, fallback, host, port, files, log: options.log || (() => {}) };
+}
 
-  const fail = (res, target, error) => {
-    const text = t('{url} is not answering ({reason})', {
-      url: target.href,
-      reason: error.code || error.message,
-    });
-    log(text);
-    if (res.headersSent) {
-      res.destroy();
-      return;
-    }
-    // the game retries a failed page by itself
-    res.writeHead(502, {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Cache-Control': 'no-store',
-    });
-    res.end(`varion dev-ui: ${text}\n`);
-  };
+function answerUnreachable(res, target, error, log) {
+  const text = t('{url} is not answering ({reason})', {
+    url: target.href,
+    reason: error.code || error.message,
+  });
+  log(text);
+  if (res.headersSent) {
+    res.destroy();
+    return;
+  }
+  // the game retries a failed page by itself
+  res.writeHead(502, {
+    'Content-Type': 'text/plain; charset=utf-8',
+    'Cache-Control': 'no-store',
+  });
+  res.end(`varion dev-ui: ${text}\n`);
+}
 
-  const forward = (req, res) => {
-    const request = http.request(
-      {
-        host: upstreamHost,
-        port: upstream.port,
-        method: req.method,
-        path: req.url,
-        headers: upstreamHeaders(req.rawHeaders, upstream.host),
-      },
-      (answer) => {
-        const status = answer.statusCode || 502;
-        if (status === 404 && fallback && (req.method === 'GET' || req.method === 'HEAD')) {
-          answer.resume();
-          answerFromFallback(fallback, req, res, (error) => fail(res, fallback, error));
-          return;
-        }
-        if (
-          req.method === 'GET' &&
-          status === 200 &&
-          isHtml(answer.headers) &&
-          shimSources.length > 0
-        ) {
-          const chunks = [];
-          answer.on('data', (chunk) => chunks.push(chunk));
-          answer.on('end', () => {
-            const page = Buffer.from(
-              injectFirstScripts(Buffer.concat(chunks).toString('utf8'), shimSources),
-              'utf8',
-            );
-            const headers = {
-              ...answer.headers,
-              'content-length': String(page.length),
-              'cache-control': 'no-store',
-            };
-            // not the dev server's bytes any more, so none of its validators
-            for (const name of ['transfer-encoding', 'content-encoding', 'etag', 'last-modified'])
-              delete headers[name];
-            res.writeHead(status, headers);
-            res.end(page);
-          });
-          answer.on('error', () => res.destroy());
-          return;
-        }
+// Answers with the dev server's page, the shims put first in its <head>.
+function answerWithShims(answer, res, shimSources) {
+  const chunks = [];
+  answer.on('data', (chunk) => chunks.push(chunk));
+  answer.on('end', () => {
+    const page = Buffer.from(
+      injectFirstScripts(Buffer.concat(chunks).toString('utf8'), shimSources),
+      'utf8',
+    );
+    const headers = {
+      ...answer.headers,
+      'content-length': String(page.length),
+      'cache-control': 'no-store',
+    };
+    // not the dev server's bytes any more, so none of its validators
+    for (const name of ['transfer-encoding', 'content-encoding', 'etag', 'last-modified'])
+      delete headers[name];
+    res.writeHead(answer.statusCode, headers);
+    res.end(page);
+  });
+  answer.on('error', () => res.destroy());
+}
+
+const wantsShims = (req, answer, shimSources) =>
+  req.method === 'GET' &&
+  answer.statusCode === 200 &&
+  isHtml(answer.headers) &&
+  shimSources.length > 0;
+
+function forwarder({ upstream, fallback, shimSources, log }) {
+  const upstreamHost = hostnameOf(upstream);
+  return (req, res) => {
+    const target = {
+      host: upstreamHost,
+      port: upstream.port,
+      method: req.method,
+      path: req.url,
+      headers: upstreamHeaders(req.rawHeaders, upstream.host),
+    };
+    const request = http.request(target, (answer) => {
+      const status = answer.statusCode || 502;
+      const reading = req.method === 'GET' || req.method === 'HEAD';
+      if (status === 404 && fallback && reading) {
+        answer.resume();
+        answerFromFallback(fallback, req, res, (error) =>
+          answerUnreachable(res, fallback, error, log),
+        );
+      } else if (wantsShims(req, answer, shimSources)) {
+        answerWithShims(answer, res, shimSources);
+      } else {
         res.writeHead(status, answer.headers);
         answer.pipe(res);
-      },
-    );
-    request.on('error', (error) => fail(res, upstream, error));
+      }
+    });
+    request.on('error', (error) => answerUnreachable(res, upstream, error, log));
     req.pipe(request);
   };
+}
+
+// Hot reload: the dev server's WebSocket, passed through as is.
+function tunnelUpgrade(req, socket, head, { upstream, sockets, log }) {
+  sockets.add(socket);
+  const tunnel = net.connect(Number(upstream.port), hostnameOf(upstream), () => {
+    const lines = [`${req.method} ${req.url} HTTP/${req.httpVersion}`];
+    for (let i = 0; i + 1 < req.rawHeaders.length; i += 2) {
+      const name = req.rawHeaders[i];
+      lines.push(
+        `${name}: ${name.toLowerCase() === 'host' ? upstream.host : req.rawHeaders[i + 1]}`,
+      );
+    }
+    tunnel.write(`${lines.join('\r\n')}\r\n\r\n`);
+    if (head && head.length) tunnel.write(head);
+    tunnel.pipe(socket);
+    socket.pipe(tunnel);
+  });
+  sockets.add(tunnel);
+  tunnel.on('close', () => {
+    sockets.delete(tunnel);
+    socket.destroy();
+  });
+  socket.on('close', () => tunnel.destroy());
+  tunnel.on('error', (error) => {
+    log(t('UI dev server WebSocket: {reason}', { reason: error.code || error.message }));
+    socket.destroy();
+  });
+  socket.on('error', () => tunnel.destroy());
+}
+
+export async function startDevUiProxy(options = {}) {
+  const { upstream, fallback, host, port, files, log } = readOptions(options);
+  const shimSources = files.map((_, index) => shimUrl(index));
+  const serveShim = shimHandler(() => files, log);
+  const forward = forwarder({ upstream, fallback, shimSources, log });
 
   const server = http.createServer((req, res) => serveShim(req, res, () => forward(req, res)));
   const sockets = new Set();
@@ -119,35 +162,9 @@ export async function startDevUiProxy(options = {}) {
     sockets.add(socket);
     socket.on('close', () => sockets.delete(socket));
   });
-
-  // hot reload: the dev server's WebSocket, passed through as is
-  server.on('upgrade', (req, socket, head) => {
-    sockets.add(socket);
-    const tunnel = net.connect(Number(upstream.port), upstreamHost, () => {
-      const lines = [`${req.method} ${req.url} HTTP/${req.httpVersion}`];
-      for (let i = 0; i + 1 < req.rawHeaders.length; i += 2) {
-        const name = req.rawHeaders[i];
-        lines.push(
-          `${name}: ${name.toLowerCase() === 'host' ? upstream.host : req.rawHeaders[i + 1]}`,
-        );
-      }
-      tunnel.write(`${lines.join('\r\n')}\r\n\r\n`);
-      if (head && head.length) tunnel.write(head);
-      tunnel.pipe(socket);
-      socket.pipe(tunnel);
-    });
-    sockets.add(tunnel);
-    tunnel.on('close', () => {
-      sockets.delete(tunnel);
-      socket.destroy();
-    });
-    socket.on('close', () => tunnel.destroy());
-    tunnel.on('error', (error) => {
-      log(t('UI dev server WebSocket: {reason}', { reason: error.code || error.message }));
-      socket.destroy();
-    });
-    socket.on('error', () => tunnel.destroy());
-  });
+  server.on('upgrade', (req, socket, head) =>
+    tunnelUpgrade(req, socket, head, { upstream, sockets, log }),
+  );
 
   await new Promise((resolve, reject) => {
     server.once('error', reject);

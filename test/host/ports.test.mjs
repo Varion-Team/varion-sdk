@@ -1,16 +1,14 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { Host } from '../../src/host/host.mjs';
+import { Ports } from '../../src/host/ports.mjs';
 
-// settlePorts needs of a host only its instances and its log
 function hostWith(instances) {
   const said = [];
-  return {
-    said,
+  const ports = new Ports({
     instances: new Map(instances.map((instance) => [instance.name, instance])),
     log: { info: (text, data, code) => said.push(code) },
-    settle: Host.prototype.settlePorts,
-  };
+  });
+  return { said, settle: (instance, settings) => ports.settle(instance, settings) };
 }
 
 function instance(name, env, ports, { preview = false, running = true } = {}) {

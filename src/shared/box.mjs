@@ -26,7 +26,7 @@ const X25519_SPKI = Buffer.from('302a300506032b656e032100', 'hex');
 const MORE = Buffer.from([0]);
 const LAST = Buffer.from([1]);
 
-export class BoxError extends Error {
+class BoxError extends Error {
   constructor(message) {
     super(message);
     this.name = 'BoxError';
@@ -151,7 +151,7 @@ export function sealStream(machinePublicKey) {
 }
 
 // A stream that opens what was sealed for the machine with this private key.
-export function openStream(machinePrivateKey) {
+function openStream(machinePrivateKey) {
   const machine = privateKeyOf(machinePrivateKey);
   const machinePublic = rawPublic(crypto.createPublicKey(machine));
   let held = Buffer.alloc(0);

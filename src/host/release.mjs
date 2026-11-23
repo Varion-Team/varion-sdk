@@ -5,6 +5,7 @@ import { ensureDir, isInside, sha256File, stripBom, walkFiles } from '../shared/
 import { checkUrl } from '../shared/http.mjs';
 import { checkEntryPath, foldPath, openZip, ZipError } from '../shared/zip.mjs';
 import { HostError } from './errors.mjs';
+import { SHA256 } from '../shared/deploy-format.mjs';
 
 const MiB = 1024 * 1024;
 const GiB = 1024 * MiB;
@@ -21,7 +22,6 @@ export const LIMITS = Object.freeze({
 });
 
 export const RESOURCE_NAME = /^[A-Za-z0-9._-]{1,128}$/;
-const SHA256 = /^[0-9a-f]{64}$/;
 const ENGINE_VERSION = /^\d{1,4}\.\d{1,4}\.\d{1,6}(?:[-+][0-9A-Za-z.-]{1,32})?$/;
 const ENGINE_CHANNEL = /^[a-z0-9][a-z0-9-]{0,31}$/;
 
@@ -33,7 +33,11 @@ const bad = (message, code = 'bad-release') => {
 
 const pathText = (error) => (error instanceof ZipError ? error.message : String(error));
 
-export function validateRelease(manifest, expected = null, limits = LIMITS) {
+// The folders a path goes through, folded for a comparison without regard to case.
+const parentFolders = (parts) =>
+  parts.slice(0, -1).map((_, index) => foldPath(parts.slice(0, index + 1).join('/')));
+
+function checkHeader(manifest, expected) {
   if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest))
     bad(t('not a JSON object'));
   if (manifest.format !== 1) {
@@ -75,7 +79,11 @@ export function validateRelease(manifest, expected = null, limits = LIMITS) {
       }),
     );
   }
+  return { version: engine.version, channel };
+}
 
+// `taken` holds the paths and folders seen so far, so that no two entries collide.
+function checkFiles(manifest, limits, taken) {
   if (!Array.isArray(manifest.files)) bad(t('the files list is missing'));
   if (manifest.files.length > limits.files) {
     bad(
@@ -83,8 +91,7 @@ export function validateRelease(manifest, expected = null, limits = LIMITS) {
     );
   }
   const files = new Map();
-  const folded = new Set();
-  const folders = new Set();
+  const { folded, folders } = taken;
   let total = 0;
   for (const file of manifest.files) {
     if (!file || typeof file !== 'object') bad(t('an entry of files is not an object'));
@@ -121,8 +128,7 @@ export function validateRelease(manifest, expected = null, limits = LIMITS) {
       bad(`files: ${relative}: ${t('listed twice (case-insensitively)')}`, 'bad-path');
     }
     folded.add(key);
-    for (let index = 1; index < parts.length; index++)
-      folders.add(foldPath(parts.slice(0, index).join('/')));
+    for (const folder of parentFolders(parts)) folders.add(folder);
     total += file.size;
     files.set(relative, { size: file.size, sha256: file.sha256 });
   }
@@ -138,8 +144,12 @@ export function validateRelease(manifest, expected = null, limits = LIMITS) {
       }),
     );
   }
+  return files;
+}
 
+function checkAssets(manifest, limits, taken) {
   const assets = [];
+  const { folded, folders } = taken;
   const assetList = manifest.assets === undefined ? [] : manifest.assets;
   if (!Array.isArray(assetList)) bad(t('assets is not a list'));
   if (assetList.length > limits.assets) {
@@ -193,13 +203,10 @@ export function validateRelease(manifest, expected = null, limits = LIMITS) {
       );
     }
     const parts = checked.path.split('/');
-    for (let index = 1; index < parts.length; index++) {
-      if (folded.has(foldPath(parts.slice(0, index).join('/'))))
-        bad(`assets: ${asset.name}: ${t('the path goes through a file')}`, 'bad-path');
-    }
+    if (parentFolders(parts).some((folder) => folded.has(folder)))
+      bad(`assets: ${asset.name}: ${t('the path goes through a file')}`, 'bad-path');
     folded.add(key);
-    for (let index = 1; index < parts.length; index++)
-      folders.add(foldPath(parts.slice(0, index).join('/')));
+    for (const folder of parentFolders(parts)) folders.add(folder);
     assets.push({
       name: asset.name,
       sha256: asset.sha256,
@@ -208,7 +215,11 @@ export function validateRelease(manifest, expected = null, limits = LIMITS) {
       file: checked.path,
     });
   }
+  return assets;
+}
 
+// What each resource holds: its files and packs by their path inside the resource.
+function byResource(files, assets) {
   const resources = new Map();
   const place = (relative, digest) => {
     const parts = relative.split('/');
@@ -218,128 +229,154 @@ export function validateRelease(manifest, expected = null, limits = LIMITS) {
   };
   for (const [relative, file] of files) place(relative, file.sha256);
   for (const asset of assets) place(asset.file, asset.sha256);
+  return resources;
+}
 
+export function validateRelease(manifest, expected = null, limits = LIMITS) {
+  const engine = checkHeader(manifest, expected);
+  const taken = { folded: new Set(), folders: new Set() };
+  const files = checkFiles(manifest, limits, taken);
+  const assets = checkAssets(manifest, limits, taken);
   return {
     project: manifest.project,
     env: manifest.env,
     releaseId: manifest.releaseId,
     createdAt: typeof manifest.createdAt === 'string' ? manifest.createdAt : '',
-    engine: { version: engine.version, channel },
+    engine,
     files,
     assets,
-    resources,
+    resources: byResource(files, assets),
   };
+}
+
+// The files of the archive by their path. Throws on what a release may not hold.
+function bundleEntries(zip) {
+  const byPath = new Map();
+  const folded = new Set();
+  for (const entry of zip.entries) {
+    const { name } = entry;
+    if (entry.encrypted) {
+      throw new HostError(t('the archive has an encrypted file: {name}', { name }), 'bad-bundle');
+    }
+    if (entry.isSymlink || entry.isSpecial) {
+      throw new HostError(
+        t('the archive has a link or a special file: {name}', { name }),
+        'bad-bundle',
+      );
+    }
+    let checked;
+    try {
+      checked = checkEntryPath(name);
+    } catch (error) {
+      throw new HostError(
+        t('the archive has a path that is not allowed: {reason}', { reason: error.message }),
+        'bad-path',
+      );
+    }
+    if (checked.directory) {
+      if (entry.size !== 0) {
+        throw new HostError(
+          t('the archive has a folder with data: {name}', { name }),
+          'bad-bundle',
+        );
+      }
+      continue;
+    }
+    if (entry.isDirectory) {
+      throw new HostError(
+        t('the archive has a folder without a slash at the end of its name: {name}', { name }),
+        'bad-bundle',
+      );
+    }
+    const key = foldPath(checked.path);
+    if (folded.has(key)) {
+      throw new HostError(
+        t('the archive has a file twice (case-insensitively): {path}', { path: checked.path }),
+        'bad-bundle',
+      );
+    }
+    folded.add(key);
+    byPath.set(checked.path, entry);
+  }
+  return byPath;
+}
+
+async function readManifest(zip, byPath, expected, limits) {
+  const releaseEntry = byPath.get('release.json');
+  if (!releaseEntry) {
+    throw new HostError(t('the archive has no release.json at its root'), 'bad-bundle');
+  }
+  const releaseBytes = await zip.readBuffer(releaseEntry, limits.releaseJsonBytes);
+  let manifest;
+  try {
+    manifest = JSON.parse(stripBom(releaseBytes.toString('utf8')));
+  } catch (error) {
+    bad(t('not JSON ({reason})', { reason: error.message }));
+  }
+  const release = validateRelease(manifest, expected, limits);
+  return { release, releaseBytes };
+}
+
+function matchEntries(byPath, release) {
+  for (const relative of byPath.keys()) {
+    if (relative !== 'release.json' && !release.files.has(relative)) {
+      throw new HostError(
+        t('the archive has a file release.json does not list: {path}', { path: relative }),
+        'extra-file',
+      );
+    }
+  }
+  for (const [relative, file] of release.files) {
+    const entry = byPath.get(relative);
+    if (!entry) {
+      throw new HostError(
+        t('the archive lacks a file release.json lists: {path}', { path: relative }),
+        'missing-file',
+      );
+    }
+    if (entry.size !== file.size) {
+      throw new HostError(
+        t('the size differs from release.json: {path}', { path: relative }),
+        'file-mismatch',
+      );
+    }
+  }
+}
+
+async function extractFiles(zip, byPath, release, dir) {
+  for (const [relative, file] of release.files) {
+    const target = path.join(dir, ...relative.split('/'));
+    if (path.resolve(target) === path.resolve(dir) || !isInside(dir, target)) {
+      throw new HostError(
+        t('the path leaves the release folder: {path}', { path: relative }),
+        'bad-path',
+      );
+    }
+    ensureDir(path.dirname(target));
+    try {
+      await zip.extractTo(byPath.get(relative), target, {
+        expectedSize: file.size,
+        expectedSha256: file.sha256,
+      });
+    } catch (error) {
+      throw new HostError(
+        t('a file does not match release.json: {reason}', { reason: error.message }),
+        'file-mismatch',
+      );
+    }
+  }
 }
 
 export async function unpackBundle(zipFile, dir, expected, limits = LIMITS) {
   const zip = await openZip(zipFile, { maxEntries: limits.files + 1024 });
   try {
-    const byPath = new Map();
-    const folded = new Set();
-    for (const entry of zip.entries) {
-      const { name } = entry;
-      if (entry.encrypted) {
-        throw new HostError(t('the archive has an encrypted file: {name}', { name }), 'bad-bundle');
-      }
-      if (entry.isSymlink || entry.isSpecial) {
-        throw new HostError(
-          t('the archive has a link or a special file: {name}', { name }),
-          'bad-bundle',
-        );
-      }
-      let checked;
-      try {
-        checked = checkEntryPath(name);
-      } catch (error) {
-        throw new HostError(
-          t('the archive has a path that is not allowed: {reason}', { reason: error.message }),
-          'bad-path',
-        );
-      }
-      if (checked.directory) {
-        if (entry.size !== 0) {
-          throw new HostError(
-            t('the archive has a folder with data: {name}', { name }),
-            'bad-bundle',
-          );
-        }
-        continue;
-      }
-      if (entry.isDirectory) {
-        throw new HostError(
-          t('the archive has a folder without a slash at the end of its name: {name}', { name }),
-          'bad-bundle',
-        );
-      }
-      const key = foldPath(checked.path);
-      if (folded.has(key)) {
-        throw new HostError(
-          t('the archive has a file twice (case-insensitively): {path}', { path: checked.path }),
-          'bad-bundle',
-        );
-      }
-      folded.add(key);
-      byPath.set(checked.path, entry);
-    }
-    const releaseEntry = byPath.get('release.json');
-    if (!releaseEntry) {
-      throw new HostError(t('the archive has no release.json at its root'), 'bad-bundle');
-    }
-    const releaseBytes = await zip.readBuffer(releaseEntry, limits.releaseJsonBytes);
-    let manifest;
-    try {
-      manifest = JSON.parse(stripBom(releaseBytes.toString('utf8')));
-    } catch (error) {
-      bad(t('not JSON ({reason})', { reason: error.message }));
-    }
-    const release = validateRelease(manifest, expected, limits);
-    for (const relative of byPath.keys()) {
-      if (relative !== 'release.json' && !release.files.has(relative)) {
-        throw new HostError(
-          t('the archive has a file release.json does not list: {path}', { path: relative }),
-          'extra-file',
-        );
-      }
-    }
-    for (const [relative, file] of release.files) {
-      const entry = byPath.get(relative);
-      if (!entry) {
-        throw new HostError(
-          t('the archive lacks a file release.json lists: {path}', { path: relative }),
-          'missing-file',
-        );
-      }
-      if (entry.size !== file.size) {
-        throw new HostError(
-          t('the size differs from release.json: {path}', { path: relative }),
-          'file-mismatch',
-        );
-      }
-    }
+    const byPath = bundleEntries(zip);
+    const { release, releaseBytes } = await readManifest(zip, byPath, expected, limits);
+    matchEntries(byPath, release);
     await zip.checkLayout([...byPath.values()]);
     ensureDir(dir);
     fs.writeFileSync(path.join(dir, 'release.json'), releaseBytes, { flag: 'wx' });
-    for (const [relative, file] of release.files) {
-      const target = path.join(dir, ...relative.split('/'));
-      if (path.resolve(target) === path.resolve(dir) || !isInside(dir, target)) {
-        throw new HostError(
-          t('the path leaves the release folder: {path}', { path: relative }),
-          'bad-path',
-        );
-      }
-      ensureDir(path.dirname(target));
-      try {
-        await zip.extractTo(byPath.get(relative), target, {
-          expectedSize: file.size,
-          expectedSha256: file.sha256,
-        });
-      } catch (error) {
-        throw new HostError(
-          t('a file does not match release.json: {reason}', { reason: error.message }),
-          'file-mismatch',
-        );
-      }
-    }
+    await extractFiles(zip, byPath, release, dir);
     return release;
   } finally {
     await zip.close();

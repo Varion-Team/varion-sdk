@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test, { after } from 'node:test';
 import {
-  DEPLOY_ENV,
   loadDotenv,
   loadProject,
   normalizeConfig,
@@ -14,6 +13,7 @@ import {
 } from '../../src/cli/config.mjs';
 import { parseToml } from '../../src/cli/toml.mjs';
 import { CliError } from '../../src/cli/output.mjs';
+import { DEPLOY_ENV } from '../../src/shared/deploy-format.mjs';
 import { cleanupTempDirs, tempDir, writeFiles } from './helpers.mjs';
 
 after(cleanupTempDirs);
@@ -81,6 +81,25 @@ test('config: [env.<name>] over [server] and [config]', () => {
   assert.deepEqual(resourceConfig(config, { envName: 'test' }), { title: 'Demo', limit: 50 });
   assert.deepEqual(resourceConfig(config), { title: 'Demo', limit: 5 });
   assert.throws(() => serverSettings(config, { envName: 'nope' }), CliError);
+});
+
+test('config: the HTTP port follows the game port of the environment', () => {
+  const head = '[project]\nname = "x"\n[engine]\nversion = "1.0.75"\n';
+  const settings = (toml, envName) => serverSettings(normalize(head + toml).config, { envName });
+  assert.equal(settings('').httpPort, 7789);
+  assert.equal(settings('[server]\nport = 7940').httpPort, 7941);
+  const moved = '[server]\nport = 7788\n[env.prod]\nport = 30120';
+  assert.equal(settings(moved).httpPort, 7789);
+  assert.equal(settings(moved, 'prod').httpPort, 30121);
+  // a table that names the HTTP port keeps it
+  const named = '[server]\nport = 7788\nhttpPort = 8080\n[env.prod]\nport = 30120';
+  assert.equal(settings(named, 'prod').httpPort, 8080);
+  const own = '[env.prod]\nport = 30120\nhttpPort = 30200';
+  assert.equal(settings(own, 'prod').httpPort, 30200);
+  assert.throws(
+    () => settings('[server]\nhttpPort = 30120\n[env.prod]\nport = 30120', 'prod'),
+    /\[env\.prod\] port and httpPort are the same \(30120\)/,
+  );
 });
 
 test('config: wrong values are errors that name the key', () => {

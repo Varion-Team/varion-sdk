@@ -14,6 +14,7 @@ import {
   waitDeploy,
 } from '../../deploy/client.mjs';
 import { boxFingerprint, sealedSize } from '../../shared/box.mjs';
+import { DEPLOY_ENV } from '../../shared/deploy-format.mjs';
 import { t } from '../../i18n/index.mjs';
 import { formatBytes } from '../../shared/format.mjs';
 import {
@@ -27,7 +28,7 @@ import {
 import { ZipWriter } from '../../shared/zip.mjs';
 import { parseArgs } from '../args.mjs';
 import { CliError } from '../output.mjs';
-import { DEFAULT_CABINET, DEPLOY_ENV, loadDotenv, serverSettings } from '../config.mjs';
+import { DEFAULT_CABINET, loadDotenv, serverSettings } from '../config.mjs';
 import { resolveEngine } from '../engine.mjs';
 import { createBuilder } from '../build.mjs';
 import { assetsActive, obtainAsset, readAssetsLock } from '../assets.mjs';
@@ -59,7 +60,8 @@ export async function writeBundle({
   const byHash = new Set(assets.map((asset) => asset.file));
   const files = [];
   const relatives = walkFiles(staging, {
-    skip: (name, isDirectory) => isDirectory && /(^|\/)logs$/.test(name),
+    // the server's own logs, not a folder of that name inside a resource
+    skip: (name, isDirectory) => isDirectory && name === 'logs',
   });
   for (const relative of relatives) {
     if (
@@ -103,21 +105,16 @@ export async function writeBundle({
   return { releaseId, zip: zipFile, manifest, sha256: zipped.sha256, size: zipped.size };
 }
 
-export async function run(argv, { output: root }) {
-  const { options, positionals } = parseArgs(argv, {
-    command: 'deploy',
-    options: {
-      'pack-only': 'boolean',
-      'no-validate': 'boolean',
-      rollback: 'boolean',
-      'trust-host': 'boolean',
-      json: 'boolean',
-      cwd: 'string',
-    },
-    aliases: { C: 'cwd' },
-  });
-  const output = root.child('deploy');
-  const env = positionals[0];
+const OPTIONS = {
+  'pack-only': 'boolean',
+  'no-validate': 'boolean',
+  rollback: 'boolean',
+  'trust-host': 'boolean',
+  json: 'boolean',
+  cwd: 'string',
+};
+
+function checkArguments(env, options) {
   if (!env) throw new CliError(t('name the environment: varion deploy test|prod|preview-<branch>'));
   if (!DEPLOY_ENV.test(env)) {
     throw new CliError(
@@ -130,14 +127,24 @@ export async function run(argv, { output: root }) {
   if (options.rollback && options.packOnly) {
     throw new CliError(t('--rollback sends no release, so it does not go with --pack-only'));
   }
+}
+
+export async function run(argv, { output: root }) {
+  const { options, positionals } = parseArgs(argv, {
+    command: 'deploy',
+    options: OPTIONS,
+    aliases: { C: 'cwd' },
+  });
+  const output = root.child('deploy');
+  const [env] = positionals;
+  checkArguments(env, options);
   const project = openProject(options, output);
-  // no token or no server shows up before a long build
-  // the first deploy from a computer signs it in by itself; CI keeps using VARION_DEPLOY_TOKEN
+  // Before the long build: the first deploy from a computer signs it in, and a missing token
+  // or server fails here. CI keeps using VARION_DEPLOY_TOKEN.
   if (!options.packOnly) await ensureSignedInFor(project, env, root);
   const target = options.packOnly ? null : deployTarget(project, env);
   if (options.rollback) return rollback({ project, env, output, target });
-  const { config, paths } = project;
-  const overrides = overridesFor(config, env);
+  const overrides = overridesFor(project.config, env);
   if (overrides) {
     output.info(t('environment {env}: [env.{overrides}] over [server]', { env, overrides }));
   }
@@ -150,10 +157,33 @@ export async function run(argv, { output: root }) {
       ),
     );
   }
-  const work = path.join(paths.deploy, env);
+  const work = path.join(project.paths.deploy, env);
   const staging = path.join(work, 'server');
   removeTree(work);
-  const settings = serverSettings(config, { envName: overrides, release: true });
+  await buildRelease(project, output, { work, staging, overrides });
+  if (!options.noValidate) validateWithServer(engine, output, { work, staging });
+
+  const { assets, packs } = await releasePacks(project, output);
+  const bundle = await writeBundle({
+    project,
+    env,
+    staging,
+    engine,
+    outDir: path.join(project.paths.releases, env),
+    assets,
+  });
+  writeJsonAtomic(path.join(project.paths.releases, env, `${bundle.releaseId}.json`), {
+    ...bundle.manifest,
+    zipSha256: bundle.sha256,
+    zipSize: bundle.size,
+  });
+  announceRelease(project, output, { env, bundle, assetCount: assets.length });
+  if (options.packOnly) return 0;
+  return upload({ project, env, bundle, packs, output, target, trustHost: !!options.trustHost });
+}
+
+async function buildRelease(project, output, { work, staging, overrides }) {
+  const settings = serverSettings(project.config, { envName: overrides, release: true });
   const builder = createBuilder(project, output, {
     outDir: staging,
     mapsDir: path.join(work, 'maps'),
@@ -167,76 +197,62 @@ export async function run(argv, { output: root }) {
   } finally {
     await builder.dispose();
   }
+}
 
-  if (!options.noValidate) {
-    const packOut = path.join(work, 'pack-check');
-    const check = runProgram(
-      engine.exe,
-      ['--config', path.join(staging, 'server.toml'), '--pack-resources', '--pack-output', packOut],
-      { cwd: staging, env: { ...process.env, VARION_LOG_STYLE: 'plain' } },
+// The server packs the resources of the release as it would at its start, and says what is wrong.
+function validateWithServer(engine, output, { work, staging }) {
+  const packOut = path.join(work, 'pack-check');
+  const check = runProgram(
+    engine.exe,
+    ['--config', path.join(staging, 'server.toml'), '--pack-resources', '--pack-output', packOut],
+    { cwd: staging, env: { ...process.env, VARION_LOG_STYLE: 'plain' } },
+  );
+  removeTree(packOut);
+  if (check.code !== 0) {
+    const tail = `${check.stdout}${check.stderr}`.trim().split(/\r?\n/).slice(-15).join('\n');
+    const refused = t(
+      'the server refused the release resources (--pack-resources, exit code {code})',
+      { code: check.code },
     );
-    removeTree(packOut);
-    if (check.code !== 0) {
-      const tail = `${check.stdout}${check.stderr}`.trim().split(/\r?\n/).slice(-15).join('\n');
-      const refused = t(
-        'the server refused the release resources (--pack-resources, exit code {code})',
-        {
-          code: check.code,
-        },
-      );
-      throw new CliError(`${refused}:\n${tail}`);
-    }
-    output.info(t('the server itself checked the release resources (--pack-resources)'));
+    throw new CliError(`${refused}:\n${tail}`);
   }
+  output.info(t('the server itself checked the release resources (--pack-resources)'));
+}
 
-  // A DLC pack with an address is fetched by the host from there. One without goes from this
-  // computer along with the release, if the host does not have it yet. A resource archive is
-  // already in the bundle.
+// A DLC pack with an address is fetched by the host from there. One without goes from this
+// computer along with the release, if the host does not have it yet. A resource archive is
+// already in the bundle.
+async function releasePacks(project, output) {
   const assets = [];
   const packs = [];
-  if (assetsActive(project)) {
-    for (const asset of readAssetsLock(config.assets.lock).assets) {
-      if (asset.kind !== 'dlc') continue;
-      if (!asset.url) {
-        // not having it here is no trouble while the server has it already
-        const file = await obtainAsset(project, asset, output, { offline: true }).then(
-          (found) => found.file,
-          () => null,
-        );
-        packs.push({ name: asset.name, sha256: asset.sha256, size: asset.size, file });
-      }
-      assets.push({
-        name: asset.name,
-        sha256: asset.sha256,
-        size: asset.size,
-        ...(asset.url ? { url: asset.url } : {}),
-        file: `resources/${asset.name}/dlc.rpf`,
-      });
+  if (!assetsActive(project)) return { assets, packs };
+  for (const asset of readAssetsLock(project.config.assets.lock).assets) {
+    if (asset.kind !== 'dlc') continue;
+    const { name, sha256, size, url } = asset;
+    if (!url) {
+      // not having it here is no trouble while the server has it already
+      const file = await obtainAsset(project, asset, output, { offline: true }).then(
+        (found) => found.file,
+        () => null,
+      );
+      packs.push({ name, sha256, size, file });
     }
+    assets.push({ name, sha256, size, ...(url && { url }), file: `resources/${name}/dlc.rpf` });
   }
+  return { assets, packs };
+}
 
-  const bundle = await writeBundle({
-    project,
-    env,
-    staging,
-    engine,
-    outDir: path.join(paths.releases, env),
-    assets,
-  });
-  writeJsonAtomic(path.join(paths.releases, env, `${bundle.releaseId}.json`), {
-    ...bundle.manifest,
-    zipSha256: bundle.sha256,
-    zipSize: bundle.size,
-  });
+function announceRelease(project, output, { env, bundle, assetCount }) {
+  const { releaseId, manifest, size } = bundle;
   const described = {
-    releaseId: bundle.releaseId,
+    releaseId,
     env,
-    files: bundle.manifest.files.length,
-    size: formatBytes(bundle.size),
+    files: manifest.files.length,
+    size: formatBytes(size),
     zip: path.relative(project.root, bundle.zip),
-    assets: assets.length,
+    assets: assetCount,
   };
-  const releaseText = assets.length
+  const text = assetCount
     ? t(
         'release {releaseId} ({env}): {files} files, {size}, in {zip}; packs by hash: {assets}',
         described,
@@ -245,19 +261,17 @@ export async function run(argv, { output: root }) {
   output.event(
     'release',
     {
-      releaseId: bundle.releaseId,
+      releaseId,
       env,
       zip: bundle.zip,
       sha256: bundle.sha256,
-      size: bundle.size,
-      files: bundle.manifest.files.length,
-      assets: assets.length,
-      engine: bundle.manifest.engine,
+      size,
+      files: manifest.files.length,
+      assets: assetCount,
+      engine: manifest.engine,
     },
-    output.paint('green', `[deploy] ${releaseText}`),
+    output.paint('green', `[deploy] ${text}`),
   );
-  if (options.packOnly) return 0;
-  return upload({ project, env, bundle, packs, output, target, trustHost: !!options.trustHost });
 }
 
 async function ensureSignedInFor(project, env, root, vars = process.env) {
@@ -267,7 +281,7 @@ async function ensureSignedInFor(project, env, root, vars = process.env) {
   const cabinetUrl =
     target.cabinet || config.deploy.cabinet || vars.VARION_CABINET_URL || DEFAULT_CABINET;
   const login = await ensureSignedIn(cabinetUrl, root, { env: vars });
-  // the account knows its servers: the id is not something to copy out of the cabinet by hand
+  // the account knows its servers, so the id need not be copied from the cabinet by hand
   if (!login || target.server || env.startsWith('preview-')) return;
   const server = await findDeployServer({
     project,
@@ -328,16 +342,16 @@ async function cabinetCall(target, call) {
   }
 }
 
-// The machine the release is sealed for. Its key reaches this computer through the cabinet, so
-// it is remembered the first time and has to stay the same: a new key is a new machine (the
-// host was connected again) or someone in between, and that is for a person to say.
+// The machine the release is sealed for. Its key arrives through the cabinet, so it is
+// pinned on first use: a different key later means a re-paired host or someone in the
+// middle, and a person has to decide which.
 async function serverMachine({ target, output, trustHost }) {
   const { cabinetUrl, serverId, token } = target;
   const machine = await cabinetCall(target, () => askDeployTarget({ cabinetUrl, serverId, token }));
   if (!machine.online) {
     throw new CliError(
       t(
-        'the server {serverId} is not on the line: varion host is not running on its machine, or is not connected',
+        'the server {serverId} is offline: varion host is not running on its machine, or is not connected',
         { serverId },
       ),
       { code: 'host_offline' },
@@ -382,8 +396,8 @@ async function serverMachine({ target, output, trustHost }) {
   return machine;
 }
 
-// While the host puts the release together it asks for the packs it lacks; they are sent as it
-// asks. Returns the way to stop.
+// Sends the packs the host asks for while it assembles the release. Returns a function
+// that stops it.
 function sendPacksAsAsked({ target, releaseId, packs, boxKey, output }) {
   const { cabinetUrl, serverId, token } = target;
   let on = packs.length > 0;
@@ -393,7 +407,7 @@ function sendPacksAsAsked({ target, releaseId, packs, boxKey, output }) {
       try {
         wants = await assetWants({ cabinetUrl, serverId, token, releaseId });
       } catch {
-        // the wait for the deploy itself tells what went wrong
+        // errors surface from the wait on the deploy itself
       }
       for (const sha256 of wants) {
         const pack = packs.find((item) => item.sha256 === sha256);
@@ -572,29 +586,30 @@ async function sendRequest({
   } finally {
     if (stop) await stop();
   }
-  const { phase, link, error } = final;
   // the host reports its own successful rollback as rolled-back
-  const done =
-    action === 'rollback' ? phase === 'rolled-back' || phase === 'active' : phase === 'active';
-  let text;
-  if (done && action === 'rollback') {
-    text = t('{releaseId} is rolled back on {serverId}: the release before it runs again', {
-      releaseId,
-      serverId,
-    });
-  } else if (done) {
-    text = link
-      ? t('{releaseId} is running on {serverId}: {link}', { releaseId, serverId, link })
-      : t('{releaseId} is running on {serverId}', { releaseId, serverId });
-  } else {
-    text = error
-      ? t('deploy ended: {phase} ({error})', { phase, error })
-      : t('deploy ended: {phase}', { phase });
-  }
+  const done = final.phase === 'active' || (action === 'rollback' && final.phase === 'rolled-back');
+  const text = outcomeText(final, { done, action, releaseId, serverId });
   output.event(
     'deployed',
     { env, serverId, releaseId, action, ...final },
     output.paint(done ? 'green' : 'red', `[deploy] ${text}`),
   );
   return done ? 0 : 1;
+}
+
+function outcomeText({ phase, link, error }, { done, action, releaseId, serverId }) {
+  if (!done) {
+    return error
+      ? t('deploy ended: {phase} ({error})', { phase, error })
+      : t('deploy ended: {phase}', { phase });
+  }
+  if (action === 'rollback') {
+    return t('{releaseId} is rolled back on {serverId}: the release before it runs again', {
+      releaseId,
+      serverId,
+    });
+  }
+  return link
+    ? t('{releaseId} is running on {serverId}: {link}', { releaseId, serverId, link })
+    : t('{releaseId} is running on {serverId}', { releaseId, serverId });
 }

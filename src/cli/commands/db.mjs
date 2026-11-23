@@ -14,6 +14,71 @@ import { reachable } from '../net.mjs';
 import { CliError } from '../output.mjs';
 import { openProject, prepareDotenv } from '../prepare.mjs';
 
+async function status(project, output, options) {
+  const { database } = project.config;
+  const managed = managedState(project);
+  const dotenv = loadDotenv(project.root, { dotenvFile: options.dotenv });
+  const keys = databaseEnvKeys(database, dotenv.values);
+  const host = dotenv.values[keys.host] || database.host;
+  const port = Number(dotenv.values[keys.port] || database.port);
+  const up = await reachable(host, port);
+  const state = up
+    ? t('database {host}:{port} is up', { host, port })
+    : t('database {host}:{port} does not answer', { host, port });
+  let kind;
+  if (managed) {
+    kind = t('project database: {dir} (MariaDB {version}), database {database}', {
+      dir: path.relative(project.root, managed.dataDir),
+      version: managed.mariadb,
+      database: managed.database,
+    });
+  } else if (database.managed) {
+    kind = t(
+      'the project database is not set up yet (varion dev sets it up when there is no .env)',
+    );
+  } else {
+    kind = t('your own database');
+  }
+  output.event(
+    'database',
+    {
+      host,
+      port,
+      running: up,
+      managed: Boolean(managed),
+      database: dotenv.values[keys.name] || database.name,
+      envFile: dotenv.baseExists ? dotenv.baseFile : null,
+    },
+    `[${output.prefix}] ${state}\n[${output.prefix}] ${kind}`,
+  );
+  return 0;
+}
+
+async function start(project, output, options) {
+  const dotenv = await prepareDotenv(project, output, { dotenvFile: options.dotenv });
+  await ensureDatabaseRunning(project, dotenv.values, output);
+  return 0;
+}
+
+async function stop(project, output) {
+  await stopManagedDb(project, output);
+  return 0;
+}
+
+async function shell(project, output) {
+  const managed = managedState(project);
+  if (!managed) throw new CliError(t('the project has no database of its own in .varion/db'));
+  const bin = await ensureMariaDb(output);
+  const child = spawn(
+    path.join(bin, 'mariadb.exe'),
+    [`--defaults-extra-file=${managed.rootCnf}`, managed.database],
+    { stdio: 'inherit' },
+  );
+  return new Promise((resolve) => child.on('close', (code) => resolve(code ?? 1)));
+}
+
+const ACTIONS = { status, start, stop, shell };
+
 export async function run(argv, { output: root }) {
   const { options, positionals } = parseArgs(argv, {
     command: 'db',
@@ -22,72 +87,16 @@ export async function run(argv, { output: root }) {
   });
   const output = root.child('db');
   const project = openProject(options, output);
-  const { database } = project.config;
-  if (!database) throw new CliError(t('varion.toml has no [database]'));
-  const action = positionals[0] || 'status';
-  if (action === 'status') {
-    const managed = managedState(project);
-    const dotenv = loadDotenv(project.root, { dotenvFile: options.dotenv });
-    const keys = databaseEnvKeys(database, dotenv.values);
-    const host = dotenv.values[keys.host] || database.host;
-    const port = Number(dotenv.values[keys.port] || database.port);
-    const up = await reachable(host, port);
-    const state = up
-      ? t('database {host}:{port} is up', { host, port })
-      : t('database {host}:{port} does not answer', { host, port });
-    let kind;
-    if (managed) {
-      kind = t('project database: {dir} (MariaDB {version}), database {database}', {
-        dir: path.relative(project.root, managed.dataDir),
-        version: managed.mariadb,
-        database: managed.database,
-      });
-    } else if (database.managed) {
-      kind = t(
-        'the project database is not set up yet (varion dev sets it up when there is no .env)',
-      );
-    } else {
-      kind = t('your own database');
-    }
-    output.event(
-      'database',
-      {
-        host,
-        port,
-        running: up,
-        managed: Boolean(managed),
-        database: dotenv.values[keys.name] || database.name,
-        envFile: dotenv.baseExists ? dotenv.baseFile : null,
-      },
-      `[${output.prefix}] ${state}\n[${output.prefix}] ${kind}`,
+  if (!project.config.database) throw new CliError(t('varion.toml has no [database]'));
+  const name = positionals[0] || 'status';
+  if (!Object.hasOwn(ACTIONS, name)) {
+    throw new CliError(
+      t('{command}: unknown subcommand "{name}" (there are {list})', {
+        command: 'varion db',
+        name,
+        list: Object.keys(ACTIONS).join(', '),
+      }),
     );
-    return 0;
   }
-  if (action === 'start') {
-    const dotenv = await prepareDotenv(project, output, { dotenvFile: options.dotenv });
-    await ensureDatabaseRunning(project, dotenv.values, output);
-    return 0;
-  }
-  if (action === 'stop') {
-    await stopManagedDb(project, output);
-    return 0;
-  }
-  if (action === 'shell') {
-    const managed = managedState(project);
-    if (!managed) throw new CliError(t('the project has no database of its own in .varion/db'));
-    const bin = await ensureMariaDb(output);
-    const child = spawn(
-      path.join(bin, 'mariadb.exe'),
-      [`--defaults-extra-file=${managed.rootCnf}`, managed.database],
-      { stdio: 'inherit' },
-    );
-    return new Promise((resolve) => child.on('close', (code) => resolve(code ?? 1)));
-  }
-  throw new CliError(
-    t('{command}: unknown subcommand "{name}" (there are {list})', {
-      command: 'varion db',
-      name: action,
-      list: 'status, start, stop, shell',
-    }),
-  );
+  return ACTIONS[name](project, output, options);
 }

@@ -145,9 +145,9 @@ export default {
     'ассет {name}: принимаю {size} от разработчика, который выкладывает',
   'asset {name}: taken from {file}, where it was put by hand':
     'ассет {name}: взят из {file}, куда его положили руками',
-  'asset {name}: nobody sent it ({error}). It has to be on the computer that deploys, or put the file into {dir} on this machine and deploy again':
+  'asset {name}: it was not sent ({error}). It has to be on the computer that deploys, or put the file into {dir} on this machine and deploy again':
     'ассет {name}: его никто не отправил ({error}). Он должен лежать на компьютере, с которого выкладывают, либо положи файл в {dir} на этой машине и выложи ещё раз',
-  'asset {name}: it has no address and nobody is sending it':
+  'asset {name}: it has no download address and no deploy is sending it':
     'ассет {name}: у него нет адреса, и его никто не отправляет',
   'asset {name}: the SHA-256 of what came does not match release.json':
     'ассет {name}: SHA-256 скачанного не сходится с release.json',

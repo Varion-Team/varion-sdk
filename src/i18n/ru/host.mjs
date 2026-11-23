@@ -85,6 +85,8 @@ export default {
     'задача уже запустила хост; его журнал — {file}',
   'the task did not start now; it starts the host with the next start of Windows':
     'сейчас задача не запустилась; она запустит хост при следующем запуске Windows',
+  '{file} is inside your user folder, so any program you run can change what this task runs as SYSTEM; for a server that matters install the SDK where only administrators can write':
+    '{file} лежит в твоей папке пользователя, поэтому любая программа, которую ты запускаешь, может изменить то, что эта задача выполняет от имени системы; для важного сервера поставь SDK туда, куда писать могут только администраторы',
   'to remove it: {command} (or schtasks /Delete /TN "{name}" /F)':
     'убрать её: {command} (или schtasks /Delete /TN "{name}" /F)',
   'the scheduled task can only be removed from an administrator terminal':

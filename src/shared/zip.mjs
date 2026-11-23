@@ -20,8 +20,8 @@ const SIG_END64 = 0x06064b50;
 const SIG_LOCATOR64 = 0x07064b50;
 
 // same limits the server applies to resource paths
-export const MAX_PATH_BYTES = 4096;
-export const MAX_PATH_COMPONENTS = 64;
+const MAX_PATH_BYTES = 4096;
+const MAX_PATH_COMPONENTS = 64;
 
 // eslint-disable-next-line no-control-regex
 const BAD_CHARACTER = /[\u0000-\u001f\u007f<>:"|?*\\]/;

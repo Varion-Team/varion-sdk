@@ -7,7 +7,7 @@ import { CliError, createOutput } from './output.mjs';
 
 export const CLI_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-export function cliVersion() {
+function cliVersion() {
   return JSON.parse(fs.readFileSync(path.join(CLI_DIR, 'package.json'), 'utf8')).version;
 }
 
@@ -33,17 +33,17 @@ const COMMANDS = {
   install: () => import('./commands/install.mjs'),
 };
 
-export function helpText() {
+function helpText() {
   return `varion: ${t('game modes on Varion: one folder, one varion.toml, one command')}
 
   varion new <name> [--db] [--dir <dir>] [--title "<title>"] [--start] [--play] [--no-install]
                           ${t('create a project from the template: TypeScript server, client and page')}
-  varion dev [--env <name>] [--no-build] [--no-watch] [--play] [--dotenv <file>]
+  varion dev [--env <name>] [--no-build] [--no-watch] [--play] [--verbose] [--dotenv <file>]
                           ${t('run engine, database and server; rebuild and restart on every edit')}
   varion build [--env <name>] [--release] [--out <dir>]
                           ${t('type check and build the game mode resource')}
   varion check            ${t('type check only (server, client, page)')}
-  varion deploy test|prod|preview-<branch> [--pack-only] [--no-validate]
+  varion deploy test|prod|preview-<branch> [--pack-only] [--no-validate] [--trust-host]
                           ${t('pack a release, upload it and send a signed deploy request')}
   varion deploy <env> --rollback
                           ${t('go back to the release that was active before the current one')}
@@ -92,7 +92,7 @@ export async function main(argv, { stdout = process.stdout, stderr = process.std
     output.event('version', { version }, version);
     return 0;
   }
-  const load = COMMANDS[command];
+  const load = Object.hasOwn(COMMANDS, command) ? COMMANDS[command] : null;
   if (!load) {
     output.error(t('"{command}" is not a varion command (see varion --help)', { command }));
     return 1;

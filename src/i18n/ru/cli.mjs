@@ -35,7 +35,7 @@ export default {
   'move the project to the newest SDK and engine, and show what no longer fits':
     'перевести проект на новый SDK и движок и показать, что в коде перестало сходиться',
   'updating the SDK of the project': 'обновляю SDK проекта',
-  'npm could not update the SDK: {reason}': 'npm не смог обновить SDK: {reason}',
+  '{pm} could not update the SDK: {reason}': '{pm} не смог обновить SDK: {reason}',
   'the engine is your own build ([engine] path): its version is left alone':
     'движок — твоя сборка ([engine] path): её версию не трогаю',
   'varion.toml has no version in [engine] to change':

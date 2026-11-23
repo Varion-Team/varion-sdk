@@ -62,3 +62,54 @@ export async function serve(routes) {
 }
 
 export const sha256 = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
+
+// Stands in for esbuild: writes what it was asked to build, and fails on a source with BROKEN.
+const FAKE_ESBUILD = `
+const fs = require('node:fs');
+const path = require('node:path');
+exports.context = async (options) => ({
+  async rebuild() {
+    const [entry] = options.entryPoints;
+    const source = fs.readFileSync(entry, 'utf8');
+    if (source.includes('BROKEN')) {
+      const error = new Error('Build failed with 1 error');
+      error.errors = [
+        {
+          text: 'Unexpected "BROKEN"',
+          location: { file: path.relative(options.absWorkingDir, entry), line: 2, column: 4 },
+        },
+      ];
+      throw error;
+    }
+    fs.mkdirSync(path.dirname(options.outfile), { recursive: true });
+    const banner = [options.format, options.platform, options.define['process.env.NODE_ENV']];
+    fs.writeFileSync(options.outfile, '// ' + banner.join(' ') + '\\n' + source);
+    if (options.sourcemap === 'external') fs.writeFileSync(options.outfile + '.map', '{}');
+  },
+  async dispose() {},
+});
+`;
+
+// Stands in for Vite: one page with the build mode in it.
+const FAKE_VITE = `
+import fs from 'node:fs';
+import path from 'node:path';
+export async function build(config) {
+  if (fs.readFileSync(path.join(config.root, 'index.html'), 'utf8').includes('BROKEN')) {
+    const error = new Error('page is broken\\nsecond line');
+    error.loc = { file: path.join(config.root, 'index.html'), line: 3, column: 0 };
+    throw error;
+  }
+  fs.mkdirSync(config.build.outDir, { recursive: true });
+  fs.writeFileSync(path.join(config.build.outDir, 'index.html'), '<!-- ' + config.mode + ' -->');
+}
+`;
+
+/** The files of a project's node_modules that stand in for its build tools. */
+export const FAKE_TOOLS = {
+  'node_modules/esbuild/package.json': '{ "name": "esbuild", "version": "0.28.2" }',
+  'node_modules/esbuild/index.js': FAKE_ESBUILD,
+  'node_modules/vite/package.json':
+    '{ "name": "vite", "version": "8.3.5", "type": "module", "exports": "./index.mjs" }',
+  'node_modules/vite/index.mjs': FAKE_VITE,
+};

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { after, describe, it } from 'node:test';
 import {
   HOST_BIN,
+  insideUserFolder,
   taskName,
   taskXml,
   windowsCommandLine,
@@ -215,5 +216,29 @@ describe('varion host install', () => {
     assert.equal(taskName(defaultRoot()), 'Varion Host');
     assert.equal(taskName(defaultRoot().toUpperCase()), 'Varion Host');
     assert.equal(taskName(path.join(work, 'x')), taskName(path.join(work, 'x')));
+  });
+});
+
+describe('the script the task runs', () => {
+  it('is flagged when it lies in a folder the user can write to', () => {
+    const env = {
+      USERPROFILE: path.resolve('home', 'kate'),
+      APPDATA: path.resolve('home', 'kate', 'AppData', 'Roaming'),
+    };
+    const globalInstall = path.join(env.APPDATA, 'npm', 'node_modules', '@varion', 'sdk', 'bin');
+    assert.equal(insideUserFolder(path.join(globalInstall, 'varion-host.mjs'), env), true);
+    assert.equal(insideUserFolder(path.resolve('opt', 'varion', 'bin', 'x.mjs'), env), false);
+    assert.equal(insideUserFolder(path.resolve('home', 'kate-other', 'x.mjs'), env), false);
+    assert.equal(insideUserFolder(path.resolve('anywhere', 'x.mjs'), {}), false);
+  });
+});
+
+describe('options of varion host', () => {
+  it('are only the ones it knows, not names every object has', async () => {
+    for (const option of ['--constructor', '--toString', '--__proto__']) {
+      const { code, text } = await host(['status', option, 'x'], fakeSystem());
+      assert.notEqual(code, 0, option);
+      assert.match(text, /unknown option/, option);
+    }
   });
 });

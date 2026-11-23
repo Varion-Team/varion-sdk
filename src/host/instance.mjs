@@ -19,7 +19,7 @@ import { commandLineOf } from '../shared/process.mjs';
 import { HostError } from './errors.mjs';
 import { instanceLayout } from './paths.mjs';
 import { reapPids, serverEnvironment, ServerProcess } from './process.mjs';
-import { planChange, readReleaseDir, RELEASE_MARKER, verifyReleaseDir } from './release.mjs';
+import { readReleaseDir, RELEASE_MARKER, verifyReleaseDir } from './release.mjs';
 import { effectiveServerToml, readServerSettings } from './servertoml.mjs';
 
 const STACK_LIMIT = 30;
@@ -35,7 +35,9 @@ function rotateServerLogs(dir, keep) {
       .sort();
     for (const name of logs.slice(0, Math.max(0, logs.length - keep + 1)))
       fs.rmSync(path.join(dir, name), { force: true });
-  } catch {}
+  } catch {
+    // old logs that stay do no harm
+  }
 }
 
 export class Instance {
@@ -89,7 +91,9 @@ export class Instance {
       fs.copyFileSync(host.layout.previewEnv, paths.env);
       try {
         fs.chmodSync(paths.env, 0o600);
-      } catch {}
+      } catch {
+        // Windows has no file modes
+      }
       meta.envFromTemplate = true;
       writeJsonAtomic(paths.meta, meta);
     }
@@ -243,7 +247,9 @@ export class Instance {
     }
     try {
       fs.rmdirSync(this.paths.tmp);
-    } catch {}
+    } catch {
+      // not empty: something in it is still in use
+    }
   }
 
   async installStopped(releaseId) {
@@ -459,7 +465,9 @@ export class Instance {
       );
       try {
         process.kill(record.pid, 'SIGTERM');
-      } catch {}
+      } catch {
+        // already gone
+      }
       await reapPids([record.pid], 15_000, { mustInclude: config });
     }
     fs.rmSync(this.paths.pidFile, { force: true });
@@ -502,296 +510,6 @@ export class Instance {
       this.scheduleRecover(this.backoffMs);
     } finally {
       this.cleanupTmp();
-    }
-  }
-
-  // ---- activation ----
-
-  async activate(targetId, { engine, previousEngine = null }) {
-    const previousId = this.currentId;
-    const next = this.readRelease(targetId);
-    let previous = null;
-    if (previousId === targetId) previous = next;
-    else if (previousId) {
-      try {
-        previous = this.readRelease(previousId);
-      } catch {
-        previous = null;
-      }
-    }
-    await this.host.settlePorts(this, readServerSettings(this.effectiveToml(targetId)));
-    const nextToml = this.effectiveToml(targetId);
-    this.host.checkPortConflicts(this, readServerSettings(nextToml));
-    const previousToml = fs.existsSync(this.paths.serverToml)
-      ? readText(this.paths.serverToml)
-      : null;
-    const plan = planChange(previous, next, previousToml, nextToml);
-    try {
-      if (previousId === targetId) {
-        return await this.switchFull(targetId, {
-          revertTo: null,
-          engine,
-          previousEngine,
-          reasons: [t('the active release deployed again')],
-        });
-      }
-      if (!this.isRunning() || plan.full) {
-        const reasons = this.isRunning()
-          ? plan.reasons
-          : [t('the server was not running'), ...plan.reasons];
-        return await this.switchFull(targetId, {
-          revertTo: previousId && previousId !== targetId ? previousId : null,
-          engine,
-          previousEngine,
-          reasons,
-        });
-      }
-      if (!plan.changed.length) {
-        this.writeCurrent(targetId);
-        return { mode: 'none', restarted: [], reasons: [t('no resource files changed')] };
-      }
-      return await this.switchHot(targetId, { previousId, plan, engine, previousEngine });
-    } finally {
-      this.cleanupTmp();
-    }
-  }
-
-  async switchFull(targetId, { revertTo, engine, previousEngine, reasons }) {
-    this.log.info(
-      t('{name}: full restart for release {releaseId} ({reasons})', {
-        name: this.name,
-        releaseId: targetId,
-        reasons: reasons.join('; '),
-      }),
-      { instance: this.name, releaseId: targetId, reasons },
-      'full-restart',
-    );
-    const tag = `${utcStamp()}-${randomTag()}`;
-    const staged = this.tmp(`resources-${tag}`);
-    this.linkResources(targetId, staged);
-    const toml = this.effectiveToml(targetId);
-    await this.stopServer(t('deploy'));
-    const backup = this.tmp(`old-resources-${tag}`);
-    const hadResources = fs.existsSync(this.paths.resources);
-    const oldToml = fs.existsSync(this.paths.serverToml) ? readText(this.paths.serverToml) : null;
-    if (hadResources) await renameWithRetry(this.paths.resources, backup);
-    await renameWithRetry(staged, this.paths.resources);
-    writeFileAtomic(this.paths.serverToml, toml);
-    this.writeCurrent(targetId);
-    try {
-      await this.startServer(engine, t('deploy'));
-      return { mode: 'full', restarted: [], reasons };
-    } catch (error) {
-      if (!revertTo) {
-        this.lastError = errorMessage(error);
-        this.wantRunning = true;
-        this.backoffMs = this.host.options.backoffInitialMs;
-        this.scheduleRecover(this.backoffMs);
-        throw new HostError(
-          t('the server did not start: {reason} (the host keeps trying)', {
-            reason: errorMessage(error),
-          }),
-          'start-failed',
-        );
-      }
-      this.log.warn(
-        t('{name}: release {releaseId} did not start ({error}); going back to {previous}', {
-          name: this.name,
-          releaseId: targetId,
-          error: errorMessage(error),
-          previous: revertTo,
-        }),
-        { instance: this.name },
-        'revert',
-      );
-      await this.stopServer(t('rollback'), { graceful: false });
-      await renameWithRetry(this.paths.resources, this.tmp(`failed-resources-${tag}`));
-      if (hadResources) await renameWithRetry(backup, this.paths.resources);
-      else this.linkResources(revertTo, this.paths.resources);
-      writeFileAtomic(this.paths.serverToml, oldToml ?? this.effectiveToml(revertTo));
-      this.writeCurrent(revertTo);
-      try {
-        const engineBack =
-          previousEngine ||
-          (await this.host.engines.ensure(this.readRelease(revertTo).engine, { recheck: false }));
-        await this.startServer(engineBack, t('rollback to {releaseId}', { releaseId: revertTo }));
-      } catch (again) {
-        this.wantRunning = true;
-        this.scheduleRecover(this.host.options.backoffInitialMs);
-        throw new HostError(
-          t(
-            'the new release did not start: {error}; the previous release {previous} did not start either: {again}',
-            { error: errorMessage(error), previous: revertTo, again: errorMessage(again) },
-          ),
-          'revert-failed',
-        );
-      }
-      const reverted = new HostError(
-        t('the new release did not start: {error}; went back to {previous}', {
-          error: errorMessage(error),
-          previous: revertTo,
-        }),
-        'reverted',
-      );
-      reverted.revertedTo = revertTo;
-      throw reverted;
-    }
-  }
-
-  async switchHot(targetId, { previousId, plan, engine, previousEngine }) {
-    const tag = `${utcStamp()}-${randomTag()}`;
-    const settings = this.settings();
-    const swapped = [];
-    const swapBack = async () => {
-      for (const item of swapped.reverse()) {
-        await renameWithRetry(item.live, this.tmp(`failed-res-${item.name}-${tag}`));
-        await renameWithRetry(item.old, item.live);
-      }
-    };
-    try {
-      for (const name of plan.changed) {
-        const staged = this.tmp(`res-${name}-${tag}`);
-        this.linkResources(targetId, staged, name);
-        const live = path.join(this.paths.resources, name);
-        const old = this.tmp(`old-res-${name}-${tag}`);
-        await renameWithRetry(live, old, { attempts: 16, delayMs: 250 });
-        try {
-          await renameWithRetry(staged, live, { attempts: 16, delayMs: 250 });
-        } catch (error) {
-          await renameWithRetry(old, live);
-          throw error;
-        }
-        swapped.push({ name, live, old });
-      }
-    } catch (error) {
-      // windows will not rename a folder while a file in it is open
-      await swapBack();
-      return this.switchFull(targetId, {
-        revertTo: previousId,
-        engine,
-        previousEngine,
-        reasons: [
-          t('a resource could not be swapped while running: {error}', {
-            error: errorMessage(error),
-          }),
-        ],
-      });
-    }
-    this.writeCurrent(targetId);
-    const toRestart = settings.loaded.filter((name) => plan.changed.includes(name));
-    const changed = plan.changed.join(', ');
-    this.log.info(
-      toRestart.length
-        ? t('{name}: only resources changed ({changed}); restarting on the fly: {restart}', {
-            name: this.name,
-            changed,
-            restart: toRestart.join(', '),
-          })
-        : t('{name}: only resources changed ({changed}); none of them is loaded', {
-            name: this.name,
-            changed,
-          }),
-      { instance: this.name, releaseId: targetId, changed: plan.changed, restart: toRestart },
-      'hot-restart',
-    );
-    const restarted = [];
-    try {
-      for (const name of toRestart) {
-        const part = await this.proc.consoleCommand(
-          'restart',
-          name,
-          this.host.options.consoleTimeoutMs,
-        );
-        this.log.info(
-          t('{name}: restart {resource}: server part {part}', {
-            name: this.name,
-            resource: name,
-            part,
-          }),
-          { instance: this.name, resource: name, part },
-          'resource-restarted',
-        );
-        if (part === 'failed') {
-          throw new HostError(
-            t('resource {resource} did not restart (server part failed)', { resource: name }),
-            'restart-failed',
-          );
-        }
-        restarted.push({ name, part });
-      }
-      return {
-        mode: 'hot',
-        restarted,
-        reasons: [t('only resources changed: {resources}', { resources: changed })],
-      };
-    } catch (error) {
-      this.log.warn(
-        t('{name}: {error}; going back to {previous}', {
-          name: this.name,
-          error: errorMessage(error),
-          previous: previousId,
-        }),
-        { instance: this.name },
-        'revert',
-      );
-      await swapBack();
-      this.writeCurrent(previousId);
-      try {
-        if (!this.isRunning()) throw new HostError(t('the server is not running'), 'server-exit');
-        for (const name of toRestart) {
-          const part = await this.proc.consoleCommand(
-            'restart',
-            name,
-            this.host.options.consoleTimeoutMs,
-          );
-          if (part === 'failed') {
-            throw new HostError(
-              t('resource {resource} of the previous release did not restart either', {
-                resource: name,
-              }),
-              'restart-failed',
-            );
-          }
-        }
-      } catch (again) {
-        this.log.warn(
-          t(
-            '{name}: the previous resources cannot be restarted on the fly ({error}); full restart for release {previous}',
-            { name: this.name, error: errorMessage(again), previous: previousId },
-          ),
-          { instance: this.name },
-          'revert',
-        );
-        try {
-          const engineBack =
-            previousEngine ||
-            (await this.host.engines.ensure(this.readRelease(previousId).engine, {
-              recheck: false,
-            }));
-          await this.switchFull(previousId, {
-            revertTo: null,
-            engine: engineBack,
-            reasons: [t('rollback')],
-          });
-        } catch (fatal) {
-          throw new HostError(
-            t(
-              'the resource restart failed: {error}; going back to {previous} failed too: {again}',
-              { error: errorMessage(error), previous: previousId, again: errorMessage(fatal) },
-            ),
-            'revert-failed',
-          );
-        }
-      }
-      const reverted = new HostError(
-        t('the resource restart failed: {error}; went back to {previous}', {
-          error: errorMessage(error),
-          previous: previousId,
-        }),
-        'reverted',
-      );
-      reverted.revertedTo = previousId;
-      throw reverted;
     }
   }
 

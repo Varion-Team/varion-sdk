@@ -33,7 +33,7 @@ export function serverTomlText(
   return `${lines.join('\n')}\n`;
 }
 
-export function listedResources(serverDir, lists) {
+function listedResources(serverDir, lists) {
   const names = [];
   for (const list of lists) {
     const file = path.resolve(serverDir, list);

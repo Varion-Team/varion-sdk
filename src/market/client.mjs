@@ -1,60 +1,31 @@
-import { cabinetBase, CLI_TOKEN, DeployError } from '../deploy/client.mjs';
+import { Readable } from 'node:stream';
+import { DeployError } from '../deploy/errors.mjs';
+import { checkCliToken } from '../deploy/login.mjs';
+import { endpoint, refusal, send } from '../deploy/transport.mjs';
 import { t } from '../i18n/index.mjs';
 
+// a bought resource comes back whole in one answer
+const MAX_ANSWER_BYTES = 256 * 1024 * 1024;
+
 async function ask(cabinetUrl, pathname, { token, method = 'GET', body, what }) {
-  if (typeof token !== 'string' || !CLI_TOKEN.test(token)) {
-    throw new DeployError(
-      t('the sign-in token must look like varion_cli_...: sign in again with varion login'),
-      {
-        code: 'bad_token',
-      },
-    );
+  checkCliToken(token);
+  const answer = await send({
+    url: endpoint(cabinetUrl, pathname),
+    method,
+    token,
+    idleMs: 120_000,
+    maxAnswerBytes: MAX_ANSWER_BYTES,
+    ...(body && {
+      headers: { 'Content-Type': 'application/octet-stream' },
+      file: { size: body.length, open: () => Readable.from([body]) },
+    }),
+  });
+  if (answer.status < 200 || answer.status >= 300) throw refusal(answer, what);
+  // a page from a proxy, or an answer cut short, is not what the cabinet says
+  if (!answer.body || typeof answer.body !== 'object' || Array.isArray(answer.body)) {
+    throw new DeployError(t('{what}: the answer is not JSON', { what }), { code: 'bad_answer' });
   }
-  const url = `${cabinetBase(cabinetUrl)}${pathname}`;
-  let response;
-  try {
-    response = await fetch(url, {
-      method,
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${token}`,
-        'User-Agent': `varion-market-client/1 node/${process.versions.node}`,
-        ...(body ? { 'Content-Type': 'application/octet-stream' } : {}),
-      },
-      body,
-      redirect: 'error',
-      signal: AbortSignal.timeout(120_000),
-    });
-  } catch (error) {
-    const reason = error?.cause?.message || error?.message || String(error);
-    throw new DeployError(
-      t('the cabinet {host} is out of reach: {reason}', { host: new URL(url).host, reason }),
-      {
-        code: 'network',
-      },
-    );
-  }
-  const text = await response.text();
-  let answer = null;
-  try {
-    answer = text ? JSON.parse(text) : null;
-  } catch {}
-  if (!response.ok) {
-    const said =
-      answer && typeof answer.error === 'string' && answer.error
-        ? answer.error
-        : text.trim().slice(0, 200);
-    const reason = said || t('the cabinet answered HTTP {status}', { status: response.status });
-    throw new DeployError(`${what}: ${reason}`, {
-      code:
-        answer && typeof answer.code === 'string' && answer.code
-          ? answer.code
-          : `http_${response.status}`,
-      status: response.status,
-      data: answer || {},
-    });
-  }
-  return answer || {};
+  return answer.body;
 }
 
 export async function publishVersion({

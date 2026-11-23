@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { describe, it } from 'node:test';
-import { newerThan, withEngineVersion } from '../../src/cli/commands/upgrade.mjs';
+import { addDevDependency, newerThan, withEngineVersion } from '../../src/cli/commands/upgrade.mjs';
 import { parseToml } from '../../src/cli/toml.mjs';
-import { runPackageManager } from '../../src/cli/tools.mjs';
+import { projectPackageManager, runPackageManager } from '../../src/cli/tools.mjs';
 
 describe('varion upgrade: the engine version in varion.toml', () => {
   it('changes the version of [engine] and nothing else', () => {
@@ -42,5 +45,27 @@ describe('varion upgrade: npm', () => {
     const answer = await runPackageManager('npm', ['--version'], { stdio: 'pipe' });
     assert.equal(answer.code, 0, answer.output);
     assert.match(answer.output.trim(), /^\d+\.\d+\.\d+/);
+  });
+});
+
+describe('varion upgrade: the package manager of the project', () => {
+  it('is the one whose lock file the project keeps', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'varion-upgrade-pm-'));
+    try {
+      assert.equal(projectPackageManager(dir), 'npm');
+      fs.writeFileSync(path.join(dir, 'yarn.lock'), '');
+      assert.equal(projectPackageManager(dir), 'yarn');
+      fs.writeFileSync(path.join(dir, 'pnpm-lock.yaml'), '');
+      assert.equal(projectPackageManager(dir), 'pnpm');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('adds the SDK as a development dependency in the words of each one', () => {
+    const spec = 'github:Varion-Team/varion-sdk';
+    assert.deepEqual(addDevDependency('npm', spec), ['install', '--save-dev', spec]);
+    assert.deepEqual(addDevDependency('pnpm', spec), ['add', '-D', spec]);
+    assert.deepEqual(addDevDependency('yarn', spec), ['add', '-D', spec]);
   });
 });

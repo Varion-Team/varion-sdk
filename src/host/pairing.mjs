@@ -9,10 +9,10 @@ import { checkUrl, requestJson } from '../shared/http.mjs';
 import { windowsTool } from '../shared/process.mjs';
 import { HOST_ID, HOST_VERSION, isPermanentRefusal } from './cabinet.mjs';
 import { HostError } from './errors.mjs';
+import { SERVER_ID } from '../shared/deploy-format.mjs';
 
 const POLL_S = 5;
 const PAIR_CODE = /^[A-Za-z0-9-]{3,32}$/;
-const SERVER_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 const HOST_TOKEN = /^[A-Za-z0-9._-]{16,512}$/;
 const SYSTEM_SID = 'S-1-5-18';
 const ADMINISTRATORS_SID = 'S-1-5-32-544';
@@ -50,7 +50,7 @@ export function readHostToken(file) {
 }
 
 // ProgramData is readable by every user: the token stays with its owner, SYSTEM and Administrators
-export function restrictToOwner(file, platform = process.platform) {
+function restrictToOwner(file, platform = process.platform) {
   if (platform !== 'win32') return true;
   const user = spawnSync(windowsTool('whoami.exe'), ['/user', '/fo', 'csv', '/nh'], {
     encoding: 'utf8',
@@ -134,6 +134,62 @@ function checkPaired(answer) {
   return { token, serverId, serverName };
 }
 
+// Asks the cabinet for a code until it gives one.
+async function askForCode(call, { hostId, hostname, origin, log, signal }) {
+  for (let failures = 1; ; failures++) {
+    try {
+      return checkPair(
+        await call('/api/host/pair/start', { hostId, hostname: String(hostname).slice(0, 64) }),
+      );
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      if (error?.status === 404) {
+        throw new HostError(
+          t(
+            'the cabinet {cabinet} does not connect machines by code: start the host with --token from the cabinet',
+            { cabinet: origin },
+          ),
+          'no-pairing',
+        );
+      }
+      if (isPermanentRefusal(error)) throw error;
+      if (failures === 1 || failures % 10 === 0) {
+        log.warn(
+          t('the cabinet gave no code for this machine ({error}); retrying', {
+            error: errorMessage(error),
+          }),
+          { failures },
+          'pair-failed',
+        );
+      }
+      await delay(Math.min(60_000, 2000 * 2 ** Math.min(failures - 1, 5)), undefined, { signal });
+    }
+  }
+}
+
+// Waits for the owner to confirm the code. Resolves null when the code is no longer valid.
+async function waitForOwner(call, pair, { signal, pollMs }) {
+  const deadline = Date.now() + pair.expiresIn * 1000;
+  while (Date.now() < deadline) {
+    await delay(pollMs ?? pair.intervalMs, undefined, { signal });
+    let answer;
+    try {
+      answer = await call('/api/host/pair/poll', {
+        pairId: pair.pairId,
+        pollSecret: pair.pollSecret,
+      });
+    } catch (error) {
+      if (signal?.aborted) throw error;
+      if (error?.status === 404) return null;
+      if (isPermanentRefusal(error)) throw error;
+      continue;
+    }
+    if (answer?.status === 'paired') return checkPaired(answer);
+    if (answer?.status === 'expired') return null;
+  }
+  return null;
+}
+
 export async function pairHost({ cabinetUrl, hostId, hostname, log, signal, pollMs }) {
   const base = checkUrl(cabinetUrl, '--cabinet');
   if (!HOST_ID.test(String(hostId || ''))) {
@@ -154,39 +210,8 @@ export async function pairHost({ cabinetUrl, hostId, hostname, log, signal, poll
       }),
       signal,
     );
-  let failures = 0;
   for (;;) {
-    let pair;
-    try {
-      pair = checkPair(
-        await call('/api/host/pair/start', { hostId, hostname: String(hostname).slice(0, 64) }),
-      );
-      failures = 0;
-    } catch (error) {
-      if (signal?.aborted) throw error;
-      if (error?.status === 404) {
-        throw new HostError(
-          t(
-            'the cabinet {cabinet} does not connect machines by code: start the host with --token from the cabinet',
-            { cabinet: base.origin },
-          ),
-          'no-pairing',
-        );
-      }
-      if (isPermanentRefusal(error)) throw error;
-      failures++;
-      if (failures === 1 || failures % 10 === 0) {
-        log.warn(
-          t('the cabinet gave no code for this machine ({error}); retrying', {
-            error: errorMessage(error),
-          }),
-          { failures },
-          'pair-failed',
-        );
-      }
-      await delay(Math.min(60_000, 2000 * 2 ** Math.min(failures - 1, 5)), undefined, { signal });
-      continue;
-    }
+    const pair = await askForCode(call, { hostId, hostname, origin: base.origin, log, signal });
     const url = pair.url || `${base.origin}/cabinet`;
     log.info(
       t(
@@ -196,24 +221,8 @@ export async function pairHost({ cabinetUrl, hostId, hostname, log, signal, poll
       { code: pair.code, url, expiresIn: pair.expiresIn },
       'pair-code',
     );
-    const deadline = Date.now() + pair.expiresIn * 1000;
-    while (Date.now() < deadline) {
-      await delay(pollMs ?? pair.intervalMs, undefined, { signal });
-      let answer;
-      try {
-        answer = await call('/api/host/pair/poll', {
-          pairId: pair.pairId,
-          pollSecret: pair.pollSecret,
-        });
-      } catch (error) {
-        if (signal?.aborted) throw error;
-        if (error?.status === 404) break;
-        if (isPermanentRefusal(error)) throw error;
-        continue;
-      }
-      if (answer?.status === 'paired') return checkPaired(answer);
-      if (answer?.status === 'expired') break;
-    }
+    const paired = await waitForOwner(call, pair, { signal, pollMs });
+    if (paired) return paired;
     log.info(
       t('the code {code} is no longer valid; asking for a new one', { code: pair.code }),
       { code: pair.code },

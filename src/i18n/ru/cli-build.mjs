@@ -64,7 +64,7 @@ export default {
     'откатываю {releaseId} — действующий выпуск {env} на сервере {serverId}',
   '{releaseId} is rolled back on {serverId}: the release before it runs again':
     '{releaseId} откачен на {serverId}: снова работает выпуск, что был до него',
-  'the server {serverId} is not on the line: varion host is not running on its machine, or is not connected':
+  'the server {serverId} is offline: varion host is not running on its machine, or is not connected':
     'сервер {serverId} не на связи: varion host на его компьютере не запущен или не подключён',
   'varion host on the machine of server {serverId} is outdated: update the SDK there and start the host again':
     'varion host на компьютере сервера {serverId} устарел: обнови там SDK и запусти хост снова',
@@ -83,14 +83,14 @@ export default {
   'the server asks for the pack {name}, and it is not on this computer: put it into the packs folder of the project, or onto the server by hand':
     'сервер просит пак {name}, а на этом компьютере его нет: положи его в папку паков проекта или на сервер руками',
   'the cabinet did not say which packs to send': 'кабинет не сказал, какие паки отправить',
-  'the cabinet {host} does not carry releases to the host: it is older than this SDK':
+  'the cabinet {host} cannot relay releases to the host: it is older than this SDK':
     'кабинет {host} не передаёт выпуски хосту: он старше этого SDK',
   'cannot ask where the deploy goes': 'не удалось узнать, куда идёт выкладка',
   'no release id for the bundle': 'у архива нет номера выпуска',
   'no key of the server machine to seal the release with':
     'нет ключа компьютера сервера, которым запечатывается выпуск',
   'the release did not reach the server': 'выпуск не дошёл до сервера',
-  'the host of server {serverId} is not on the line': 'хост сервера {serverId} не на связи',
+  'the host of server {serverId} is offline': 'хост сервера {serverId} не на связи',
   'the host of server {serverId} runs an older SDK: update it':
     'хост сервера {serverId} работает на старом SDK: обнови его',
   'the machine of server {serverId} has another key now ({now}, was {was})':

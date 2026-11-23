@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
 import { t } from '../i18n/index.mjs';
+import { ED25519_SPKI } from '../shared/deploy-format.mjs';
 import { readJson, writeJsonAtomic } from '../shared/fs.mjs';
 import { HostError } from './errors.mjs';
 
-const ED25519_SPKI_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 const KEY_NAME = /^[\p{L}\p{N} ._@+-]{1,64}$/u;
 const MAX_CABINET_KEYS = 1000;
 
@@ -27,15 +27,15 @@ export function decodeBase64(text, bytes) {
   return decoded;
 }
 
-export function publicKeyFromRaw(raw) {
+function publicKeyFromRaw(raw) {
   return crypto.createPublicKey({
-    key: Buffer.concat([ED25519_SPKI_PREFIX, raw]),
+    key: Buffer.concat([ED25519_SPKI, raw]),
     format: 'der',
     type: 'spki',
   });
 }
 
-export function parsePublicKey(text) {
+function parsePublicKey(text) {
   const raw = decodeBase64(text, 32);
   if (!raw) {
     throw new HostError(
@@ -52,7 +52,7 @@ export function parsePublicKey(text) {
   return { raw, base64: raw.toString('base64'), key };
 }
 
-export function checkKeyName(name) {
+function checkKeyName(name) {
   if (!KEY_NAME.test(name)) {
     throw new HostError(
       t('key name "{name}" is not valid: up to 64 letters, digits, spaces and . _ @ + -', {
@@ -93,7 +93,7 @@ export function loadTrust(file) {
   });
 }
 
-export function saveTrust(file, keys) {
+function saveTrust(file, keys) {
   const keysOut = keys.map(({ name, publicKey, addedAt }) => ({ name, publicKey, addedAt }));
   writeJsonAtomic(file, { format: 1, keys: keysOut }, { mode: 0o600 });
 }

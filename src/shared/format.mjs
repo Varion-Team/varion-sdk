@@ -1,5 +1,9 @@
 import { getLocale, t } from '../i18n/index.mjs';
 
+// A string or a number from someone else's JSON as text; anything else as an empty string.
+export const text = (value) =>
+  typeof value === 'string' || typeof value === 'number' ? String(value) : '';
+
 export function formatBytes(bytes) {
   const number = (value) =>
     new Intl.NumberFormat(getLocale(), {

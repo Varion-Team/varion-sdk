@@ -6,13 +6,21 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { t } from '../i18n/index.mjs';
-import { randomTag } from '../shared/fs.mjs';
+import { isInside, randomTag } from '../shared/fs.mjs';
 import { windowsTool } from '../shared/process.mjs';
 import { HostError } from './errors.mjs';
 import { defaultRoot, samePath } from './paths.mjs';
 
 export const HOST_BIN = fileURLToPath(new URL('../../bin/varion-host.mjs', import.meta.url));
 const TASK = 'Varion Host';
+
+// The task runs as SYSTEM, so the script it starts should not be one an ordinary program of
+// the user can rewrite: a global npm install puts it under the user's own folder.
+export function insideUserFolder(file, env = process.env) {
+  return [env.USERPROFILE, env.APPDATA, env.LOCALAPPDATA]
+    .filter(Boolean)
+    .some((folder) => isInside(folder, file));
+}
 
 export function taskName(root) {
   if (samePath(root, defaultRoot(), 'win32')) return TASK;

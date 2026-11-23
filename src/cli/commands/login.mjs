@@ -74,7 +74,7 @@ export function openBrowser(url, platform = process.platform) {
 
 // Signs this computer in and adds its developer key to the account: what `varion login` does,
 // and what a command that needs the sign-in does by itself the first time it is run.
-export async function signInHere({ cabinet, name, noBrowser = false, output }) {
+async function signInHere({ cabinet, name, noBrowser = false, output }) {
   const { token, account } = await signIn({
     cabinetUrl: cabinet,
     name,
@@ -149,7 +149,7 @@ export function canAskToSignIn(env = process.env) {
   );
 }
 
-// The saved sign-in of this computer, made now when there is none and someone can confirm it.
+// Returns the saved sign-in, signing in first when there is none and a person can confirm it.
 export async function ensureSignedIn(cabinet, root, { env = process.env } = {}) {
   const saved = savedLogin(cabinet, { env });
   if (saved || !canAskToSignIn(env)) return saved;
