@@ -197,6 +197,7 @@ test('varion new: files, then a git repository with the first commit', async () 
     {
       stdout: sink,
       stderr: sink,
+      serverIndex: { index: async () => null },
     },
   );
   assert.equal(code, 0);
@@ -227,6 +228,7 @@ test('varion new --no-git leaves git alone', async () => {
   const code = await main(['new', 'plain', '--cwd', parent, '--no-install', '--no-git', '--json'], {
     stdout: sink,
     stderr: sink,
+    serverIndex: { index: async () => null },
   });
   assert.equal(code, 0);
   assert.equal(fs.existsSync(path.join(parent, 'plain', '.git')), false);

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { generateKeyPairSync, sign } from 'node:crypto';
 import dgram from 'node:dgram';
 import fs from 'node:fs';
+import { createServer } from 'node:http';
 import path from 'node:path';
 import test, { after } from 'node:test';
 import { main } from '../../src/cli/cli.mjs';
@@ -8,6 +10,8 @@ import { tcpPortFree } from '../../src/cli/net.mjs';
 import { DEFAULT_ENGINE } from '../../src/cli/scaffold.mjs';
 import { parseToml } from '../../src/cli/toml.mjs';
 import { serverExecutableName } from '../../src/shared/engine.mjs';
+import { sha256 } from '../../src/shared/fs.mjs';
+import { SDK_TYPE_FILES, serverIndexClient } from '../../src/shared/server-index.mjs';
 import { openZip } from '../../src/shared/zip.mjs';
 import { cleanupTempDirs, FAKE_TOOLS, tempDir, writeFiles } from './helpers.mjs';
 
@@ -15,11 +19,13 @@ after(cleanupTempDirs);
 
 // Runs varion as the command line does; --json makes every line of its output an event.
 async function varion(...args) {
+  const serverIndex = typeof args[0] === 'object' ? args.shift() : { index: async () => null };
   let stdout = '';
   let stderr = '';
   const code = await main(args, {
     stdout: { write: (text) => (stdout += text) },
     stderr: { write: (text) => (stderr += text) },
+    serverIndex,
   });
   const events = args.includes('--json')
     ? stdout
@@ -77,6 +83,102 @@ const moved = (result) => {
   const { from, to } = result.find('engine-version');
   return { from, to };
 };
+
+test('a signed CDN channel drives new, upgrade, and types while preserving version pins', async (t) => {
+  const { privateKey, publicKey } = generateKeyPairSync('ed25519');
+  const served = new Map();
+  const http = createServer((req, res) => {
+    const body = served.get(req.url);
+    res.writeHead(body ? 200 : 404).end(body);
+  });
+  await new Promise((resolve) => http.listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise((resolve) => http.close(resolve)));
+  const client = serverIndexClient({
+    cdn: `http://127.0.0.1:${http.address().port}`,
+    key: publicKey,
+  });
+  const add = (version, channel = 'rc') => {
+    const prefix = `/Varion-Server/${channel}/${version}`;
+    const manifest = {
+      schemaVersion: 1,
+      product: 'varion-server',
+      channel,
+      version,
+      protocol: 26,
+      files: {},
+    };
+    for (const name of SDK_TYPE_FILES) {
+      const bytes = Buffer.from(`// ${version}: ${name}\n`);
+      const file = `types/${name}`;
+      manifest.files[file] = { size: bytes.length, sha256: sha256(bytes) };
+      served.set(`${prefix}/${file}`, bytes);
+    }
+    const signature = sign(null, Buffer.from(JSON.stringify(manifest)), privateKey).toString(
+      'base64',
+    );
+    const index = JSON.stringify({ manifest, signature });
+    served.set(`/channels/${channel}/server/index.json`, index);
+    served.set(`${prefix}/index.json`, index);
+    return prefix;
+  };
+  add('1.1.0');
+  add('2.0.0', 'release');
+  const parent = tempDir();
+  const dir = path.join(parent, 'signed-mode');
+  const newArgs = ['new', 'signed-mode', '--no-git', '--no-install', '-C', parent, '--json'];
+  assert.equal((await varion(client, ...newArgs)).code, 0);
+  const config = () => parseToml(fs.readFileSync(path.join(dir, 'varion.toml'), 'utf8')).engine;
+  const typePath = path.join(dir, 'types', SDK_TYPE_FILES[0]);
+  const type = () => fs.readFileSync(typePath, 'utf8');
+  assert.deepEqual([config().version, config().channel], ['1.1.0', 'rc']);
+  assert.match(type(), /1\.1\.0/);
+  const releaseArgs = newArgs.map((arg) => (arg === 'signed-mode' ? 'stable-mode' : arg));
+  const release = await varion(client, ...releaseArgs, '--engine-channel', 'release');
+  assert.equal(release.find('new').engine.version, '2.0.0');
+
+  const prefix = add('1.2.0');
+  assert.equal((await varion(client, 'types', '-C', dir, '--json')).code, 0);
+  assert.match(type(), /1\.1\.0/);
+  const upgrade = ['upgrade', '--no-install', '--no-check', '-C', dir, '--json'];
+  const corrupt = `${prefix}/types/${SDK_TYPE_FILES[1]}`;
+  const good = served.get(corrupt);
+  served.set(corrupt, Buffer.alloc(good.length, 0x2f));
+  assert.equal((await varion(client, ...upgrade)).find('fatal').code, 'server-index-integrity');
+  assert.equal(config().version, '1.1.0');
+  assert.match(type(), /1\.1\.0/);
+  served.set(corrupt, good);
+  const changedDuringDownload = {
+    ...client,
+    async types(index) {
+      const types = await client.types(index);
+      fs.appendFileSync(path.join(dir, 'varion.toml'), '\n# edited during download\n');
+      return types;
+    },
+  };
+  assert.match(
+    (await varion(changedDuringDownload, ...upgrade)).find('fatal').text,
+    /changed during the download/,
+  );
+  assert.equal(config().version, '1.1.0');
+  assert.match(type(), /1\.1\.0/);
+  const lock = path.join(dir, '.varion', 'types.lock');
+  fs.writeFileSync(lock, String(process.pid), { flag: 'wx' });
+  try {
+    assert.match((await varion(client, ...upgrade)).find('fatal').text, /another command/);
+  } finally {
+    fs.unlinkSync(lock);
+  }
+  assert.deepEqual(moved(await varion(client, ...upgrade)), { from: '1.1.0', to: '1.2.0' });
+  assert.equal(config().version, '1.2.0');
+  assert.match(type(), /1\.2\.0/);
+  add('1.1.0');
+  assert.deepEqual(moved(await varion(client, ...upgrade)), { from: '1.2.0', to: '1.2.0' });
+
+  served.set('/channels/rc/server/index.json', '{"manifest":{},"signature":"invalid"}');
+  const rejected = newArgs.map((arg) => (arg === 'signed-mode' ? 'invalid-mode' : arg));
+  assert.equal((await varion(client, ...rejected)).find('fatal').code, 'server-index-integrity');
+  assert.equal(fs.existsSync(path.join(parent, 'invalid-mode')), false);
+});
 
 test('varion without a command prints its help and fails; --help and --version succeed', async () => {
   const none = await varion();

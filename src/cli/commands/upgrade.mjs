@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { t } from '../../i18n/index.mjs';
+import { serverIndexClient } from '../../shared/server-index.mjs';
 import { parseArgs } from '../args.mjs';
 import { CliError } from '../output.mjs';
 import { openProject } from '../prepare.mjs';
@@ -90,43 +91,48 @@ async function updateSdk(root, argv, output) {
   return result.status ?? 1;
 }
 
-// Moves [engine] version in varion.toml to the engine this SDK is made for.
-function moveEngine(project, output) {
+async function refreshEngine(project, cliDir, output, serverIndex, before) {
   const { engine } = project.config;
-  const file = path.join(project.root, 'varion.toml');
-  const newest = DEFAULT_ENGINE.version;
   if (engine.path) {
     output.info(t('the engine is your own build ([engine] path): its version is left alone'));
-    return;
+    return copySdkTypes(cliDir, project.root, undefined, { before }).written;
   }
-  if (!newerThan(newest, engine.version)) {
-    output.event(
-      'engine-version',
-      { from: engine.version, to: engine.version },
-      `[upgrade] ${t('engine {version}: already the newest this SDK knows', {
-        version: engine.version,
-      })}`,
-    );
-    return;
+  const latest = await serverIndex.index(engine.channel);
+  const candidate =
+    latest?.version ??
+    (engine.channel === DEFAULT_ENGINE.channel ? DEFAULT_ENGINE.version : engine.version);
+  const newest = newerThan(candidate, engine.version) ? candidate : engine.version;
+  const index =
+    latest?.version === newest ? latest : await serverIndex.index(engine.channel, newest);
+  const types = index ? await serverIndex.types(index) : undefined;
+  const moving = newest !== engine.version;
+  let text;
+  if (moving) {
+    text = withEngineVersion(before, newest);
+    if (!text) {
+      throw new CliError(t('varion.toml has no version in [engine] to change'), {
+        code: 'no_engine_version',
+      });
+    }
   }
-  const text = withEngineVersion(fs.readFileSync(file, 'utf8'), newest);
-  if (!text) {
-    throw new CliError(t('varion.toml has no version in [engine] to change'), {
-      code: 'no_engine_version',
-    });
-  }
-  fs.writeFileSync(file, text);
+  const { written } =
+    types || (engine.channel === DEFAULT_ENGINE.channel && newest === DEFAULT_ENGINE.version)
+      ? copySdkTypes(cliDir, project.root, types, { before, after: text })
+      : { written: [] };
   output.event(
     'engine-version',
     { from: engine.version, to: newest },
-    `[upgrade] ${t('engine {from} -> {to} in varion.toml', { from: engine.version, to: newest })}`,
+    moving
+      ? `[upgrade] ${t('engine {from} -> {to} in varion.toml', { from: engine.version, to: newest })}`
+      : `[upgrade] ${t('engine {version}: already the newest this SDK knows', { version: newest })}`,
   );
+  return written;
 }
 
 // `varion upgrade`: the newest SDK, the engine it is made for, fresh typings, and a type check
 // that shows what in the mode no longer fits.
 export async function run(argv, context) {
-  const { output: root, cliDir } = context;
+  const { output: root, cliDir, serverIndex = serverIndexClient() } = context;
   const { options, positionals } = parseArgs(argv, {
     command: 'upgrade',
     options: { 'no-install': 'boolean', 'no-check': 'boolean', json: 'boolean', cwd: 'string' },
@@ -135,19 +141,27 @@ export async function run(argv, context) {
   noArguments('varion upgrade', positionals);
   const output = root.child('upgrade');
   const project = openProject(options, output);
+  const before = fs.readFileSync(path.join(project.root, 'varion.toml'), 'utf8');
 
   if (!options.noInstall) {
     const handedOver = await updateSdk(project.root, argv, output);
     if (handedOver !== null) return handedOver;
   }
-  moveEngine(project, output);
-
-  const { written } = copySdkTypes(cliDir, project.root);
-  output.event(
-    'types',
-    { files: written },
-    `[upgrade] ${t('typings refreshed ({count} files)', { count: written.length })}`,
-  );
+  const written = await refreshEngine(project, cliDir, output, serverIndex, before);
+  if (written.length) {
+    output.event(
+      'types',
+      { files: written },
+      `[upgrade] ${t('typings refreshed ({count} files)', { count: written.length })}`,
+    );
+  } else {
+    output.warn(
+      t(
+        'no published types for engine {version} in {channel}; existing types were kept',
+        project.config.engine,
+      ),
+    );
+  }
 
   if (options.noCheck || project.config.build.kind !== 'standard') return 0;
   const passing = options.cwd ? ['--cwd', options.cwd] : [];

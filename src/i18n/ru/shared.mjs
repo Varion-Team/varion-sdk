@@ -132,6 +132,9 @@ export default {
   'the signature of the engine {version} manifest does not match the Varion release key: the package is not installed':
     'подпись манифеста движка {version} не сходится с ключом выпусков Varion: пакет не установлен',
   'engine package': 'пакет движка',
+  'server release': 'выпуск сервера',
+  'server release verification failed for {file}':
+    'не удалось проверить файл выпуска сервера {file}',
   'engine {version}: {received} of {total}': 'движок {version}: {received} из {total}',
   'engine {version}: the release signature and {count} files are verified':
     'движок {version}: подпись выпуска и {count} файлов проверены',

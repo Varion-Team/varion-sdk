@@ -50,7 +50,7 @@ export function engineManifestName(platform = process.platform, arch = process.a
   return platform === 'win32' ? MANIFEST : `server-manifest-${platform}-${arch}.json`;
 }
 
-function verifyManifestSignature(manifestBytes, signatureText, releaseKey = RELEASE_KEY) {
+export function verifyManifestSignature(manifestBytes, signatureText, releaseKey = RELEASE_KEY) {
   const signature = Buffer.from(String(signatureText).trim(), 'base64');
   if (signature.length !== 64) return false;
   try {

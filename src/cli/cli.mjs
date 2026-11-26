@@ -61,7 +61,7 @@ function helpText() {
                           ${t('manage the project database (MariaDB in .varion/db)')}
   varion assets status|fetch|lock
                           ${t('check, fetch and lock the big files of the project (DLC packs)')}
-  varion types            ${t('refresh types/ with the SDK typings of this varion')}
+  varion types            ${t('refresh types/ for the engine pinned in the project')}
   varion upgrade [--no-check]
                           ${t('move the project to the newest SDK and engine, and show what no longer fits')}
 
@@ -79,7 +79,10 @@ ${t('common options')}:
   --help, --version`;
 }
 
-export async function main(argv, { stdout = process.stdout, stderr = process.stderr } = {}) {
+export async function main(
+  argv,
+  { stdout = process.stdout, stderr = process.stderr, serverIndex } = {},
+) {
   const json = argv.includes('--json');
   const output = createOutput({ json, stdout, stderr });
   const [command, ...rest] = argv;
@@ -104,7 +107,7 @@ export async function main(argv, { stdout = process.stdout, stderr = process.std
   }
   try {
     const module = await load();
-    return await module.run(rest, { output, cliDir: CLI_DIR });
+    return await module.run(rest, { output, cliDir: CLI_DIR, serverIndex });
   } catch (error) {
     if (error instanceof VarionError) {
       if (json) {

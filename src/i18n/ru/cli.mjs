@@ -30,8 +30,6 @@ export default {
     'управлять базой проекта (MariaDB в .varion/db)',
   'check, fetch and lock the big files of the project (DLC packs)':
     'проверить, скачать и записать в замок большие файлы проекта (паки DLC)',
-  'refresh types/ with the SDK typings of this varion':
-    'обновить types/ типами SDK из этой версии varion',
   'move the project to the newest SDK and engine, and show what no longer fits':
     'перевести проект на новый SDK и движок и показать, что в коде перестало сходиться',
   'updating the SDK of the project': 'обновляю SDK проекта',
@@ -42,7 +40,13 @@ export default {
     'в varion.toml нет версии в [engine], которую можно сменить',
   'engine {from} -> {to} in varion.toml': 'движок {from} -> {to} в varion.toml',
   'engine {version}: already the newest this SDK knows':
-    'движок {version}: новее этот SDK не знает',
+    'движок {version}: более новой версии в канале нет',
+  'no published server in {channel}; specify --engine-version to use an older build':
+    'в канале {channel} нет опубликованного сервера. Укажи --engine-version для старой сборки',
+  'no server index in {channel}; using the bundled version {version}':
+    'в канале {channel} пока нет индекса сервера. Использую версию {version} из комплекта SDK',
+  'no published types for engine {version} in {channel}; existing types were kept':
+    'для движка {version} в канале {channel} нет опубликованных типов. Файлы проекта сохранены',
   'typings refreshed ({count} files)': 'типы обновлены (файлов: {count})',
   'done: the mode fits the new version': 'готово: режим сходится с новой версией',
   'the lines above no longer fit the new version: fix them and run varion check':
@@ -249,6 +253,12 @@ export default {
   // engine and types
   'your own build': 'своя сборка',
   'updated {count} type files from {source}': 'обновлено файлов типов: {count} (из {source})',
+  'refresh types/ for the engine pinned in the project':
+    'обновить types/ для версии движка, закреплённой в проекте',
+  'another command is updating the project types; try again':
+    'другая команда обновляет типы проекта. Повтори попытку',
+  'varion.toml changed during the download; try again':
+    'varion.toml изменился во время загрузки. Повтори попытку',
   'project database: {dir} (MariaDB {version}), database {database}':
     'база проекта: {dir} (MariaDB {version}), база {database}',
 };

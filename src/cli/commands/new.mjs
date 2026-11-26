@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { t } from '../../i18n/index.mjs';
+import { serverIndexClient } from '../../shared/server-index.mjs';
 import { parseArgs } from '../args.mjs';
 import { CliError } from '../output.mjs';
 import { DEFAULT_ENGINE, generateProject, sdkSpec } from '../scaffold.mjs';
@@ -60,7 +61,7 @@ const OPTIONS = {
   cwd: 'string',
 };
 
-export async function run(argv, { output: root, cliDir }) {
+export async function run(argv, { output: root, cliDir, serverIndex = serverIndexClient() }) {
   const { options, positionals } = parseArgs(argv, {
     command: 'new',
     options: OPTIONS,
@@ -73,11 +74,30 @@ export async function run(argv, { output: root, cliDir }) {
   const base = options.cwd ? path.resolve(options.cwd) : process.cwd();
   const dir = path.resolve(base, options.dir || name);
   const port = options.port ?? 7788;
+  const channel = options.engineChannel || DEFAULT_ENGINE.channel;
+  const index = options.enginePath ? null : await serverIndex.index(channel, options.engineVersion);
+  if (
+    !index &&
+    !options.enginePath &&
+    !options.engineVersion &&
+    channel !== DEFAULT_ENGINE.channel
+  ) {
+    throw new CliError(
+      t('no published server in {channel}; specify --engine-version to use an older build', {
+        channel,
+      }),
+    );
+  }
+  if (!index && !options.enginePath && !options.engineVersion) {
+    output.warn(
+      t('no server index in {channel}; using the bundled version {version}', DEFAULT_ENGINE),
+    );
+  }
   const engine = options.enginePath
     ? { path: path.resolve(base, options.enginePath) }
     : {
-        version: options.engineVersion || DEFAULT_ENGINE.version,
-        channel: options.engineChannel || DEFAULT_ENGINE.channel,
+        version: options.engineVersion || index?.version || DEFAULT_ENGINE.version,
+        channel,
       };
   const pm = detectPackageManager(options.pm);
 
@@ -91,6 +111,7 @@ export async function run(argv, { output: root, cliDir }) {
     dbPort: options.dbPort ?? 3317,
     sdkDir: cliDir,
     spec: options.sdk || sdkSpec(cliDir),
+    types: index ? await serverIndex.types(index) : undefined,
   });
   output.event(
     'new',

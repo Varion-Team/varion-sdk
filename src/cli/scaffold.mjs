@@ -1,14 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { getLocale, t } from '../i18n/index.mjs';
-import { walkFiles } from '../shared/fs.mjs';
+import { walkFiles, writeFileAtomic } from '../shared/fs.mjs';
+import { isAlive } from '../shared/process.mjs';
+import { SDK_TYPE_FILES } from '../shared/server-index.mjs';
 import { DEFAULT_CABINET, RESOURCE_NAME } from './config.mjs';
 import { CliError } from './output.mjs';
 import { tomlString } from './toml.mjs';
 
-const SDK_TYPE_FILES = ['varion-server.d.ts', 'varion-client.d.ts', 'varion-natives.d.ts'];
-
-// the engine a new project starts on
+// The bundled snapshot is the fallback until the RC index has been published.
 export const DEFAULT_ENGINE = { version: '1.0.97', channel: 'rc' };
 
 // what the template is tested with
@@ -36,16 +36,58 @@ export function sdkSpec(sdkDir) {
   return `file:${path.resolve(sdkDir).split(path.sep).join('/')}`;
 }
 
-export function copySdkTypes(sdkDir, projectDir) {
-  const source = path.join(sdkDir, 'types');
-  const target = path.join(projectDir, 'types');
-  fs.mkdirSync(target, { recursive: true });
-  const written = [];
-  for (const file of SDK_TYPE_FILES) {
-    fs.copyFileSync(path.join(source, file), path.join(target, file));
-    written.push(`types/${file}`);
+function lockTypeUpdate(projectDir) {
+  const directory = path.join(projectDir, '.varion');
+  fs.mkdirSync(directory, { recursive: true });
+  const file = path.join(directory, 'types.lock');
+  const create = () => fs.writeFileSync(file, String(process.pid), { flag: 'wx' });
+  try {
+    create();
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    const pid = Number(fs.readFileSync(file, 'utf8'));
+    if (pid ? isAlive(pid) : Date.now() - fs.statSync(file).mtimeMs < 60_000) {
+      throw new CliError(t('another command is updating the project types; try again'));
+    }
+    fs.rmSync(file, { force: true });
+    create();
   }
-  return { source, written };
+  return () => fs.unlinkSync(file);
+}
+
+export function copySdkTypes(sdkDir, projectDir, downloaded, config) {
+  const source = downloaded?.source ?? path.join(sdkDir, 'types');
+  const target = path.join(projectDir, 'types');
+  const files = SDK_TYPE_FILES.map((name) => ({
+    file: path.join(target, name),
+    bytes: downloaded ? downloaded.files.get(name) : fs.readFileSync(path.join(source, name)),
+  }));
+  const unlock = lockTypeUpdate(projectDir);
+  const changed = [];
+  try {
+    if (config) {
+      const file = path.join(projectDir, 'varion.toml');
+      if (fs.readFileSync(file, 'utf8') !== config.before) {
+        throw new CliError(t('varion.toml changed during the download; try again'));
+      }
+      if (config.after !== undefined) files.push({ file, bytes: Buffer.from(config.after) });
+    }
+    for (const { file, bytes } of files) {
+      const before = fs.existsSync(file) ? fs.readFileSync(file) : null;
+      if (before?.equals(bytes)) continue;
+      writeFileAtomic(file, bytes);
+      changed.push({ file, before });
+    }
+  } catch (error) {
+    for (const { file, before } of changed.reverse()) {
+      if (before === null) fs.unlinkSync(file);
+      else writeFileAtomic(file, before);
+    }
+    throw error;
+  } finally {
+    unlock();
+  }
+  return { source, written: SDK_TYPE_FILES.map((name) => `types/${name}`) };
 }
 
 const escapeHtml = (text) =>
@@ -251,6 +293,7 @@ export function generateProject({
   dbPort = 3317,
   sdkDir,
   spec,
+  types,
 }) {
   if (!RESOURCE_NAME.test(name)) {
     throw new CliError(
@@ -300,6 +343,6 @@ export function generateProject({
   write('varion.toml', varionTomlText({ name, title, engine, port, db, dbPort }));
   write('package.json', packageJsonText({ name, spec: spec || sdkSpec(sdkDir), db }));
   write('.env.example', envExampleText({ name, db, dbPort }));
-  written.push(...copySdkTypes(sdkDir, dir).written);
+  written.push(...copySdkTypes(sdkDir, dir, types).written);
   return written.sort();
 }
