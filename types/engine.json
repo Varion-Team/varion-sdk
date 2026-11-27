@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "engineVersion": "1.0.97",
+  "engineVersion": "1.0.101",
   "protocol": 26,
   "gtaBuild": 3889,
   "files": {
-    "varion-server.d.ts": "1ef39a9de768dfa4066e6b1e34b945ef68ef309ac42ce7b40bb983635ae8b95a",
+    "varion-server.d.ts": "9988a6927caeea0a6f4ebb712928020cbab2e42aab15f0da96d278cd95eb09a8",
     "varion-client.d.ts": "53349c406003bffd1f4b9851f715211ed08ed30b4eba3ae8f1c7ae434d07c9ed",
     "varion-natives.d.ts": "54d349af37b9296bd289a31d22f8e6c013694dc7bbdc1b5a3647aa83bdd60079"
   }

@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import readline from 'node:readline';
 import { t } from '../../i18n/index.mjs';
 import { errorMessage } from '../../shared/errors.mjs';
+import { isLoopbackHost } from '../../shared/http.mjs';
 import { killTree } from '../../shared/process.mjs';
 import { parseArgs } from '../args.mjs';
 import { createBuilder } from '../build.mjs';
@@ -23,6 +24,7 @@ import {
   prepareDotenv,
 } from '../prepare.mjs';
 import { startServer, stopLeftoverServer } from '../server.mjs';
+import { writeDevVehicleCatalog } from '../vehicle-catalog.mjs';
 import { watchProject } from '../watch.mjs';
 
 const OPTIONS = {
@@ -177,6 +179,7 @@ async function firstBuild(project, output, { envName, skip }) {
 async function writeServerFolder(project, output, { settings, envValues }) {
   const serverDir = project.paths.server;
   const resources = await populateServerFolder(project, output, { serverDir, settings, envValues });
+  writeDevVehicleCatalog(project, serverDir, isLoopbackHost(settings.host));
   const { port, httpPort } = settings;
   output.event(
     'config',

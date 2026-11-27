@@ -9,7 +9,7 @@ import { CliError } from './output.mjs';
 import { tomlString } from './toml.mjs';
 
 // The bundled snapshot is the fallback until the RC index has been published.
-export const DEFAULT_ENGINE = { version: '1.0.97', channel: 'rc' };
+export const DEFAULT_ENGINE = { version: '1.0.101', channel: 'rc' };
 
 // what the template is tested with
 const TEMPLATE_VERSIONS = {

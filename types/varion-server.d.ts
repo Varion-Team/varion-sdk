@@ -40,7 +40,7 @@ export interface BlipOptions {
 /** Options of createMarker. Other properties are passed to the core as given. */
 export interface MarkerOptions {
     pos?: Vector3Like; x?: number; y?: number; z?: number;
-    type?: number; scale?: Vector3Like; color?: RGBALike;
+    type?: number; scale?: number | Vector3Like; color?: RGBALike;
     dimension?: number; streamingDistance?: number;
     [option: string]: any;
 }
@@ -113,7 +113,7 @@ export interface EntityCreatingInfo {
     readonly type: "vehicle" | "ped" | "object";
     /** Its network id (GTA object id), as NativeVehicle.netId. */
     readonly netId: number;
-    /** GTA's entity type number (NetObjEntityType: 0 automobile ... 5 ped, 6 object ...). */
+    /** GTA's entity type number (NetObjEntityType: 0 automobile, 5 object, 6 ped). */
     readonly entityType: number;
     /** The player whose client created it and owns it. */
     readonly owner: Player;
@@ -2852,12 +2852,14 @@ export class Colshape {
     readonly kind: "colshape" | "checkpoint";
     /** A box's highest corner (Vector3) or a rectangle's (Vector2); undefined for every other kind. */
     readonly max: Vector3 | Vector2 | undefined;
-    /** Highest z of a polygon, 2 by default; other kinds do not use it, and on them assigning sends nothing. Assigning re-sends a colshape that uses it; NaN is 0. */
-    maxZ: number;
+    /** Upper height bound of a polygon, 2 by default. Other shapes return undefined and assigning has no effect on their geometry. Assigning NaN sets 0 on a polygon. */
+    get maxZ(): number | undefined;
+    set maxZ(value: number);
     /** A box's lowest corner (Vector3) or a rectangle's (Vector2); undefined for every other kind. */
     readonly min: Vector3 | Vector2 | undefined;
-    /** Lowest z of a polygon, 0 by default; other kinds do not use it, and on them assigning sends nothing. Assigning re-sends a colshape that uses it; NaN is 0. */
-    minZ: number;
+    /** Lower height bound of a polygon, 0 by default. Other shapes return undefined and assigning has no effect on their geometry. Assigning NaN sets 0 on a polygon. */
+    get minZ(): number | undefined;
+    set minZ(value: number);
     /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
     playersOnly: boolean;
     /** A polygon's corners as Vector2; undefined for every other kind. */
@@ -2894,7 +2896,7 @@ export class ColshapeBox {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Destroys the colshape: entities inside leave first and baseObjectRemove fires. valid becomes false. After removal, other members (including destroy) throw "Invalid base object". Stopping the owning resource also removes the colshape. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -2912,8 +2914,9 @@ export class ColshapeBox {
     hasMeta(key: string): boolean;
     /** Whether setSyncedMeta stored a value under the key. */
     hasSyncedMeta(key: string): boolean;
-    /** Not used by a box: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    height: number;
+    /** height is undefined for a box. Assigning does not change its geometry. */
+    get height(): undefined;
+    set height(value: number);
     /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
     readonly id: number;
     /** Whether the entity, or the entity with this id, is inside: what the entityEnterColshape and entityLeaveColshape events delivered so far say, so the answer agrees with them. The server tests about every 150 ms, by the dimension rule and playersOnly. false for null, an entity no longer valid or one never reported. */
@@ -2926,21 +2929,24 @@ export class ColshapeBox {
     readonly kind: "colshape";
     /** The box's highest corner: pos plus its half-extents. */
     readonly max: Vector3;
-    /** Not used by a box: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    maxZ: number;
+    /** maxZ is undefined for a box. Assigning does not change its geometry. */
+    get maxZ(): undefined;
+    set maxZ(value: number);
     /** The box's lowest corner: pos minus its half-extents. */
     readonly min: Vector3;
-    /** Not used by a box: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
-    minZ: number;
+    /** minZ is undefined for a box. Assigning does not change its geometry. */
+    get minZ(): undefined;
+    set minZ(value: number);
     /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
     playersOnly: boolean;
-    /** Always [] for a box: only polygons have points. */
-    readonly points: Vector2[];
+    /** points is undefined for a box. */
+    readonly points: undefined;
     /** Centre of the box. Assigning moves it; a non-finite component becomes 0. */
     get pos(): Vector3;
     set pos(value: Vector3Like);
-    /** Not used by a box: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    radius: number;
+    /** radius is undefined for a box. Assigning does not change its geometry. */
+    get radius(): undefined;
+    set radius(value: number);
     /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
     setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, any>): void;
     setMeta(values: CustomMetaValues<ICustomColshapeMeta, any>): void;
@@ -2968,7 +2974,7 @@ export class ColshapeCircle {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Destroys the colshape: entities inside leave first and baseObjectRemove fires. valid becomes false. After removal, other members (including destroy) throw "Invalid base object". Stopping the owning resource also removes the colshape. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -2986,8 +2992,9 @@ export class ColshapeCircle {
     hasMeta(key: string): boolean;
     /** Whether setSyncedMeta stored a value under the key. */
     hasSyncedMeta(key: string): boolean;
-    /** Not used by a circle: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    height: number;
+    /** height is undefined for a circle. Assigning does not change its geometry. */
+    get height(): undefined;
+    set height(value: number);
     /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
     readonly id: number;
     /** Whether the entity, or the entity with this id, is inside: what the entityEnterColshape and entityLeaveColshape events delivered so far say, so the answer agrees with them. The server tests about every 150 ms, by the dimension rule and playersOnly. false for null, an entity no longer valid or one never reported. */
@@ -2998,18 +3005,20 @@ export class ColshapeCircle {
     isPointIn(point: Vector3Like): boolean;
     /** Always "colshape", for every kind. */
     readonly kind: "colshape";
-    /** pos plus the radius on x and y; z is pos.z: a circle is tested on x and y only. */
-    readonly max: Vector3;
-    /** Not used by a circle: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    maxZ: number;
-    /** pos minus the radius on x and y; z is pos.z: a circle is tested on x and y only. */
-    readonly min: Vector3;
-    /** Not used by a circle: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
-    minZ: number;
+    /** max is undefined for a circle. */
+    readonly max: undefined;
+    /** maxZ is undefined for a circle. Assigning does not change its geometry. */
+    get maxZ(): undefined;
+    set maxZ(value: number);
+    /** min is undefined for a circle. */
+    readonly min: undefined;
+    /** minZ is undefined for a circle. Assigning does not change its geometry. */
+    get minZ(): undefined;
+    set minZ(value: number);
     /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
     playersOnly: boolean;
-    /** Always [] for a circle: only polygons have points. */
-    readonly points: Vector2[];
+    /** points is undefined for a circle. */
+    readonly points: undefined;
     /** Centre of the circle; z does not count. Assigning moves it; a non-finite component becomes 0. */
     get pos(): Vector3;
     set pos(value: Vector3Like);
@@ -3042,7 +3051,7 @@ export class ColshapeCuboid {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Destroys the colshape: entities inside leave first and baseObjectRemove fires. valid becomes false. After removal, other members (including destroy) throw "Invalid base object". Stopping the owning resource also removes the colshape. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -3060,8 +3069,9 @@ export class ColshapeCuboid {
     hasMeta(key: string): boolean;
     /** Whether setSyncedMeta stored a value under the key. */
     hasSyncedMeta(key: string): boolean;
-    /** Not used by a cuboid: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    height: number;
+    /** height is undefined for a cuboid. Assigning does not change its geometry. */
+    get height(): undefined;
+    set height(value: number);
     /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
     readonly id: number;
     /** Whether the entity, or the entity with this id, is inside: what the entityEnterColshape and entityLeaveColshape events delivered so far say, so the answer agrees with them. The server tests about every 150 ms, by the dimension rule and playersOnly. false for null, an entity no longer valid or one never reported. */
@@ -3074,21 +3084,24 @@ export class ColshapeCuboid {
     readonly kind: "colshape";
     /** The cuboid's highest corner: pos plus its half-extents. */
     readonly max: Vector3;
-    /** Not used by a cuboid: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    maxZ: number;
+    /** maxZ is undefined for a cuboid. Assigning does not change its geometry. */
+    get maxZ(): undefined;
+    set maxZ(value: number);
     /** The cuboid's lowest corner: pos minus its half-extents. */
     readonly min: Vector3;
-    /** Not used by a cuboid: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
-    minZ: number;
+    /** minZ is undefined for a cuboid. Assigning does not change its geometry. */
+    get minZ(): undefined;
+    set minZ(value: number);
     /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
     playersOnly: boolean;
-    /** Always [] for a cuboid: only polygons have points. */
-    readonly points: Vector2[];
+    /** points is undefined for a cuboid. */
+    readonly points: undefined;
     /** Centre of the cuboid (made from its two corners). Assigning moves it; a non-finite component becomes 0. */
     get pos(): Vector3;
     set pos(value: Vector3Like);
-    /** Not used by a cuboid: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    radius: number;
+    /** radius is undefined for a cuboid. Assigning does not change its geometry. */
+    get radius(): undefined;
+    set radius(value: number);
     /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
     setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, any>): void;
     setMeta(values: CustomMetaValues<ICustomColshapeMeta, any>): void;
@@ -3116,7 +3129,7 @@ export class ColshapeCylinder {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Destroys the colshape: entities inside leave first and baseObjectRemove fires. valid becomes false. After removal, other members (including destroy) throw "Invalid base object". Stopping the owning resource also removes the colshape. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -3146,18 +3159,20 @@ export class ColshapeCylinder {
     isPointIn(point: Vector3Like): boolean;
     /** Always "colshape", for every kind. */
     readonly kind: "colshape";
-    /** pos plus the radius on x and y, and its top, pos.z + height, on z. */
-    readonly max: Vector3;
-    /** Not used by a cylinder: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    maxZ: number;
-    /** pos minus the radius on x and y, and its base, pos.z, on z. */
-    readonly min: Vector3;
-    /** Not used by a cylinder: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
-    minZ: number;
+    /** max is undefined for a cylinder. */
+    readonly max: undefined;
+    /** maxZ is undefined for a cylinder. Assigning does not change its geometry. */
+    get maxZ(): undefined;
+    set maxZ(value: number);
+    /** min is undefined for a cylinder. */
+    readonly min: undefined;
+    /** minZ is undefined for a cylinder. Assigning does not change its geometry. */
+    get minZ(): undefined;
+    set minZ(value: number);
     /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
     playersOnly: boolean;
-    /** Always [] for a cylinder: only polygons have points. */
-    readonly points: Vector2[];
+    /** points is undefined for a cylinder. */
+    readonly points: undefined;
     /** Centre of the cylinder's base. Assigning moves it; a non-finite component becomes 0. */
     get pos(): Vector3;
     set pos(value: Vector3Like);
@@ -3191,7 +3206,7 @@ export class ColshapePolygon {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Destroys the colshape: entities inside leave first and baseObjectRemove fires. valid becomes false. After removal, other members (including destroy) throw "Invalid base object". Stopping the owning resource also removes the colshape. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -3209,8 +3224,9 @@ export class ColshapePolygon {
     hasMeta(key: string): boolean;
     /** Whether setSyncedMeta stored a value under the key. */
     hasSyncedMeta(key: string): boolean;
-    /** Not used by a polygon: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    height: number;
+    /** height is undefined for a polygon. Assigning does not change its geometry. */
+    get height(): undefined;
+    set height(value: number);
     /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
     readonly id: number;
     /** Whether the entity, or the entity with this id, is inside: what the entityEnterColshape and entityLeaveColshape events delivered so far say, so the answer agrees with them. The server tests about every 150 ms, by the dimension rule and playersOnly. false for null, an entity no longer valid or one never reported. */
@@ -3221,12 +3237,12 @@ export class ColshapePolygon {
     isPointIn(point: Vector3Like): boolean;
     /** Always "colshape", for every kind. */
     readonly kind: "colshape";
-    /** The largest x and y of its points, and maxZ (pos.x and pos.y without points). */
-    readonly max: Vector3;
+    /** max is undefined for a polygon. */
+    readonly max: undefined;
     /** Highest z inside the polygon, 2 by default. Assigning re-sends the colshape; NaN is 0. */
     maxZ: number;
-    /** The smallest x and y of its points, and minZ (pos.x and pos.y without points). */
-    readonly min: Vector3;
+    /** min is undefined for a polygon. */
+    readonly min: undefined;
     /** Lowest z inside the polygon, 0 by default. Assigning re-sends the colshape; NaN is 0. */
     minZ: number;
     /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
@@ -3236,8 +3252,9 @@ export class ColshapePolygon {
     /** Not used by a polygon: its points are in world coordinates; (0, 0, 0) unless assigned. Assigning stores it; a non-finite component becomes 0. */
     get pos(): Vector3;
     set pos(value: Vector3Like);
-    /** Not used by a polygon: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    radius: number;
+    /** radius is undefined for a polygon. Assigning does not change its geometry. */
+    get radius(): undefined;
+    set radius(value: number);
     /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
     setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, any>): void;
     setMeta(values: CustomMetaValues<ICustomColshapeMeta, any>): void;
@@ -3265,7 +3282,7 @@ export class ColshapeRectangle {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Destroys the colshape: entities inside leave first and baseObjectRemove fires. valid becomes false. After removal, other members (including destroy) throw "Invalid base object". Stopping the owning resource also removes the colshape. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -3283,8 +3300,9 @@ export class ColshapeRectangle {
     hasMeta(key: string): boolean;
     /** Whether setSyncedMeta stored a value under the key. */
     hasSyncedMeta(key: string): boolean;
-    /** Not used by a rectangle: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    height: number;
+    /** height is undefined for a rectangle. Assigning does not change its geometry. */
+    get height(): undefined;
+    set height(value: number);
     /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
     readonly id: number;
     /** Whether the entity, or the entity with this id, is inside: what the entityEnterColshape and entityLeaveColshape events delivered so far say, so the answer agrees with them. The server tests about every 150 ms, by the dimension rule and playersOnly. false for null, an entity no longer valid or one never reported. */
@@ -3295,23 +3313,26 @@ export class ColshapeRectangle {
     isPointIn(point: Vector3Like): boolean;
     /** Always "colshape", for every kind. */
     readonly kind: "colshape";
-    /** pos plus its half-extents on x and y; z is pos.z: a rectangle is tested on x and y only. */
-    readonly max: Vector3;
-    /** Not used by a rectangle: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    maxZ: number;
-    /** pos minus its half-extents on x and y; z is pos.z: a rectangle is tested on x and y only. */
-    readonly min: Vector3;
-    /** Not used by a rectangle: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
-    minZ: number;
+    /** The upper corner of the rectangle on the x and y axes as a Vector2. */
+    readonly max: Vector2;
+    /** maxZ is undefined for a rectangle. Assigning does not change its geometry. */
+    get maxZ(): undefined;
+    set maxZ(value: number);
+    /** The lower corner of the rectangle on the x and y axes as a Vector2. */
+    readonly min: Vector2;
+    /** minZ is undefined for a rectangle. Assigning does not change its geometry. */
+    get minZ(): undefined;
+    set minZ(value: number);
     /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
     playersOnly: boolean;
-    /** Always [] for a rectangle: only polygons have points. */
-    readonly points: Vector2[];
+    /** points is undefined for a rectangle. */
+    readonly points: undefined;
     /** Centre of the rectangle; z does not count. Assigning moves it; a non-finite component becomes 0. */
     get pos(): Vector3;
     set pos(value: Vector3Like);
-    /** Not used by a rectangle: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    radius: number;
+    /** radius is undefined for a rectangle. Assigning does not change its geometry. */
+    get radius(): undefined;
+    set radius(value: number);
     /** Stores the value under the key in this host's own metadata, which no client sees; an object sets each of its keys. metaChange fires when a value changes. */
     setMeta<K extends string>(key: K, value: CustomMetaValue<ICustomColshapeMeta, K, any>): void;
     setMeta(values: CustomMetaValues<ICustomColshapeMeta, any>): void;
@@ -3339,7 +3360,7 @@ export class ColshapeSphere {
     deleteMeta(key: string): boolean;
     /** Removes the key here and on the clients that have it: true, and syncedMetaChange fires with the value undefined; false when it was not there. */
     deleteSyncedMeta(key: string): boolean;
-    /** Removes the colshape on the server and every client: entities inside get their leave event first, then no more enter or leave events. valid turns false and baseObjectRemove fires; after it its setters and methods change and send nothing. Later calls do nothing, and a resource's colshapes go when it stops. */
+    /** Destroys the colshape: entities inside leave first and baseObjectRemove fires. valid becomes false. After removal, other members (including destroy) throw "Invalid base object". Stopping the owning resource also removes the colshape. */
     destroy(): void;
     /** Entities in this dimension trigger it, 0 by default (one in a negative dimension also triggers a colshape in dimension 0); -2147483648 makes it react in every dimension. Assigning truncates to an integer (NaN is 0). */
     dimension: number;
@@ -3357,8 +3378,9 @@ export class ColshapeSphere {
     hasMeta(key: string): boolean;
     /** Whether setSyncedMeta stored a value under the key. */
     hasSyncedMeta(key: string): boolean;
-    /** Not used by a sphere: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    height: number;
+    /** height is undefined for a sphere. Assigning does not change its geometry. */
+    get height(): undefined;
+    set height(value: number);
     /** Its id: blips, markers, checkpoints, colshapes and text labels take their ids from one counter, so none of them share one while the host runs. Read-only: assigning changes nothing (a TypeError in strict mode). */
     readonly id: number;
     /** Whether the entity, or the entity with this id, is inside: what the entityEnterColshape and entityLeaveColshape events delivered so far say, so the answer agrees with them. The server tests about every 150 ms, by the dimension rule and playersOnly. false for null, an entity no longer valid or one never reported. */
@@ -3369,18 +3391,20 @@ export class ColshapeSphere {
     isPointIn(point: Vector3Like): boolean;
     /** Always "colshape", for every kind. */
     readonly kind: "colshape";
-    /** pos plus the radius on every axis. */
-    readonly max: Vector3;
-    /** Not used by a sphere: kept to read only, and assigning sends nothing; 2 by default, NaN is 0. */
-    maxZ: number;
-    /** pos minus the radius on every axis. */
-    readonly min: Vector3;
-    /** Not used by a sphere: kept to read only, and assigning sends nothing; 0 by default, NaN is 0. */
-    minZ: number;
+    /** max is undefined for a sphere. */
+    readonly max: undefined;
+    /** maxZ is undefined for a sphere. Assigning does not change its geometry. */
+    get maxZ(): undefined;
+    set maxZ(value: number);
+    /** min is undefined for a sphere. */
+    readonly min: undefined;
+    /** minZ is undefined for a sphere. Assigning does not change its geometry. */
+    get minZ(): undefined;
+    set minZ(value: number);
     /** True: only players trigger entityEnterColshape and entityLeaveColshape; false (the default): vehicles, peds and objects too, native ones included. */
     playersOnly: boolean;
-    /** Always [] for a sphere: only polygons have points. */
-    readonly points: Vector2[];
+    /** points is undefined for a sphere. */
+    readonly points: undefined;
     /** Centre of the sphere. Assigning moves it; a non-finite component becomes 0. */
     get pos(): Vector3;
     set pos(value: Vector3Like);
@@ -3435,7 +3459,7 @@ export class ConnectionInfo {
     readonly hwid3: string;
     /** Always empty: the client's join request carries only the first hardware hash (hwidHash). */
     readonly hwidExHash: string;
-    /** A 64-bit hash of the client's C: volume serial and computer name as decimal text, empty for 0; the client reports it unverified. */
+    /** The hardware hash supplied by the client, as decimal text. Empty when no hash is supplied. */
     readonly hwidHash: string;
     /** The connection's id; the player gets the same id once admitted. */
     readonly id: number;
@@ -3447,7 +3471,7 @@ export class ConnectionInfo {
     readonly isDebug: boolean;
     /** The player name the client gave (up to 64 bytes). */
     readonly name: string;
-    /** The client's password digest: SHA-256 hex of the password and this connection's transport key, so it differs on every connection; empty without a password. */
+    /** The password hash for this connection. An empty string when no password was supplied. */
     readonly passwordHash: string;
     /** Always empty: the client's join request carries no Social Club name. */
     readonly socialClubName: string;
@@ -4737,7 +4761,7 @@ export class Object {
     deleteSyncedMeta(key: string): boolean;
     /** Another name of deleteSyncedMeta: the same function. */
     deleteSyncedMetaData(key: string): boolean;
-    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on. While the server's removal queue is full it resolves false and the object is valid again; a second call, or one on a removed object, resolves false. */
+    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on. While the server's removal queue is full it resolves false and the object is valid again; A repeated call while removal is pending resolves false. After successful removal, another call throws Invalid base object. */
     destroy(): Promise<boolean>;
     /** Detaches it and resolves true once the server started the detach; false when it was not attached on the server or is invalid. On true this host's record (attached, attachedTo) clears; rejects when the server does not answer in 5 s. */
     detach(): Promise<boolean>;
@@ -4874,7 +4898,7 @@ export class Ped {
     deleteSyncedMeta(key: string): boolean;
     /** Another name of deleteSyncedMeta: the same function. */
     deleteSyncedMetaData(key: string): boolean;
-    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on. While the server's removal queue is full it resolves false and the ped is valid again; a second call, or one on a removed ped, resolves false. A native NPC resolves as destroyNativePed. */
+    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on. While the server's removal queue is full it resolves false and the ped is valid again; A repeated call while removal is pending resolves false. After successful removal, another call throws Invalid base object. A native NPC resolves as destroyNativePed. */
     destroy(): Promise<boolean>;
     /** Detaches it and resolves true once the server started the detach; false when it was not attached on the server or is invalid. On true this host's record (attached, attachedTo) clears; rejects when the server does not answer in 5 s. */
     detach(): Promise<boolean>;
@@ -5835,7 +5859,7 @@ export class Player {
     maxArmour: number;
     /** The most health he can have (200 by default); assigning truncates to 1–65535, and health above it drops to it. Throws for a player who left; before playerReady it waits and is sent then, in call order. */
     maxHealth: number;
-    /** Its model hash. Assigning takes a name (hashed) or a hash; the mirror holds the hash the core gets. A bad model throws and changes nothing. */
+    /** The model hash assigned by the server. Assign a model name or hash. If GTA rejects the model, the client keeps the previous model and the server receives entityModelMissing. This property still returns the assigned hash. */
     get model(): number;
     set model(value: number | string);
     /** His speed in m/s (GET_ENTITY_SPEED), as his client reports. */
@@ -6394,7 +6418,7 @@ export class RadiusBlip {
 }
 
 export class Resource {
-    constructor(...args: any[]);
+    private constructor();
     /** A new snapshot of every resource the server knows, started or not (as getAllResources). */
     static readonly all: Resource[];
     /** The resource whose code is running, as a new snapshot on each read (name, path, main, a copy of its config, started, exports, dependencies, dependants); null outside a resource's code. */
@@ -6418,11 +6442,11 @@ export class Resource {
     /** The resource's name. */
     readonly name: string;
     /** optional-permissions from its [config] table as Permission numbers, as requiredPermissions; [] without one. Informational only: neither the server nor the client asks a player for these or checks them. */
-    readonly optionalPermissions: string[];
-    /** The absolute path of the resource's folder on the server; a field of the snapshot, so assigning it changes nothing else. */
+    readonly optionalPermissions: number[];
+    /** The absolute path to the resource folder on this server, captured in the snapshot. */
     readonly path: string;
     /** required-permissions from its [config] table as Permission numbers: 'Screen Capture' 1, 'WebRTC' 2, 'Clipboard Access' 3, 'Extended Voice API' 4, any other name 0; [] without one. Informational only: neither the server nor the client asks a player for these or checks them; a client script asks with requestPermission. */
-    readonly requiredPermissions: string[];
+    readonly requiredPermissions: number[];
     /** Whether it is running now, read when asked: an object taken during its load reads true once it has started. */
     readonly started: boolean;
     /** Its type as resource.toml gives it ("js" by default). */
@@ -6438,8 +6462,8 @@ export const SortOrderEnum: {
 };
 
 export class TextLabel {
-    /** Creates a text label: `new TextLabel(options)` is `varion.createTextLabel(options)` (`text`, `pos`, `scale`, `font`, `color`, `outline`, `dimension`), and both make a `TextLabel`. A non-object argument throws a `TypeError`. Players see it by its dimension (0 by default), as every world object. */
-    private constructor(options?: { text?: string; pos?: Vector3Like; x?: number; y?: number; z?: number; scale?: number; font?: number; color?: RGBALike; outline?: boolean; dimension?: number; [option: string]: any });
+    /** Creates a world text label with the same options as varion.createTextLabel. Passing a non-object value other than null or undefined throws TypeError. The label is visible to players according to its dimension, 0 by default. */
+    constructor(options?: { text?: string; pos?: Vector3Like; x?: number; y?: number; z?: number; scale?: number; font?: number; color?: RGBALike; outline?: boolean; dimension?: number; [option: string]: any } | null);
     /** Every valid text label of every resource, from new TextLabel and createTextLabel alike; a new array on each read. */
     static readonly all: TextLabel[];
     /** How many text labels TextLabel.all holds now. */
@@ -6533,37 +6557,41 @@ export class UtilsConsoleCommand {
 
 /** Runtime path: `varion.Utils.EveryTick` */
 export class UtilsEveryTick {
-    constructor(...args: any[]);
+    /** Calls the callback every 16 ms until destroy or until the resource stops. */
+    constructor(callback: () => void);
     /** Stops the calls every 16 ms; later calls do nothing. */
     destroy(): void;
-    /** A number of its own, counted from 1 across every Utils timer of the server. */
+    /** The timer ID, from the same sequence as varion.setTimeout and the other timers. Pass it to clearTimer. */
     readonly id: number;
 }
 
 /** Runtime path: `varion.Utils.Interval` */
 export class UtilsInterval {
-    constructor(...args: any[]);
+    /** Repeats the callback at the specified interval in milliseconds until destroy or until the resource stops. */
+    constructor(callback: () => void, milliseconds: number);
     /** Stops the repeated calls; later calls do nothing. */
     destroy(): void;
-    /** A number of its own, counted from 1 across every Utils timer of the server; not a handle for clearInterval. */
+    /** The timer ID, from the same sequence as varion.setTimeout and the other timers. Pass it to clearTimer or clearInterval. */
     readonly id: number;
 }
 
 /** Runtime path: `varion.Utils.NextTick` */
 export class UtilsNextTick {
-    constructor(...args: any[]);
+    /** Calls the callback once on a subsequent timer turn, unless cancelled first. */
+    constructor(callback: () => void);
     /** Cancels the call if it has not run yet; later calls do nothing. */
     destroy(): void;
-    /** A number of its own, counted from 1 across every Utils timer of the server. */
+    /** The timer ID, from the same sequence as varion.setTimeout and the other timers. Pass it to clearTimer. */
     readonly id: number;
 }
 
 /** Runtime path: `varion.Utils.Timeout` */
 export class UtilsTimeout {
-    constructor(...args: any[]);
+    /** Calls the callback once after the specified delay in milliseconds. */
+    constructor(callback: () => void, milliseconds: number);
     /** Cancels the call if it has not run yet; later calls do nothing. */
     destroy(): void;
-    /** A number of its own, counted from 1 across every Utils timer of the server; not a handle for clearTimeout. */
+    /** The timer ID, from the same sequence as varion.setTimeout and the other timers. Pass it to clearTimer or clearTimeout. */
     readonly id: number;
 }
 
@@ -6573,7 +6601,7 @@ export class UtilsTimer {
     constructor(callback: () => void, milliseconds: number, once?: boolean);
     /** Stops the timer; calling it again does nothing. */
     destroy(): void;
-    /** A number from 1, unique among the timers of the host. */
+    /** The timer ID, from the same sequence as varion.setTimeout and the other timers. Pass it to clearTimer. */
     readonly id: number;
 }
 
@@ -6790,7 +6818,7 @@ export class Vehicle {
     deleteSyncedMeta(key: string): boolean;
     /** Another name of deleteSyncedMeta: the same function. */
     deleteSyncedMetaData(key: string): boolean;
-    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on, and removeEntity and baseObjectRemove follow. While its removal queue is full the server refuses: then it resolves false and the vehicle is valid again. A second call, or one on a removed vehicle, resolves false. */
+    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on, and removeEntity and baseObjectRemove follow. While its removal queue is full the server refuses: then it resolves false and the vehicle is valid again. A repeated call while removal is pending resolves false. After successful removal, another call throws Invalid base object. */
     destroy(): Promise<boolean>;
     /** Whether it is wrecked, by the server's record: set once its owner reports engine health -4000 or body health 0, cleared only by repair(). */
     readonly destroyed: boolean;
@@ -7417,7 +7445,7 @@ export class VirtualEntity {
     deleteSyncedMeta(key: string): boolean;
     /** Removes the synced key here and on the clients: true, and syncedMetaChange fires with the value undefined; false when it was not there. On a destroyed entity only this host's copy goes. The same function as deleteSyncedMeta. */
     deleteSyncedMetaData(key: string): boolean;
-    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on, and removeEntity and baseObjectRemove follow. While the server's removal queue is full it resolves false and the entity is valid again; a second call, or one on a removed entity, resolves false. */
+    /** Removes it for everyone and resolves true once the server took the removal; valid is false from the call on, and removeEntity and baseObjectRemove follow. While the server's removal queue is full it resolves false and the entity is valid again; A repeated call while removal is pending resolves false. After successful removal, another call throws Invalid base object. */
     destroy(): Promise<boolean>;
     /** Resolves false at once: a virtual entity is never attached. */
     detach(): Promise<boolean>;
@@ -7855,39 +7883,39 @@ export type VarionEventName =
 
 /** Handler parameters of the documented events. */
 export interface VarionEvents {
-    /** A resource threw an uncaught error or failed to start. Every loaded resource hears it; the failed one gets resourceError with the details first. */
+    /** A resource threw an uncaught error or failed to start. Loaded JS resources hear it after the resource's own resourceError handlers. */
     anyResourceError(resourceName: string): void;
     /** A resource started, of any kind (JavaScript, C#, client-only, assets). Running resources hear it, the started one too; the ones the server started with it come after the JavaScript ones. */
     anyResourceStart(resourceName: string): void;
-    /** A resource stopped, of any kind (JavaScript, C#, client-only, assets). Running resources hear it, the stopped one too; when the server stops, the other kinds come before the JavaScript ones. */
+    /** A resource stopped. Running JS resources hear it, including the JS resource being stopped. Client-only and asset resources may not report a stop when the server shuts down. */
     anyResourceStop(resourceName: string): void;
     /** A base object appeared. Also a native vehicle (just before nativeVehicleCreated) and an NPC createNativePed made (as the call resolves). */
     baseObjectCreate(baseObject: BaseObject | NativeVehicle | NativePed): void;
     /** A base object went; it is still readable in the handler. Also a native vehicle (just before nativeVehicleRemoved) and an NPC createNativePed made, once the host learns it is gone (destroyNativePed, the mirror or fetch()). */
     baseObjectRemove(baseObject: BaseObject | NativeVehicle | NativePed): void;
-    /** A client deleted a networked prop it owns; the others still have it. The second argument says which: its netId, model and last position. Return false (synchronously) to cancel: the prop stays for the others, the nearest of them who has it takes it over, and the player sees it again. With nobody else holding it, or no answer within a second, it is removed. */
+    /** The server received removal of a networked object from its owner. The second argument carries its netId, model and last position. This event can also occur when the client removes an object rejected by entity lockdown. Return false synchronously to keep it when another client still holds a copy. With no other copy, or no answer within one second, the object is removed. */
     clientDeleteObject(player: Player, object: { readonly netId: number; readonly model: number; readonly pos: Vector3 }): boolean | void;
-    /** A client created a networked object (doors and pickups too); nobody else has it yet. Return false (synchronously) to cancel it, as from entityCreating, which follows. */
+    /** A client created a networked object, including a door or pickup. Return false synchronously to cancel creation. entityCreating still follows when this handler returns false. */
     clientRequestObject(player: Player, model: number, pos: Vector3): boolean | void;
     /** Only with `connectionQueue = true` in server.toml: a client waits to be let in. Answer with `info.accept()` or `info.decline(reason)`. */
     connectionQueueAdd(info: ConnectionInfo): void;
     /** The client left the queue: accepted, declined or disconnected. `info` stops being valid after the handlers. */
     connectionQueueRemove(info: ConnectionInfo): void;
-    /** A line typed in the server console: the command and the words after it. The built-in `restart`, `start` and `stop <resource>` come here too. */
+    /** A server console command. The name is lowercased and double quotes group arguments. Fires before built-in resource commands run. */
     consoleCommand(name: string, ...args: string[]): void;
-    /** A client created a networked car, NPC or object; nobody else has it yet: return false from a handler (synchronously) to cancel it -- the server removes it, at its owner too. With no verdict within 1 s it goes through. Only while a resource host runs; the entity lockdown (setEntityLockdown) has refused some before this. */
+    /** A client created a networked vehicle, ped or object. entityType is 0 for a car, 5 for an object and 6 for a ped. Return false synchronously to cancel creation; the server removes the entity on its owner too. With no verdict within 1 s it goes through. Entity lockdown can reject creation before this event. */
     entityCreating(entity: EntityCreatingInfo): boolean | void;
-    /** Players, vehicles, peds and objects; players only when `colshape.playersOnly` is true (default false). */
-    entityEnterColshape(colshape: Colshape, entity: Player | Vehicle | Ped | Object): void;
-    /** Players, vehicles, peds and objects; players only when `colshape.playersOnly` is true (default false). A player who disconnects inside leaves, before playerDisconnect; destroying the colshape or checkpoint makes everyone inside leave, while it is still valid. A vehicle, ped or object that is destroyed inside leaves without this event. */
-    entityLeaveColshape(colshape: Colshape, entity: Player | Vehicle | Ped | Object): void;
-    /** GTA on `player`'s client cannot show `entity` -- or, when `entity` is `player`, cannot take the model the server gave it. `reason`: `not-in-game` (GTA has no such model: not one of GTA's and not declared by any pack the client mounted), `wrong-type` (not a vehicle or ped model, as the entity needs) or `not-loaded` (GTA has it but did not load it in 15 s: a pack that declares it without its files). Once per player, entity and model; the entity itself does not change. */
+    /** An entity entered a colshape. A colshape defaults to playersOnly=false; a checkpoint always tracks players only. */
+    entityEnterColshape(colshape: Colshape | Checkpoint, entity: Player | Vehicle | NativeVehicle | Ped | NativePed | Object): void;
+    /** An entity left a colshape or a player left a checkpoint. A player who disconnects inside leaves before playerDisconnect. Destroying the colshape or checkpoint emits this event for its occupants while the area is still valid. Destroying a Vehicle, Ped or Object inside does not emit this event. */
+    entityLeaveColshape(colshape: Colshape | Checkpoint, entity: Player | Vehicle | NativeVehicle | Ped | NativePed | Object): void;
+    /** GTA on the reporting player cannot show the entity model. reason is not-in-game, wrong-type or not-loaded (the model did not load within 15 s). The server emits it once per player, entity instance and model. Stream-in of the same instance does not repeat it. For the reporting player’s own model, entity and player are the same Player. The event does not change the assigned model. */
     entityModelMissing(entity: Player | Vehicle | Ped | Object, player: Player, model: number, reason: "not-in-game" | "wrong-type" | "not-loaded"): void;
     /** The client of player `playerId` now streams an entity. Ids, not objects: the entity id and its type (0 player, 1 vehicle, 2 ped, 3 object). */
     entityStreamIn(playerId: number, entityId: number, entityType: number): void;
-    /** The client of player `playerId` no longer streams an entity. Ids, not objects: the entity id and its type (0 player, 1 vehicle, 2 ped, 3 object). */
+    /** An entity leaves the stream of playerId. The handler receives the observer ID, the entity ID and its type (0 player, 1 vehicle, 2 ped, 3 object). Moving out of streaming range or changing dimension does not currently call the server handler for Vehicle, Ped or Object. */
     entityStreamOut(playerId: number, entityId: number, entityType: number): void;
-    /** A client reports an explosion: GTA's explosion type and effect hash. Return false (synchronously) and other players do not get it. `target` is null for an entity scripts do not know. */
+    /** A client reports an explosion. type is the GTA explosion type. pos is the world position, or an offset in the entity's local coordinates when GTA attaches the explosion to it. target is the attached entity if available to scripts, otherwise null. fx is the hash reported by GTA, which can be the weapon hash. Return false synchronously to stop forwarding the explosion to other players. */
     explosion(source: Player, type: number, pos: Vector3, fx: number, target: BaseObject | NativeVehicle | NativePed | null): boolean | void;
     /** A client gives a task to an NPC another client simulates. Return false (synchronously) to refuse. */
     givePedScriptedTask(source: Player, target: Ped | NativePed, taskType: number): boolean | void;
@@ -7899,17 +7927,17 @@ export interface VarionEvents {
     localMetaChange(player: Player, key: string, value: any, oldValue: any): void;
     /** A script changed `entity.setMeta` data; `value` is undefined after a delete. */
     metaChange(entity: BaseObject | NativeVehicle | NativePed, key: string, value: any, oldValue: any): void;
-    /** A native vehicle appeared: one a client script made (when the server first reports it), or one createNativeVehicle made (at once, still without an owner). One made and removed within 50 ms is never reported. */
+    /** A native vehicle was registered on the server. One created by createNativeVehicle has no owner yet. A vehicle registered by a client already has an owner. */
     nativeVehicleCreated(vehicle: NativeVehicle): void;
-    /** Another client simulates the vehicle: a car the server made got its first owner (oldOwner null), or the server handed it over (its owner left or went out of its range). netOwnerChange comes first with the same arguments. */
+    /** The native vehicle gained, changed or lost its network owner. owner is null when nobody simulates it, and oldOwner is null on the first assignment. vehicle.netOwner already contains the new owner. netOwnerChange comes first with the same arguments. */
     nativeVehicleOwnerChanged(vehicle: NativeVehicle, owner: Player | null, oldOwner: Player | null): void;
-    /** A native vehicle went: its owner or a script deleted it, or its owner left and nobody could take it over. The vehicle is still readable in the handler. */
+    /** A native vehicle was removed. Its id and model are readable in the handler. On server destroy(), valid is already false and getByID returns null. On client deletion or removal after its owner leaves, the vehicle can still be valid during the handler. After removal, getByID returns null. */
     nativeVehicleRemoved(vehicle: NativeVehicle): void;
-    /** Another client simulates the entity. Also for a native vehicle (before nativeVehicleOwnerChanged) and for an NPC the server made (the NPC already reads the new owner). `owner` null: nobody simulates it now. */
+    /** The network owner changed. oldOwner is null on the first assignment, and owner is null when the entity has no owner. The entity already reports its new owner. For NativeVehicle, this comes before nativeVehicleOwnerChanged. */
     netOwnerChange(entity: Entity | NativeVehicle | NativePed, owner: Player | null, oldOwner: Player | null): void;
-    /** A player hit an NPC of the old path, told after the server applied the hit (ped.health is the new value). It cannot be cancelled; weaponDamage can. */
+    /** An accepted hit damaged a Ped. Peds created through createPed start protected against damage in GTA. In the handler, ped.health and ped.armour are already updated. healthDamage and armourDamage are the amounts deducted, including all remaining health on a lethal hit. Use weaponDamage to cancel the hit. */
     pedDamage(ped: Ped, attacker: Player, healthDamage: number, armourDamage: number, weaponHash: number): void;
-    /** A hit killed an NPC of the old path, told after pedDamage. It cannot be cancelled; weaponDamage can. */
+    /** An accepted hit killed a Ped. The event follows pedDamage and ped.health is already 0. Use weaponDamage to cancel the hit. */
     pedDeath(ped: Ped, killer: Player, weaponHash: number): void;
     /** An NPC of the old path got health or armour back, a script's ped.health or ped.armour too: told after the change, to every resource. It cannot be cancelled. */
     pedHeal(ped: Ped, oldHealth: number, newHealth: number, oldArmour: number, newArmour: number): void;
@@ -7919,10 +7947,11 @@ export interface VarionEvents {
     playerChangedNativeVehicleSeat(player: Player, vehicle: NativeVehicle, oldSeat: number, newSeat: number): void;
     /** Seats: 1 = driver, 2 = front passenger, 3-4 = rear. Also for a native vehicle, before playerChangedNativeVehicleSeat. */
     playerChangedVehicleSeat(player: Player, vehicle: Vehicle | NativeVehicle, oldSeat: number, newSeat: number): void;
-    /** The low-level twin of playerChangedVehicleSeat: the vehicle id and GTA's seat indexes (-1 = driver, 0 = front passenger). */
+    /** For Vehicle, before playerChangedVehicleSeat. The arguments include the vehicle ID and GTA seat indexes (-1 = driver, 0 = front passenger). */
     playerChangeVehicleSeat(player: Player, vehicleId: number, oldSeat: number, newSeat: number): void;
-    playerConnect(player: Player): void;
-    /** The server refused a connection before admission; `reason` is a ConnectDeniedReason. `discordId` is the Discord id as text, empty without one. */
+    /** The server accepted the player. `name` matches `player.name`. Spawn the character in `playerReady`. */
+    playerConnect(player: Player, name: string): void;
+    /** The server rejected the connection during client checks. `reason` is a ConnectDeniedReason. `cdnUrl` is an empty string. `discordId` is the Discord ID as text, or an empty string if unavailable. Calling `info.decline()` in the queue triggers `connectionQueueRemove`. */
     playerConnectDenied(reason: number, name: string, ip: string, passwordHash: string, isDebug: boolean, branch: string, clientBuild: number, cdnUrl: string, discordId: string): void;
     /** The player lost health or armour. `attacker` is null when the server does not know who did it. */
     playerDamage(player: Player, attacker: Player | null, healthDamage: number, armourDamage: number, weaponHash: number): void;
@@ -7930,22 +7959,23 @@ export interface VarionEvents {
     playerDeath(victim: Player, killer: Player | null, weaponHash: number): void;
     /** The player moved to another dimension. */
     playerDimensionChange(player: Player, oldDimension: number, newDimension: number): void;
+    /** The player disconnected. `reason` is the disconnect reason. The `player` object is still valid during the handler. */
     playerDisconnect(player: Player, reason: string): void;
     /** From the player's own native tree (CPedGameStateDataNode). Seats as that node holds them: 1 = driver, 2 = front passenger, 3-4 = rear. */
     playerEnteredNativeVehicle(player: Player, vehicle: NativeVehicle, seat: number): void;
     /** Seats: 1 = driver, 2 = front passenger, 3-4 = rear. Also for a native vehicle, before playerEnteredNativeVehicle; player.vehicle and seat already read the new ones. */
     playerEnteredVehicle(player: Player, vehicle: Vehicle | NativeVehicle, seat: number): void;
-    /** The player started getting into a vehicle. Seats: 1 = driver, 2 = front passenger, 3-4 = rear. For a native vehicle the player’s own game state node tells it (in the vehicle, not yet seated), once per vehicle; it does not name the seat, so `seat` is 0. */
-    playerEnteringVehicle(player: Player, vehicle: Vehicle, seat: number): void;
-    /** The low-level twin of playerEnteredVehicle: the vehicle id and GTA's seat index (-1 = driver, 0 = front passenger). */
+    /** The player started getting into a Vehicle. Seats: 1 = driver, 2 = front passenger, 3-4 = rear. For NativeVehicle, seat is 0 and the event can also fire on exit. Use playerEnteredVehicle to confirm entry. */
+    playerEnteringVehicle(player: Player, vehicle: Vehicle | NativeVehicle, seat: number): void;
+    /** For Vehicle, before playerEnteredVehicle. The arguments include the vehicle ID and GTA seat index (-1 = driver, 0 = front passenger). */
     playerEnterVehicle(player: Player, vehicleId: number, seat: number): void;
     /** Health or armour went up. */
     playerHeal(player: Player, oldHealth: number, newHealth: number, oldArmour: number, newArmour: number): void;
     /** Interior ids from GTA; 0 is outside. A player starts outside: one who joins in an interior gets it from 0. */
     playerInteriorChange(player: Player, oldInterior: number, newInterior: number): void;
-    /** The low-level twin of playerLeftVehicle: the vehicle id and GTA's seat index (-1 = driver, 0 = front passenger). */
+    /** For Vehicle, before playerLeftVehicle. The arguments include the vehicle ID and GTA seat index (-1 = driver, 0 = front passenger). */
     playerLeaveVehicle(player: Player, vehicleId: number, seat: number): void;
-    /** Seats: 1 = driver, 2 = front passenger, 3-4 = rear. Also when the vehicle goes with the player in it (before nativeVehicleRemoved); not when the player leaves the server. */
+    /** Seats: 1 = driver, 2 = front passenger, 3-4 = rear. When an occupied vehicle is removed, vehicle.valid is already false and this event runs before nativeVehicleRemoved. Skipped when the player leaves the server. */
     playerLeftNativeVehicle(player: Player, vehicle: NativeVehicle, seat: number): void;
     /** Seats: 1 = driver, 2 = front passenger, 3-4 = rear. Also for a native vehicle, before playerLeftNativeVehicle; not for a player who left the server. */
     playerLeftVehicle(player: Player, vehicle: Vehicle | NativeVehicle, seat: number): void;
@@ -7954,48 +7984,48 @@ export interface VarionEvents {
     playerRequestControl(player: Player, target: BaseObject | NativeVehicle | NativePed): boolean | void;
     /** The server carried out `player.spawn`: position, model and health already read the new values. Before the client shows the character. */
     playerSpawn(player: Player): void;
-    /** The player switched weapons; the hashes, 0 for none. */
+    /** The player switched weapons. `newWeapon` is the selected weapon hash; fists use `weapon_unarmed`. After `giveWeapon` equips a weapon, `oldWeapon` can equal `newWeapon`. */
     playerWeaponChange(player: Player, oldWeapon: number, newWeapon: number): void;
-    /** An entity went: one of the old path, a native vehicle or a native NPC; it is still readable in the handler. Before baseObjectRemove. */
-    removeEntity(entity: BaseObject): void;
-    /** A client asks for a synchronised scene. Every handler must return true (synchronously), or the scene is refused; with no handler it passes. */
+    /** An entity was removed. This event comes before baseObjectRemove. Its id is readable even when valid is already false. A NativeVehicle deleted by its client can still be valid in the handler. */
+    removeEntity(entity: BaseObject | NativeVehicle | NativePed): void;
+    /** Checks a network scene request from a client. Every registered handler must return true synchronously. Engine checks still apply with no handlers. */
     requestSyncedScene(source: Player, sceneId: number): boolean | void;
-    /** This resource threw: an uncaught error, or a throw or rejection in one of its event handlers or timers. `error` is the thrown value, usually an Error. A throw in a resourceError handler is only logged. */
-    resourceError(error: any, file: string, line: number, stack: string): void;
+    /** An error in this resource. Other thrown values are wrapped in Error. File and line come from the stack when available; line can be 0. A throw in a resourceError handler is only logged. */
+    resourceError(error: Error, file: string, line: number, stack: string): void;
     /** This resource started. errored, is always false here: a resource whose top-level code failed does not start. */
     resourceStart(errored: boolean): void;
     resourceStop(): void;
-    /** Once, after the resources of server.toml started. */
+    /** Fires after the configured server-side JavaScript resources have been given a chance to start and again after recovery of the JavaScript host. Client-only and asset resources can start later. */
     serverStarted(): void;
-    /** A client started fires. Return false (synchronously) and other players do not get them. */
+    /** A client reports fires. Each entry has pos and weapon. weapon is 0 when GTA supplies no weapon hash, for example for a script fire. Return false synchronously to stop forwarding the fires to other players. */
     startFire(source: Player, fires: IFireInfo[]): boolean | void;
-    /** A client fired a projectile, such as a rocket or a grenade. Return false (synchronously) and other players do not get it. */
+    /** A client fired a projectile, such as a rocket or grenade, for delivery to other players. The server calls this handler only when the projectile has at least one eligible recipient. Return false synchronously to stop forwarding it. */
     startProjectile(player: Player, pos: Vector3, dir: Vector3, ammoHash: number, weaponHash: number): boolean | void;
-    /** Refused unless every handler returns true (synchronously); with no handler it passes. `entity` is null for one scripts do not know. */
+    /** Checks a network scene start. The engine can reject the start before this handler runs while GTA still plays the scene on the sender. Every registered handler must return true synchronously. Engine checks still apply with no handlers. `entity` is null for actors unknown to the script. */
     startSyncedScene(source: Player, sceneId: number, pos: Vector3, rot: Vector3, animDictHash: number, entities: { entity: BaseObject | NativeVehicle | NativePed | null; animHash: number }[]): boolean | void;
-    /** Refused unless every handler returns true (synchronously); with no handler it passes. */
+    /** Checks a request to stop a network scene. Every registered handler must return true synchronously. Engine checks still apply with no handlers. */
     stopSyncedScene(source: Player, sceneId: number): boolean | void;
-    /** A script changed `entity.setStreamSyncedMeta` data; `value` is undefined after a delete. */
+    /** A script changed `entity.setStreamSyncedMeta` data. `value` is undefined after a delete. When a client streams a vehicle again, it can read the current value via `getStreamSyncedMeta`. The client event does not replay missed changes. */
     streamSyncedMetaChange(entity: BaseObject | NativeVehicle | NativePed, key: string, value: any, oldValue: any): void;
-    /** A script changed `entity.setSyncedMeta` data; `value` is undefined after a delete. */
+    /** A script changed `entity.setSyncedMeta` data. `value` is undefined after a delete. A client reads a `Vehicle` key while it streams the vehicle. Use `varion.setSyncedMeta` for global data. */
     syncedMetaChange(entity: BaseObject | NativeVehicle | NativePed, key: string, value: any, oldValue: any): void;
-    /** Refused unless every handler returns true (synchronously); with no handler it passes. */
+    /** Checks a network update to the scene's playback rate. Every registered handler must return true synchronously. Engine checks still apply with no handlers. */
     updateSyncedScene(source: Player, rate: number, sceneId: number): boolean | void;
-    /** A vehicle took another in tow, such as a truck and its trailer; for native vehicles as the attached one’s attach node tells. */
-    vehicleAttach(vehicle: Vehicle, attachedVehicle: Vehicle): void;
-    /** A vehicle lost health: how much its body, extra body (its own health), engine and fuel tank lost. For a native vehicle, between two health nodes of its owner, with the attacker and weapon that node names (the player whose ped did it, else the native vehicle or NPC, else null). For one of the old path the server does not know who did it: `attacker` is always null and `weaponHash` 0. */
-    vehicleDamage(vehicle: Vehicle, attacker: BaseObject | null, bodyDamage: number, additionalBodyDamage: number, engineDamage: number, petrolTankDamage: number, weaponHash: number): void;
+    /** One vehicle was attached to another. vehicle is the towing vehicle; attachedVehicle is the one attached to it. */
+    vehicleAttach(vehicle: Vehicle | NativeVehicle, attachedVehicle: Vehicle | NativeVehicle): void;
+    /** A vehicle lost health. For a Vehicle synced by its owner, additionalBodyDamage repeats bodyDamage, attacker is null and weaponHash is 0. For a NativeVehicle, additionalBodyDamage is the drop in entity health, separate from bodyDamage; attacker and weaponHash come from the damage report when available. */
+    vehicleDamage(vehicle: Vehicle | NativeVehicle, attacker: BaseObject | null, bodyDamage: number, additionalBodyDamage: number, engineDamage: number, petrolTankDamage: number, weaponHash: number): void;
     /** A vehicle of the old path was wrecked: the server's state turned destroyed (vehicle.destroyed, its owner's GTA reporting engine health -4000 or body health 0). The vehicle is still there; removing it is the script's call. Once per wreck, again after a repair; not for a vehicle already wrecked when the server first reports it, nor for a removal (removeEntity). */
     vehicleDestroy(vehicle: Vehicle): void;
-    /** A vehicle let go of the one it towed; for native vehicles as the attached one’s attach node tells. */
-    vehicleDetach(vehicle: Vehicle, detachedVehicle: Vehicle): void;
-    /** A driver pressed or released the horn. Return false (synchronously) and other players do not hear it. */
+    /** One vehicle was detached from another. vehicle is the towing vehicle; detachedVehicle is the one detached from it. */
+    vehicleDetach(vehicle: Vehicle | NativeVehicle, detachedVehicle: Vehicle | NativeVehicle): void;
+    /** A driver pressed or released the horn in a Vehicle. state is true while pressed. Return false synchronously to block relaying the horn to other players. */
     vehicleHorn(vehicle: Vehicle, player: Player, state: boolean): boolean | void;
-    /** A vehicle turned its siren on or off: one of the old path, or a native vehicle as its owner’s game state node tells. */
-    vehicleSiren(vehicle: Vehicle, state: boolean): void;
-    /** The voice service state, a VoiceConnectionState: 2 once the resource host is ready, 0 when the server shuts down. */
+    /** A Vehicle or NativeVehicle turned its siren on or off. state is true when the siren is on. */
+    vehicleSiren(vehicle: Vehicle | NativeVehicle, state: boolean): void;
+    /** A voice state change. Reports 2 once the JavaScript resource host is ready. The shutdown notification with 0 can be missed. Use resourceStop to clean up a resource. */
     voiceConnection(state: number): void;
-    /** A player hit someone. Return false (synchronously) to cancel the hit or a number to set its damage. `target` is null for an entity scripts do not know. `shot` is what the server measured: how far the two are apart, whether the shooter's game reported a bullet for the hit, how far the shooter was from where it started and how far the target is from its path. */
+    /** The server received a weapon hit. Return false synchronously to cancel it or a number to set its damage. source and sourceEntity are the same Player. target can be null for a reported hit on an entity scripts do not know. A hit applied locally in GTA can occur without this event. shot contains the measured distance to the target and whether GTA reported a bullet. If so, it also contains the bullet age and distances from shooter to bullet start and target to bullet path. */
     weaponDamage(source: Player, target: Player | Ped | NativeVehicle | NativePed | null, weaponHash: number, damage: number, offset: Vector3, bodyPart: number, sourceEntity: Player, shot: WeaponDamageShot | null): number | boolean | void;
 }
 
@@ -8115,7 +8145,7 @@ declare const varion: {
     emitClientRaw<K extends string>(target: Player | Player[], eventName: K, ...args: CustomEventArgs<ICustomServerClientEvent, K>): void;
     /** As emitClient, but over the unreliable channel: the event may be lost or arrive out of order. A Player no longer valid throws alone and is skipped in a list; duplicates and ids outside 1..65534 are skipped; arguments that cannot be sent throw. */
     emitClientUnreliable<K extends string>(target: Player | Player[], eventName: K, ...args: CustomEventArgs<ICustomServerClientEvent, K>): void;
-    /** As emit, a local event for this server's own handlers, but each value is a structured copy: Map, Set, Date and binary data are copied too and a value shared between arguments stays shared. Server objects (players, vehicles, ...) and class instances are handed on as they are. Nothing goes to clients. */
+    /** Emits an event to local server handlers. Each argument is copied separately. Map, Set, Date, binary data, Vector3 and RGBA are copied. Within one argument, repeated plain objects, arrays, Maps and Sets preserve their identity, including cycles. Other class instances, including server entities, are passed by reference. */
     emitRaw<K extends string>(eventName: K, ...args: CustomEventArgs<ICustomEmitEvent, K>): void;
     Entity: typeof Entity;
     Event: typeof Event;
@@ -8214,7 +8244,7 @@ declare const varion: {
     getVehicles(): (Vehicle | NativeVehicle)[];
     /** Every valid virtual entity. A new array on each call. */
     getVirtualEntities(): VirtualEntity[];
-    /** The voice service state, a VoiceConnectionState: 1 (connecting) until the server reports it ready (2); 0 once the server shuts down. */
+    /** The latest VoiceConnectionState. Starts at 1, then becomes 2 when the JavaScript resource host is ready. It can still be 2 in resourceStop if the shutdown notification has not arrived. */
     getVoiceConnectionState(): number;
     /** A weapon of the built-in GTA catalog by hash or name, as WeaponModelInfo.get but with modelName for its model. Throws Error for a weapon the catalog lacks. */
     getWeaponModelInfoByHash(weapon: number | string): IWeaponModel;
@@ -8333,7 +8363,7 @@ declare const varion: {
     setMaxStreamingObjects(limit: number): void;
     /** Sets how many NPCs of the old path one player streams at most: truncated and clamped to 0–512; a value that is not a finite number keeps the current one. */
     setMaxStreamingPeds(limit: number): void;
-    /** Sets how many other players one player streams at most: truncated and clamped to 0–128 (0 counts as 1); a value that is not a finite number keeps the current one. */
+    /** Sets the server player streaming limit. The value is truncated and clamped to 0–128. Non-finite values leave it unchanged. A stored value of 0 is returned as 0 by getMaxStreamingPlayers. */
     setMaxStreamingPlayers(limit: number): void;
     /** Sets how many vehicles of the old path one player streams at most: truncated and clamped to 0–512; a value that is not a finite number keeps the current one. */
     setMaxStreamingVehicles(limit: number): void;
